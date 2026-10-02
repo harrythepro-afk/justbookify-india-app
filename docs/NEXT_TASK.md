@@ -1,42 +1,38 @@
-# Next task: P2-01, repository skeleton and quality gates
+# Next task (proposal): P2-02, protect main and connect the development store
+
+Status: proposal. It starts only after the owner approves P2-01 and replies to the questions below.
 
 ## Goal
 
-Create an empty, well-formed project that every later task builds on: an Expo TypeScript app that shows one placeholder screen, with lint, type check, tests and continuous integration all passing. No features.
+Make `main` safe to build on, and give the app a development store to talk to, without touching the live store.
 
-## Before you start
+## Needs from the owner first
 
-Read `CLAUDE.md`, `docs/ARCHITECTURE.md` and `docs/DECISIONS.md` (D-003, D-011, D-017, D-018).
+1. Merge the P2-01 pull request after review.
+2. Say whether Claude may switch on branch protection for `main` (pull request required, the two CI jobs required, no force pushes). It changes repository settings, so it is not done without a yes.
+3. Create the Shopify development store, as `ARCHITECTURE.md` describes, or name who does. Claude does not create accounts.
+4. Confirm that the cash-on-delivery fee is a flat shipping rate, as `SHOPIFY_AUDIT.md` says.
 
-## Steps
+Settled in review on 3 October 2026: D-020 to D-022 approved; the `decode-uri-component` advisory is risk 17 and waits for Phase 12; the free-delivery hint is ₹200 for prepaid orders (D-023).
 
-1. Check the official Expo documentation for the latest stable SDK. Use it. Record the exact SDK and React Native versions in `docs/DECISIONS.md` as a new entry.
-2. Scaffold an Expo app with TypeScript and Expo Router. App name "JustBookify". New Architecture enabled.
-3. Set the app ID to `com.justbookify.india` for production, with `.dev` and `.staging` suffixes for the other environments, driven by an environment variable in the app config.
-4. Turn on TypeScript strict mode.
-5. Add ESLint and Prettier with scripts `lint` and `format`. Add a `typecheck` script.
-6. Add Jest and React Native Testing Library with one smoke test for the placeholder screen.
-7. Create `src/config/` with a typed store configuration for India. Values come from `EXPO_PUBLIC_` environment variables. Commit `.env.example` with empty placeholders only.
-8. Make `.gitignore` cover `.env*` (except `.env.example`), signing files, keystores and service-account files.
-9. Add a GitHub Actions workflow that runs lint, type check, tests, a secret scan and a dependency audit on every pull request.
-10. Fill in the "Commands" section of `CLAUDE.md`.
-11. Update `docs/CURRENT_STATUS.md` and write the next `docs/NEXT_TASK.md` as a proposal.
+## Steps (after the answers)
+
+1. Turn on branch protection on `main`, if approved.
+2. In the development store only, with the owner's go-ahead, install the Headless channel and publish a few sample products to it (`SHOPIFY_INTEGRATION.md`, additions 1 and 2, on the development store).
+3. Put the development store's public values in `.env.local` (never committed) and check that `getStoreConfig()` parses them.
+4. Pin the Storefront API version and record it in `docs/SHOPIFY_INTEGRATION.md` with the date.
+5. Run the six early checks from `docs/SHOPIFY_INTEGRATION.md` that need no phone, and list the ones that do.
+6. Update `docs/CURRENT_STATUS.md` and propose the next task.
 
 ## Acceptance checks
 
-- `lint`, `typecheck` and the test script all pass locally.
-- The same checks pass in GitHub Actions on a pull request.
-- The app starts and shows the placeholder screen.
-- No secret, token or real store value appears anywhere in the repository.
+- A pull request into `main` cannot be merged without passing CI.
+- `getStoreConfig()` returns a valid configuration against the development store's values.
+- A scripted read of the development store's products succeeds.
+- No secret, token or live-store value appears anywhere in the repository.
 
-## Out of scope: do not do these
+## Out of scope
 
-- No Shopify calls, no Checkout Kit, no Firebase, no Sentry.
-- No EAS build configuration yet.
-- No screens beyond the placeholder.
-- Nothing that touches the live Shopify store.
-- Do not create any account or credential.
-
-## If something is unclear
-
-Stop and ask the owner. Do not guess.
+- Anything on the live store.
+- Screens, checkout, login, Firebase, Sentry, EAS.
+- Any credential that is not public by design.

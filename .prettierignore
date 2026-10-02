@@ -1,0 +1,9 @@
+node_modules
+.expo
+dist
+coverage
+package-lock.json
+assets
+# Owner-written documentation and project rules: not reformatted by tooling
+docs
+CLAUDE.md

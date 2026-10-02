@@ -1,0 +1,55 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# generated native folders
+/ios
+/android
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# editor and OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# typescript and test output
+*.tsbuildinfo
+coverage/
+
+# environment files: only the example with empty placeholders is committed
+.env*
+!.env.example
+
+# signing files, keystores, certificates and provisioning profiles
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+*.cer
+*.certSigningRequest
+credentials.json
+
+# service-account and cloud credential files
+*service-account*.json
+*serviceAccount*.json
+*-adminsdk-*.json
+firebase-key*.json
+.firebase/
+.runtimeconfig.json

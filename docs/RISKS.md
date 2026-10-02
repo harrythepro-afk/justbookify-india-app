@@ -20,3 +20,4 @@ Reviewed at the end of every phase.
 | 14 | Reviews API not available on the store's plan | Reviews are in version 1 | Early check 6; fallback is ratings only | Medium | Open |
 | 15 | Dependency churn | Checkout Kit is being renamed; Expo and store rules change yearly | Pin versions; quarterly upgrade window | Low | Open |
 | 16 | Damaged ISBN and barcode data | Cannot be used for lookups | Do not rely on barcodes in version 1 | Low | Open |
+| 17 | Vulnerable URL parser in the deep-link path | Expo Router's `query-string` depends on `decode-uri-component` (GHSA-vcc3-ghjq-m6fr, affects 0.4.2 and below). A malformed percent-encoded link could stall the app's JavaScript thread. The fix is a major upgrade of `query-string` under Expo Router, deferred on 2026-10-03 | Must be fixed or mitigated before deep links are enabled in Phase 12. Re-check at every Expo upgrade, since a later Expo Router may carry the fix | Medium | Open |
