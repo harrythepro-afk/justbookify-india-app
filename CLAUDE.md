@@ -66,7 +66,24 @@ A production mobile app for iPhone and Android for JustBookify's India store, ju
 
 ## Commands
 
-To be filled in by task P2-01, when the project is scaffolded.
+Node 24 (see `.nvmrc`). Install with `npm ci`. Add Expo packages with `npx expo install <package>`, never `npm install`, so versions match the SDK. Versions are pinned exactly (`.npmrc`).
+
+| Command | What it does |
+| --- | --- |
+| `npm start` | Starts the Expo dev server |
+| `npm run lint` | ESLint with Prettier rules; warnings fail |
+| `npm run format` | Rewrites files with Prettier (`docs/` and `CLAUDE.md` are excluded) |
+| `npm run format:check` | Checks formatting without writing |
+| `npm run typecheck` | TypeScript strict, no emit |
+| `npm test` | Jest and React Native Testing Library (watch-free; `npm run test:ci` for CI) |
+| `npm run audit:gate` | Dependency audit; fails on high or critical advisories not in `.github/audit-allowlist.json` |
+| `npx expo-doctor` | Checks the project against the SDK |
+
+Run `lint`, `format:check`, `typecheck`, `test` and `audit:gate` before reporting. CI runs the same five, plus a secret scan.
+
+Environments: `APP_ENV` (`development`, `staging`, `production`) is read by `app.config.ts` and sets the app ID and the app name. Unset means `development`. Example: `APP_ENV=staging npx expo start`.
+
+Store configuration: copy `.env.example` to `.env.local` and fill in the development store's values. Only `EXPO_PUBLIC_` variables, and nothing secret, belong there. Code reads them through `src/config/`.
 
 ## Map of the docs folder
 
