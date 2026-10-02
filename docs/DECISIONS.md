@@ -1,0 +1,25 @@
+# Decisions
+
+Append-only. Never edit a past decision; add a new one that replaces it and say which it replaces.
+
+| ID | Date | Decision | Why | Approved by |
+| --- | --- | --- | --- | --- |
+| D-001 | 2026-10-02 | Version 1 scope is as listed in `PRODUCT_REQUIREMENTS.md`; loyalty points come after launch | Loyalty depends on a third party's API; everything else is under our control | Owner |
+| D-002 | 2026-10-02 | The app follows business rules R1 to R10 | Taken from store settings and the owner's answers | Owner |
+| D-003 | 2026-10-02 | React Native with Expo development builds, TypeScript, one codebase for iOS and Android | The only cross-platform option with an official Shopify checkout SDK | Owner |
+| D-004 | 2026-10-02 | Shopify is the single record; no copy of products, customers or orders elsewhere | Avoids mismatch and a second store of personal data | Owner |
+| D-005 | 2026-10-02 | Login through the Customer Account API by emailed code; login required at checkout | The store already runs new customer accounts; needed for orders and returns | Owner |
+| D-006 | 2026-10-02 | Checkout through Shopify Checkout Kit; Razorpay and cash on delivery as on the website | Reuses checkout rules and keeps payment data out of the app | Owner |
+| D-007 | 2026-10-02 | A small backend on Firebase in `asia-south1`, for push, returns, back-in-stock alerts and reviews | Four jobs Shopify cannot do from a phone; Android push needs Firebase anyway | Owner |
+| D-008 | 2026-10-02 | Only three additions to the store: the Headless sales channel, publishing products to it, and one custom app for the backend. Nothing else on the store is changed | Owner's rule that the website must not be disturbed | Owner |
+| D-009 | 2026-10-02 | No children's data, opt-in marketing notifications, no advertising trackers | Legal exposure and simpler store review | Owner |
+| D-010 | 2026-10-02 | Publish under the owner's existing Apple and Google developer accounts as a new app | Accounts already exist | Owner |
+| D-011 | 2026-10-02 | App ID is `com.justbookify.india` | A separate Bahrain app is planned and will use `com.justbookify.bahrain` | Owner |
+| D-012 | 2026-10-02 | Firebase for analytics, push and feature switches; Sentry for crash reports | Few vendors; good crash detail for React Native | Owner |
+| D-013 | 2026-10-02 | This app serves the India store only | Owner's instruction; the Bahrain store runs a different model | Owner |
+| D-014 | 2026-10-02 | Return requests go through the backend and the Admin API, not through the store's self-serve return setting | Switching that setting on would change the website (D-008) | Owner |
+| D-015 | 2026-10-02 | Availability follows Shopify's own flag per book; notify-me only for books Shopify marks unavailable | Best-sellers are deliberately orderable at zero stock; the team arranges a copy | Owner |
+| D-016 | 2026-10-02 | A customer who still holds books may order again; old books are collected at delivery | Owner's rule | Owner |
+| D-017 | 2026-10-02 | Use `@shopify/checkout-sheet-kit` 4.0.x. Do not use `@shopify/checkout-kit-react-native` while it is alpha | The renamed package is marked not production-ready | Architect |
+| D-018 | 2026-10-02 | Pin the latest stable Expo SDK on the day the project is scaffolded. On 2 October 2026 that was SDK 57, with SDK 58 in beta | Avoids starting on a beta | Architect |
+| D-019 | 2026-10-02 | Apple developer access is requested in Phase 3 for the first iPhone payment test; Google access near release | Owner asked to defer account access | Owner |

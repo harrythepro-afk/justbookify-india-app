@@ -1,0 +1,86 @@
+# JustBookify India mobile app: rules for Claude Code
+
+This file holds durable, project-wide rules only. Status lives in `docs/CURRENT_STATUS.md`; the task to do now lives in `docs/NEXT_TASK.md`.
+
+## What this project is
+
+A production mobile app for iPhone and Android for JustBookify's India store, justbookify.in: a children's book rental business that runs on Shopify. Customers browse books, rent them, pay through the store's own Shopify checkout, track what they have at home and request returns.
+
+- App ID on both stores: `com.justbookify.india`
+- The store has real customers and real orders. Treat every change as production work.
+- A separate Bahrain app may later be built from this codebase. Keep every store-specific value in configuration, never in screen code.
+
+## Read before you work
+
+1. This file.
+2. `docs/NEXT_TASK.md`: the one task to do now.
+3. `docs/CURRENT_STATUS.md`: what exists, what works, what is broken.
+4. Every doc that `NEXT_TASK.md` links to.
+
+## Rules that are never broken
+
+1. Inspect existing code and docs before editing anything.
+2. Never guess business logic. The rules are in `docs/PRODUCT_REQUIREMENTS.md`. A gap there is a question for the owner, not a licence to invent.
+3. Never print, log, commit or ask for a secret. No Admin API token, client secret, webhook secret, signing key or service-account key belongs in the app or in this repository.
+4. Never touch the live Shopify store, its theme, checkout, payments, shipping, apps or settings. All development and testing uses the development store.
+5. Never place a test order on the live store. It would take a real book out of circulation.
+6. Do not change the architecture or add a dependency without a new entry in `docs/DECISIONS.md` approved by the owner.
+7. Work in small steps on a feature branch. One task, one pull request.
+8. Run lint, type check and tests before reporting. Report failures as failures. Never weaken or delete a test to make it pass.
+9. "It compiles" is not "production ready". A task is done when its acceptance checks pass and the docs are updated.
+10. For anything version-sensitive (Shopify APIs, Checkout Kit, Expo, Apple and Google requirements), check the official documentation and record the version used.
+11. Preserve existing behaviour unless the task says to change it.
+12. End every session by updating `docs/CURRENT_STATUS.md` and proposing the next `docs/NEXT_TASK.md`.
+
+## Stop and ask the owner when
+
+- A task needs a credential or access you do not have.
+- Shopify behaves differently from its documentation.
+- A test cannot be made to pass without weakening it.
+- A task would touch anything in production: the live store, production keys, a store listing.
+- A business rule is missing or two documents disagree.
+
+## Stack (approved in Phase 1)
+
+| Part | Choice |
+| --- | --- |
+| App | React Native with Expo development builds, TypeScript strict, New Architecture, Expo Router |
+| Catalogue, search, cart | Shopify Storefront API (GraphQL) |
+| Login, profile, orders | Shopify Customer Account API, OAuth 2.0 with PKCE, public mobile client |
+| Checkout | Shopify Checkout Kit, package `@shopify/checkout-sheet-kit` 4.0.x |
+| Backend | Firebase Cloud Functions, Firestore, Cloud Tasks, region `asia-south1` |
+| Push | Firebase Cloud Messaging and APNs |
+| Feature switches | Firebase Remote Config |
+| Analytics | Google Analytics for Firebase |
+| Crash reports | Sentry |
+| Builds and releases | GitHub, EAS Build, EAS Submit |
+
+## Conventions
+
+- Shopify is the single source of truth. Never store a copy of products, customers or orders.
+- GraphQL only. Every operation is named and typed through code generation.
+- Store-specific values (store domain, currency, fees, order cap, pincode rule) live in `src/config/`.
+- Tokens are stored only in iOS Keychain and Android Keystore-backed storage.
+- No personal data in logs, analytics events or crash reports.
+- The app is an untrusted client. Every permission check happens on Shopify or on the backend.
+
+## Commands
+
+To be filled in by task P2-01, when the project is scaffolded.
+
+## Map of the docs folder
+
+| File | Holds |
+| --- | --- |
+| `docs/PRODUCT_REQUIREMENTS.md` | Scope, business rules, screens |
+| `docs/ARCHITECTURE.md` | Components, data flow, environments |
+| `docs/SHOPIFY_AUDIT.md` | What the live store contains and how it works |
+| `docs/SHOPIFY_INTEGRATION.md` | APIs, scopes, credentials by name, webhooks |
+| `docs/SECURITY.md` | Security baseline as a checklist |
+| `docs/DECISIONS.md` | Numbered decisions with reasons |
+| `docs/TESTING.md` | Test layers, edge cases, early checks |
+| `docs/ANALYTICS.md` | Event names and privacy rules |
+| `docs/RELEASE.md` | Versioning, rollout, rollback |
+| `docs/RISKS.md` | Risk register |
+| `docs/CURRENT_STATUS.md` | Latest state of the build |
+| `docs/NEXT_TASK.md` | The single next task |
