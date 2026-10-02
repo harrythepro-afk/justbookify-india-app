@@ -2,7 +2,7 @@
   {
     "id": "GHSA-86w9-cpqp-85rv",
     "package": "node-forge",
-    "reason": "Reaches the project only through @expo/cli (code signing for the developer's local dev server). It is never bundled into the app. No patched node-forge exists yet (1.4.0 is the latest and is affected). Pending owner approval in DECISIONS.md D-022.",
+    "reason": "Reaches the project only through @expo/cli (code signing for the developer's local dev server). It is never bundled into the app. No patched node-forge exists yet (1.4.0 is the latest and is affected). Approved in DECISIONS.md D-022. Re-check for a patched node-forge whenever Expo is upgraded.",
     "reviewBy": "2026-12-31"
   }
 ]

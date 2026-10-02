@@ -4,7 +4,7 @@ Last updated: 3 October 2026.
 
 ## Phase
 
-Phase 2: repository, documentation and environments. Task P2-01 (repository skeleton and quality gates) is complete and awaits review in its pull request.
+Phase 2: repository, documentation and environments. Task P2-01 (repository skeleton and quality gates) is complete. The architect reviewed it on 3 October 2026 and approved D-020 to D-022; the owner merges after review. GitHub Actions passed on the pull request (lint, format, type check, tests, dependency audit, secret scan).
 
 ## Done
 
@@ -31,9 +31,9 @@ Phase 2: repository, documentation and environments. Task P2-01 (repository skel
 
 ## Known issues
 
-- `npm audit` reports 15 findings, all in Expo's own dependencies. One is high (`node-forge`, GHSA-86w9-cpqp-85rv, reached only through the Expo CLI's local code signing; no patched release exists). It is on the gate's allowlist until 2026-12-31 (D-022). Two are moderate and not gated: `uuid` through the Expo config plugin tooling, and `decode-uri-component` through Expo Router's `query-string`. The second can reach the app: a malformed percent-encoded deep link could stall the JavaScript thread. A fix exists upstream (`query-string` 9) but is a major version change under Expo Router. Needs the owner's decision.
+- `npm audit` reports 15 findings, all in Expo's own dependencies. One is high (`node-forge`, GHSA-86w9-cpqp-85rv, reached only through the Expo CLI's local code signing; no patched release exists). It is on the gate's allowlist until 2026-12-31 and is re-checked at every Expo upgrade (D-022, approved). Two are moderate and not gated: `uuid` through the Expo config plugin tooling, and `decode-uri-component` through Expo Router's `query-string`. The second is risk 17 in `RISKS.md`: it must be fixed or mitigated before deep links are enabled in Phase 12. The major upgrade is deferred.
 - Icons and splash image are the Expo placeholders. They must be replaced before any store build.
-- Decisions D-020 to D-022 are pending the owner's review. The fee field names in the store configuration (prepaid and cash-on-delivery shipping fee, free-delivery threshold) come from `SHOPIFY_AUDIT.md` and R4. The free-delivery threshold has no stated value anywhere in the docs.
+- The store configuration's fee field names come from `SHOPIFY_AUDIT.md` and R4. The free-delivery threshold is ₹200 for prepaid orders (D-023). It is a hint only, set through `EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD`, and not written in code.
 - `userInterfaceStyle` is fixed to light until a dark theme is designed.
 
 ## Last passing build

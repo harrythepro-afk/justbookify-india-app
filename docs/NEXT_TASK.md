@@ -8,11 +8,12 @@ Make `main` safe to build on, and give the app a development store to talk to, w
 
 ## Needs from the owner first
 
-1. Approve or amend D-020, D-021 and D-022 in `docs/DECISIONS.md`.
+1. Merge the P2-01 pull request after review.
 2. Say whether Claude may switch on branch protection for `main` (pull request required, the two CI jobs required, no force pushes). It changes repository settings, so it is not done without a yes.
 3. Create the Shopify development store, as `ARCHITECTURE.md` describes, or name who does. Claude does not create accounts.
-4. Decide what to do about the `decode-uri-component` advisory (see `CURRENT_STATUS.md`): accept it for now, or approve a decision record that upgrades `query-string` under Expo Router.
-5. Confirm the free-delivery threshold and whether the cash-on-delivery fee is a flat shipping rate as `SHOPIFY_AUDIT.md` says. The docs give no number for the threshold.
+4. Confirm that the cash-on-delivery fee is a flat shipping rate, as `SHOPIFY_AUDIT.md` says.
+
+Settled in review on 3 October 2026: D-020 to D-022 approved; the `decode-uri-component` advisory is risk 17 and waits for Phase 12; the free-delivery hint is ₹200 for prepaid orders (D-023).
 
 ## Steps (after the answers)
 

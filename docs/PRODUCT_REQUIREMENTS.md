@@ -13,7 +13,7 @@ JustBookify India rents children's books by post and courier from Bengaluru to f
 | R1 | Each book has its own rental price, ₹34 to ₹99 | Product price in Shopify | Shows Shopify's price; nothing is hard-coded |
 | R2 | An order's subtotal must stay under ₹500 | Checkout rule; owner confirmed it is deliberate | Stops the cart at the cap and explains why |
 | R3 | Delivery only to pincodes starting with 50 to 53 or 56 to 69 | Checkout rule | Checks the pincode before opening checkout |
-| R4 | Delivery costs ₹75 and is free on larger orders; cash on delivery costs more | Shipping rates and an automatic discount | Shows an estimate; checkout sets the final amount |
+| R4 | Delivery costs ₹75 and is free for prepaid orders with a subtotal of ₹200 or more; cash on delivery costs more | Shipping rates and an automatic discount; the ₹200 figure is from the store's FAQ (D-023) | Shows an estimate and a free-delivery hint in the cart; checkout sets the final amount |
 | R5 | A family may order again while holding books; the old books are collected at delivery | Owner | Shows which books will be collected |
 | R6 | No limit on the number of books, beyond R2 | Owner | No count limit in the cart |
 | R7 | A rental lasts up to one month; late returns get reminders, never a charge | Owner and FAQ | Shows a due date and sends a reminder |
