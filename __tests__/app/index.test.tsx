@@ -11,6 +11,15 @@ jest.mock('@/config/store', () => ({
   getStoreConfigStatus: () => mockStoreStatus,
 }));
 
+jest.mock('expo-router', () => {
+  const { Text } = jest.requireActual('react-native');
+  return {
+    Link: ({ href, children }: { href: string; children: string }) => (
+      <Text accessibilityHint={href}>{children}</Text>
+    ),
+  };
+});
+
 // The getter reads mockAppEnv when the screen renders, after the import hoisting has settled.
 jest.mock('expo-constants', () => ({
   __esModule: true,
@@ -68,4 +77,23 @@ describe('PlaceholderScreen', () => {
 
     expect(screen.queryByText(/^Store configuration/)).not.toBeOnTheScreen();
   });
+
+  it('links to the test checkout screen on a development build', async () => {
+    await render(<PlaceholderScreen />);
+
+    const link = screen.getByText('Open the test checkout screen');
+    expect(link).toBeOnTheScreen();
+    expect(link.props.accessibilityHint).toBe('/dev-checkout');
+  });
+
+  it.each(['staging', 'production'])(
+    'does not link to the test checkout screen on a %s build',
+    async (env) => {
+      mockAppEnv = env;
+
+      await render(<PlaceholderScreen />);
+
+      expect(screen.queryByText('Open the test checkout screen')).not.toBeOnTheScreen();
+    },
+  );
 });
