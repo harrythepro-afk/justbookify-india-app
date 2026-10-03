@@ -100,7 +100,8 @@ Store configuration: copy `.env.example` to `.env.local` and fill in the develop
 
 | File | Holds |
 | --- | --- |
-| `docs/PRODUCT_REQUIREMENTS.md` | Scope, business rules, screens |
+| `docs/ROADMAP.md` | Numbered phases 0 to 20; use these numbers everywhere |
+| `docs/PRODUCT_REQUIREMENTS.md` | Scope, business rules, screens, design direction, screen layouts |
 | `docs/ARCHITECTURE.md` | Components, data flow, environments |
 | `docs/SHOPIFY_AUDIT.md` | What the live store contains and how it works |
 | `docs/SHOPIFY_INTEGRATION.md` | APIs, scopes, credentials by name, webhooks |

@@ -87,23 +87,23 @@ Title, handle, cover image, vendor (author), product type (age groups), tags (se
 
 ## Early checks
 
-Each check runs before anything is built on its result. Check 2 ran in Phase 3. Checks 1a and 1b run at the launch rehearsal (D-033). Checks 3 to 6 run in the phase that builds the feature each one needs (D-034). Phase numbers beyond Phase 4 are not yet recorded, except deep links in Phase 12 (risk 17).
+Each check runs before anything is built on its result. Check 2 ran in Phase 3. Checks 1a and 1b run at the launch rehearsal in Phase 19 (D-033). Checks 3 to 6 run in the phase that builds the feature each one needs (D-034). Phase numbers are in `ROADMAP.md` (D-035).
 
 | # | Check | Needs a real phone | When and where |
 | --- | --- | --- | --- |
-| 1a | Razorpay inside Checkout Kit: redirect to Razorpay and return to the app, on a real iPhone and a real Android phone | Yes | Launch rehearsal, live store, one small real order (D-033). Cannot run on the development store (see "Development store") |
-| 1b | Razorpay UPI Intent: hand-off to a real UPI app and back | Yes | Launch rehearsal, live store, same order or session as 1a (D-033). Razorpay supports it only in live mode |
-| 2 | Cash on delivery and the checkout rules inside Checkout Kit | No. A development build on an emulator or simulator is enough | **Passed on Android, 3 October 2026 (P3-02, below).** iOS on the development store when Apple access exists (D-019) |
-| 3 | A guest order from the website appears after login with the same email | No | The phase that builds login (Customer Account API), on the development store |
-| 4 | A return filed through the Admin API appears for staff to approve, on the Basic plan | No | The phase that builds the backend (needs store addition 3, the custom app), on the development store, which has Basic-plan features (see above) |
-| 5 | Links from justbookify.in open the app (verification files on a Shopify-hosted domain) | Yes. A signed build on a device | The phase that builds deep links, Phase 12 (risk 17). The verification files go on the live domain, so this check needs the owner's go-ahead |
-| 6 | Judge.me allows reading and submitting reviews on the store's plan | No | The phase that builds reviews |
+| 1a | Razorpay inside Checkout Kit: redirect to Razorpay and return to the app, on a real iPhone and a real Android phone | Yes | Phase 19, launch rehearsal, live store, one small real order (D-033). Cannot run on the development store (see "Development store") |
+| 1b | Razorpay UPI Intent: hand-off to a real UPI app and back | Yes | Phase 19, launch rehearsal, live store, same order or session as 1a (D-033). Razorpay supports it only in live mode |
+| 2 | Cash on delivery and the checkout rules inside Checkout Kit | No. A development build on an emulator or simulator is enough | **Passed on Android, 3 October 2026 (P3-02, below).** iPhone side in Phase 9, on the development store, once Apple access exists (D-036) |
+| 3 | A guest order from the website appears after login with the same email | No | Phase 7, login and account (Customer Account API), on the development store |
+| 4 | A return filed through the Admin API appears for staff to approve, on the Basic plan | No | Phase 10, backend foundation (needs store addition 3, the custom app), on the development store, which has Basic-plan features (see above) |
+| 5 | Links from justbookify.in open the app (verification files on a Shopify-hosted domain) | Yes. A signed build on a device | Phase 12, notifications and deep links (risk 17). The verification files go on the live domain, so this check needs the owner's go-ahead |
+| 6 | Judge.me allows reading and submitting reviews on the store's plan | No | Phase 13, reviews |
 
 Razorpay test mode and live mode: Razorpay's documentation says UPI Intent can be tested only in Live Mode, not in Test Mode (recorded on 3 October 2026 at the architect's instruction). That is why check 1 was split into 1a and 1b in P3-01. 1a was to run in test mode on the development store; D-033 moved it to the launch rehearsal with 1b.
 
 ### Launch rehearsal: early checks 1a and 1b
 
-Decided on 3 October 2026 (D-033). Not scheduled yet; it needs the owner's approval when it is scheduled.
+Decided on 3 October 2026 (D-033). Part of Phase 19. Not scheduled yet; it needs the owner's approval when it is scheduled.
 
 Why not earlier: Razorpay is offered only to stores with an Indian business entity. The development store's entity is in Bahrain, and changing it requires the owner's personal identity details, which the owner declined to enter for a test store. So no prepaid checkout can be tested before the rehearsal. Risk 2 stays open and high until then.
 
@@ -114,14 +114,14 @@ Needs first:
 - Store additions 1 and 2 on the live store (Headless channel and published products), each with the owner's go-ahead (D-008).
 - A build that points at the live store.
 - The checkout presentation flag below, so a failure can be handled without a rebuild.
-- Apple access (D-019) for the iPhone half of 1a.
+- Apple access (D-036, requested in Phase 9) for the iPhone half of 1a.
 
 What to record, for each of iPhone and Android:
 
 - 1a: Razorpay is offered with the "Prepaid" rate; "Pay now" opens Razorpay; a completed payment returns to Shopify's confirmation page inside the sheet, the order exists, and the app receives `completed`. A cancelled payment returns to checkout without an order. Closing the sheet during the Razorpay step gives `close` and no order.
 - 1b: paying by UPI Intent hands off to a real UPI app and comes back to checkout, then to the confirmation page.
 
-Mitigation to build with the checkout screens: how checkout is presented is switchable by a remote feature flag (Firebase Remote Config, D-012): the in-app Checkout Kit sheet, or the system browser with a return link to the app. If 1a or 1b fails at the rehearsal, the flag moves checkout to the browser with no rebuild. The flag's plumbing is part of the Phase 4 mobile foundation; its use is part of the checkout screens.
+Mitigation to build with the checkout screens (Phase 9): how checkout is presented is switchable by a remote feature flag (Firebase Remote Config, D-012): the in-app Checkout Kit sheet, or the system browser with a return link to the app. If 1a or 1b fails at the rehearsal, the flag moves checkout to the browser with no rebuild. The flag's plumbing is part of the Phase 4 mobile foundation; its use is part of the checkout screens in Phase 9.
 
 ### P3-01: Checkout Kit opens the development store's checkout
 
@@ -189,7 +189,7 @@ What this shows:
 - R3 also blocks an empty pincode: changing the state clears the address fields, and submitting then shows the R3 banner.
 - The test order took Harry potter's stock on the development store from 10 to 0. The owner can restock it in the development store's admin.
 - Differences between the development store and the live store, not caused by Checkout Kit: the development store's zone is all of India (the live zone is five states), and its checkout shows the phone number as optional (the audit says the live store requires it with the shipping address).
-- Not covered: iOS (D-019) and Razorpay (early check 1a).
+- Not covered: iOS (Phase 9, D-036) and Razorpay (early check 1a, Phase 19).
 
 Acceptance checks:
 

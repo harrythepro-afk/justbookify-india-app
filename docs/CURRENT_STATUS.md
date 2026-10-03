@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 3 October 2026 (P3-03: early checks re-planned, Phase 4 proposed).
+Last updated: 3 October 2026 (P3-03: early checks re-planned, roadmap and design direction recorded, P4-01 proposed).
 
 ## Phase
 
-Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merged. P3-03 (this change, branch `docs/p3-03-early-checks-replan`) re-plans the remaining early checks and is awaiting review: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store (D-033), and checks 3 to 6 move to the phases that build their features (D-034). Phase 4 (mobile foundation) is next; `NEXT_TASK.md` proposes P4-01, not started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merged. P3-03 (this change, branch `docs/p3-03-early-checks-replan`) re-plans the remaining early checks and records the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 4 (mobile foundation) is next; `NEXT_TASK.md` proposes P4-01, not started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -42,8 +42,12 @@ Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merg
   - On-device check with the owner, 3 October 2026: **passed on all seven cases** (details in `SHOPIFY_INTEGRATION.md`). Rates ₹75 and ₹125 under ₹200; ₹75 off both from ₹200 (prepaid free, cash on delivery ₹50); ACOD shows Cash on Delivery payment only with the Cash on Delivery rate; R2 blocks a ₹539 cart; R3 blocks Maharashtra 400001; a ₹540 cash-on-delivery order (₹490 subtotal) completed, the app received `completed`, and the owner saw it in the development store's admin. R2 and ACOD's ₹500 limit both check the subtotal. Risk 1 is open for iOS only.
 - P3-03 (awaiting review): documentation only.
   - D-033: early check 1a is not run on the development store. Razorpay is offered only to stores with an Indian business entity; the development store's is in Bahrain, and changing it needs the owner's personal identity details, which the owner declined to enter for a test store. Checks 1a and 1b both run at an owner-approved launch rehearsal on the live store with one small real order. Risk 2 stays open and high. Mitigation, built with the checkout screens: a remote feature flag switches checkout between the Checkout Kit sheet and the system browser with a return link, so a failure at the rehearsal needs no rebuild.
-  - D-034: check 3 moves to the login phase, check 4 to the backend phase, check 5 to the deep-links phase (Phase 12), check 6 to the reviews phase.
-  - `SHOPIFY_INTEGRATION.md`, `RISKS.md`, `TESTING.md` and `NEXT_TASK.md` updated to match.
+  - D-034: check 3 moves to Phase 7 (login), check 4 to Phase 10 (backend), check 5 to Phase 12 (deep links), check 6 to Phase 13 (reviews).
+  - D-035: `ROADMAP.md` numbers the phases 0 to 20, linked from `CLAUDE.md`.
+  - D-036 replaces D-019: Apple developer access in Phase 9 (at the latest before Phase 12, for push); Google Play access in Phase 18.
+  - D-037: version 1 follows the website's colours, fonts, wording and section order; every visual value is a design token; five tabs (Home, Browse, Cart, My Books, Account); screen layouts for Home, the book card, Browse and My Books recorded in `PRODUCT_REQUIREMENTS.md`. Scope (D-001) unchanged.
+  - D-038: brand colours and fonts read from justbookify.in's public pages (read only). Every text pair the site uses passes WCAG AA except cream on green; the adjusted green `#3E7916` is proposed for the owner to confirm.
+  - `SHOPIFY_INTEGRATION.md`, `RISKS.md`, `TESTING.md`, `PRODUCT_REQUIREMENTS.md` and `NEXT_TASK.md` updated to match.
 
 ## What works
 
@@ -57,11 +61,11 @@ Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merg
 - **Branch protection on `main`.** GitHub refused on 3 October 2026 (HTTP 403: "Upgrade to GitHub Pro or make this repository public"). As instructed, the plan and the visibility were not changed. The merge rule in `CLAUDE.md` is the gate (risk 18, D-026).
 - The development store is a development store with Basic-plan features. Development stores cannot remove the storefront password. The public Storefront token cannot read the plan; confirm it through the Admin API's `shop.plan` once the backend custom app exists.
 - No prepaid checkout has been tested. Razorpay cannot be installed on the development store (business entity in Bahrain), so early check 1a waits, with 1b, for the launch rehearsal (D-033). Risk 2 is open and high. ACOD and SMART Checkout Rules were installed on the development store by the owner on 3 October 2026 for P3-02. P3-02's test order left the book "Harry potter" at a stock of 0 there; the owner can restock it.
-- Launch rehearsal (early checks 1a and 1b): not scheduled. It needs the Headless channel and published products on the live store (owner's go-ahead, D-008), a build pointing at the live store, the checkout presentation flag, and Apple access for the iPhone half. See `SHOPIFY_INTEGRATION.md`.
-- Early checks 3 to 6 wait for their features: login, the backend, deep links, reviews (D-034).
-- The checkout presentation flag (D-033): not built. Its plumbing is in Phase 4; its use comes with the checkout screens.
-- iOS development build: waits for Apple access (D-019).
-- No store additions on the live store. No Firebase or Sentry accounts. No access to the Apple or Google developer accounts yet (D-019).
+- Launch rehearsal (early checks 1a and 1b, Phase 19): not scheduled. It needs the Headless channel and published products on the live store (owner's go-ahead, D-008), a build pointing at the live store, the checkout presentation flag, and Apple access for the iPhone half. See `SHOPIFY_INTEGRATION.md`.
+- Early checks 3 to 6 wait for their features: Phase 7 login, Phase 10 backend, Phase 12 deep links, Phase 13 reviews (D-034, D-035).
+- The checkout presentation flag (D-033): not built. Its plumbing is in Phase 4; its use comes with the checkout screens in Phase 9.
+- iOS development build: waits for Apple access, requested in Phase 9 (D-036).
+- No store additions on the live store. No Firebase or Sentry accounts. No access to the Apple or Google developer accounts yet (D-036: Apple in Phase 9, Google Play in Phase 18).
 - Storefront operations are not yet typed through code generation; that comes with the data layer, and the code generator is a dependency that needs a decision.
 
 ## Known issues
