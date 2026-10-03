@@ -30,6 +30,13 @@ describe('buildConfig', () => {
     expect(sentry).toEqual(['@sentry/react-native/expo', { url: 'https://de.sentry.io/' }]);
   });
 
+  it.each(APP_ENVIRONMENTS)('keeps %s light on Android through expo-system-ui', (appEnv) => {
+    const config = buildConfig(appEnv);
+
+    expect(config.userInterfaceStyle).toBe('light');
+    expect(config.plugins).toContain('expo-system-ui');
+  });
+
   it('never puts an auth token in the config', () => {
     const text = JSON.stringify(APP_ENVIRONMENTS.map((appEnv) => buildConfig(appEnv)));
 

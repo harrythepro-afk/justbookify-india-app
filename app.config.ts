@@ -62,7 +62,14 @@ export function buildConfig(appEnv: AppEnvironment, base: Partial<ExpoConfig> = 
       predictiveBackGestureEnabled: false,
     },
     web: { favicon: './assets/favicon.png' },
-    plugins: ['expo-router', 'expo-status-bar', ['@sentry/react-native/expo', { url: SENTRY_URL }]],
+    plugins: [
+      'expo-router',
+      'expo-status-bar',
+      // Makes `userInterfaceStyle` take effect on Android, so the app stays light even when the
+      // phone is in dark theme and Android draws dark navigation buttons (D-043).
+      'expo-system-ui',
+      ['@sentry/react-native/expo', { url: SENTRY_URL }],
+    ],
     experiments: { typedRoutes: true },
     extra: { appEnv, eas: { projectId: EAS_PROJECT_ID } },
   };
