@@ -1,4 +1,9 @@
 export { type AppEnvironment } from './appEnvironment';
+export {
+  getCrashReportingConfig,
+  parseCrashReportingConfig,
+  type CrashReportingConfig,
+} from './crashReporting';
 export { getAppEnvironment, getEnvironmentLabel } from './environment';
 export { STOREFRONT_API_VERSION, storefrontEndpoint } from './shopifyApi';
 export {

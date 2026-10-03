@@ -22,6 +22,20 @@ describe('buildConfig', () => {
     expect(config.extra?.eas).toEqual({ projectId: '33687d66-0fd2-4b7d-8f50-30c1cb920c3c' });
   });
 
+  it.each(APP_ENVIRONMENTS)("adds Sentry's config plugin for the EU region to %s", (appEnv) => {
+    const sentry = buildConfig(appEnv).plugins?.find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === '@sentry/react-native/expo',
+    );
+
+    expect(sentry).toEqual(['@sentry/react-native/expo', { url: 'https://de.sentry.io/' }]);
+  });
+
+  it('never puts an auth token in the config', () => {
+    const text = JSON.stringify(APP_ENVIRONMENTS.map((appEnv) => buildConfig(appEnv)));
+
+    expect(text).not.toMatch(/authToken|auth_token|sntrys_|sntryu_/i);
+  });
+
   it('keeps fields from the base config that it does not set', () => {
     const config = buildConfig('development', { sdkVersion: '57.0.0' });
 
