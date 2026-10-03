@@ -104,4 +104,12 @@ Scope: Checkout Kit opens the development store's checkout from the Android deve
 
 How: the development-only screen `src/app/dev-checkout.tsx` builds a one-item cart with the named Storefront operations `DevCheckoutProduct` and `DevCheckoutCartCreate`, then presents the cart's checkout URL in Checkout Kit. A password-protected storefront is reported by Checkout Kit as the error code `storefront_password_required`, which the screen shows.
 
-Result: pending the on-device check with the owner.
+Result, 3 October 2026, on the owner's Android phone (development build bb476119, JavaScript from Metro): **stopped at the store's password page.** The cart was created over the Storefront API and Checkout Kit opened its sheet ("Checkout"). Inside the sheet Shopify showed its development-store password page instead of checkout: the Shopify logo, "JustBookify Dev", "This store is password protected. Use the password to enter the store.", a password field, "Enter", and "Are you the store owner? Log in here". As instructed, nothing was done to get past it: no password was entered and nothing was changed on the store. No order was placed.
+
+What this shows:
+
+- Checkout Kit 3.9.1 builds and runs on Expo SDK 57 / React Native 0.86.3 on Android, and presents a checkout URL from the Storefront API.
+- The storefront password gates the checkout URL inside Checkout Kit. Checkout Kit did not report `storefront_password_required` as an error; it rendered the password page. Shopify's documentation says development stores are always password protected and the password can be removed only after a transfer or a switch to a paid plan. Checkout Kit has no supported bypass (open feature request Shopify/checkout-sheet-kit-swift#151).
+- The page is Shopify's fixed development-store password page, not a theme's password page. That suggests the development store is a development store in Shopify's sense, which conflicts with the owner-reported Basic plan above. The owner is asked to confirm.
+
+Open: the cash-on-delivery test order. The owner and architect decide how the checkout can be reached (see `CURRENT_STATUS.md`).

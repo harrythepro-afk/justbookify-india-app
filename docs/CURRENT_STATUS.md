@@ -31,7 +31,7 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
   - Development-only test screen `src/app/dev-checkout.tsx`. It builds a one-item cart with two named Storefront operations (`src/shopify/devCheckout.ts`) and presents the checkout URL in Checkout Kit. It shows completed, closed or error status, never the URL, domain or token. Any other build is redirected to the start screen. The placeholder screen links to it on development builds only.
   - Android development build bb476119 queued on EAS on 3 October 2026. `eas build:inspect` showed that the upload holds no `.env.local`, keystore or credential file, and neither the store's domain nor its token.
   - `SHOPIFY_INTEGRATION.md` and `TESTING.md` split early check 1 into 1a (Razorpay test mode, development store) and 1b (UPI Intent, live mode only, at an owner-approved launch rehearsal).
-  - On-device check with the owner: pending.
+  - On-device check with the owner, 3 October 2026: the new build installed and loaded JavaScript from Metro. Tapping "Open test checkout" created a cart and opened Checkout Kit, which showed **the development store's password page** instead of checkout. Stopped there as instructed: no password entered, nothing changed on the store, no order placed. Details in `SHOPIFY_INTEGRATION.md`.
 
 ## What works
 
@@ -46,6 +46,7 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
 - The development store's plan is owner-reported. The public Storefront token cannot read it; confirm it through the Admin API's `shop.plan` once the backend custom app exists.
 - The development store does not yet have Razorpay in test mode (early check 1a) or the ACOD and SMART Checkout Rules apps (early check 2). These come in later tasks.
 - Early check 1b (Razorpay UPI Intent hand-off) can run only in Razorpay live mode, at an owner-approved launch rehearsal.
+- **P3-01 is blocked by the development store's password.** Checkout Kit shows the storefront password page, so the cash-on-delivery test order cannot be placed. Decision needed from the owner and architect: remove the password on the development store (only possible on a paid plan, which makes its online store public), keep it and close P3-01 at "checkout opens", or use another non-live test store. The page shown is Shopify's development-store password page, so the owner-reported Basic plan needs confirming.
 - iOS development build: waits for Apple access (D-019).
 - No store additions on the live store. No Firebase or Sentry accounts. No access to the Apple or Google developer accounts yet (D-019).
 - Storefront operations are not yet typed through code generation; that comes with the data layer, and the code generator is a dependency that needs a decision.
