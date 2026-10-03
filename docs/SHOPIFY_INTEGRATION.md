@@ -132,3 +132,27 @@ Acceptance checks (wording as approved for P3-01, updated 3 October 2026):
 | No secret, store domain, token, storefront password or live-store value in the repository, the logs or the screen | Pass |
 | Lint, format check, type check, tests, audit gate and `expo-doctor` pass, and CI is green | Pass (CI result on the pull request) |
 | Razorpay's live-mode-only UPI Intent recorded, and early check 1 split into 1a and 1b | Pass |
+
+### P3-02: early check 2, ACOD and SMART Checkout Rules inside Checkout Kit
+
+Scope: on the owner's Android phone, with the Android development build, check that the cash-on-delivery rules (ACOD) and the three SMART Checkout Rules rules behave inside Checkout Kit as the live store's settings say they should (D-031). Razorpay and iOS are not covered.
+
+What the documentation says (read 3 October 2026):
+
+- ACOD (App Store listing "ACOD: Cash On Delivery COD Fee", E-TRADE PARTNER): the app edits Shopify Functions, namely delivery customizations and payment customizations. It links Cash on Delivery payment to shipping methods and can limit cash on delivery by order total. A "Development Store" tier is free with all features. The listing says nothing about Checkout Kit, headless storefronts or mobile apps.
+- SMART Checkout Rules (App Store listing, E-TRADE PARTNER, Built for Shopify): the app edits Shopify Functions, namely delivery customizations, payment customizations, and cart and checkout validations, and edits discounts. The listing says nothing about Checkout Kit, headless storefronts or mobile apps.
+- Shopify ("Embed Checkout Kit", shopify.dev): Checkout Kit renders the same checkout that buyers see on the web, and Shopify Functions run discounts, payment customizations and delivery rules at checkout. So both apps are expected to apply inside Checkout Kit; the on-device check confirms it.
+
+How: the development-only test screen `src/app/dev-checkout.tsx` lists the development store's variants that are available for sale (named operation `DevCheckoutProduct`), with a quantity stepper (0 to 10) for each and an estimated subtotal. "Open test checkout" creates a cart from the chosen lines (`DevCheckoutCartCreate`) and presents it in Checkout Kit. The screen then shows Shopify's own cart subtotal and any cart warning codes (for example `MERCHANDISE_NOT_ENOUGH_STOCK`), never the URL, domain or token. No dependency or native change, so development build bb476119 is reused with JavaScript from Metro.
+
+The expected results come from the live store's own settings, so a matching result needs no second run. Only a case whose result differs is tried again on the development store's website checkout.
+
+| # | Case | Cart / input | Expected | Result |
+| --- | --- | --- | --- | --- |
+| 1 | Rates under ₹200 | Subtotal under ₹200, Karnataka 560001 | "Prepaid" ₹75 and "Cash on Delivery" ₹125; no separate cash-on-delivery fee | Pending |
+| 2 | ACOD ties rate and payment | Case 1 cart | "Cash on Delivery" rate: Cash on Delivery payment offered. "Prepaid" rate: not offered | Pending |
+| 3 | Shipping discount | Subtotal from ₹200 to under ₹500 | Prepaid ₹0, cash on delivery ₹50 | Pending |
+| 4 | R2 "Shipping Price Restriction" | Subtotal ₹500 or more | Checkout blocked | Pending |
+| 5 | ACOD ₹500 limit | Subtotal just under ₹500, so that ₹50 shipping takes the total over ₹500 | Record whether cash on delivery is offered | Pending |
+| 6 | R3 "Shipping Restriction" | Outside: Maharashtra 400001. Inside: Karnataka 560001 | Outside blocked; inside accepted | Pending |
+| 7 | Completion | One cash-on-delivery order | Order completes; status line "Checkout completed"; order in the development store's admin | Pending |

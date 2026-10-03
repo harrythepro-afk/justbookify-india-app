@@ -34,9 +34,16 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
   - EAS Android development build bb476119 finished on 3 October 2026, so Checkout Kit 3.9.1 compiles natively on Expo SDK 57 / React Native 0.86.3.
   - On-device check with the owner, 3 October 2026: **passed.** The development store's checkout sheet first shows the store's password page. The tester enters the storefront password; this page does not exist on the live store. Checkout appeared only after the sheet was closed and "Open test checkout" tapped again. The owner completed a cash-on-delivery test order. The status line showed "Checkout completed: the order was placed." The order appears in the development store's admin (owner-confirmed). Details in `SHOPIFY_INTEGRATION.md`.
 
+- P3-02 (in progress, branch `feat/p3-02-checkout-apps`):
+  - The owner installed ACOD and SMART Checkout Rules on the development store and copied the live settings (D-031). ACOD's plan screen was a never-billed test charge (D-032).
+  - D-031 corrects D-024: ACOD adds no fee; the shipping discount takes ₹75 off both rates from ₹200. R4 and `SHOPIFY_AUDIT.md` updated.
+  - Both apps' App Store listings say they run on Shopify Functions; neither mentions Checkout Kit. Shopify's Checkout Kit page says Functions run inside Checkout Kit as on the web.
+  - The test screen now lists the development store's books with a quantity stepper and shows Shopify's cart subtotal, so each cart bracket can be reached. Tests cover it.
+  - On-device check: pending, with the owner.
+
 ## What works
 
-- `npm run lint`, `format:check`, `typecheck`, `test` (74 tests) and `audit:gate` pass locally. `npx expo-doctor` passes 21 of 21 checks (with Checkout Kit installed, P3-01).
+- `npm run lint`, `format:check`, `typecheck`, `test` (86 tests) and `audit:gate` pass locally on the P3-02 branch. `npx expo-doctor` passes 21 of 21 checks.
 - The Android development build runs on the owner's Android phone (3 October 2026). It installed from EAS, loaded JavaScript from `npx expo start --dev-client` on this machine over Wi-Fi, and showed "JustBookify", "Development build" and "Store configuration: configured" (owner-reported; Metro logged the Android bundle).
 - `npm run check:dev-store` passes against the development store, It fails cleanly, without printing the token or the domain, when `.env.local` is missing, when the currency does not match, when the token is wrong (HTTP 401) or looks like a secret token, and when the host cannot be reached.
 - From P2-01: `npx expo-doctor` passed 21 of 21 checks; the app bundles for iOS and Android with Metro; the app config gives the right name and app ID for each `APP_ENV`.

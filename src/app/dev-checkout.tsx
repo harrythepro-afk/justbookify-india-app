@@ -1,10 +1,17 @@
 import { ShopifyCheckoutSheetProvider, useShopifyCheckoutSheet } from '@shopify/checkout-sheet-kit';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { getAppEnvironment, getStoreConfigStatus } from '@/config';
-import { createDevCheckoutUrl, DevCheckoutError } from '@/shopify/devCheckout';
+import {
+  createDevCheckout,
+  DevCheckoutError,
+  listDevCheckoutVariants,
+  MAX_DEV_CHECKOUT_QUANTITY,
+  type DevCheckoutCart,
+  type DevCheckoutVariant,
+} from '@/shopify/devCheckout';
 
 type Status =
   | { state: 'idle' }
@@ -14,6 +21,11 @@ type Status =
   | { state: 'closed' }
   | { state: 'error'; message: string };
 
+type Variants =
+  | { state: 'loading' }
+  | { state: 'loaded'; variants: readonly DevCheckoutVariant[] }
+  | { state: 'failed'; message: string };
+
 const STATUS_TEXT: Record<Exclude<Status['state'], 'error'>, string> = {
   idle: 'Ready.',
   'creating-cart': 'Creating a cart on the development store…',
@@ -22,10 +34,27 @@ const STATUS_TEXT: Record<Exclude<Status['state'], 'error'>, string> = {
   closed: 'Checkout closed without an order.',
 };
 
+// A DevCheckoutError's text is ours; any other error's text could carry the store's URL.
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof DevCheckoutError ? error.message : fallback;
+}
+
+function formatAmount(amount: number, currencyCode: string): string {
+  return `${currencyCode} ${amount.toFixed(2)}`;
+}
+
+function cartSummary(cart: DevCheckoutCart): string {
+  const subtotal = `Cart subtotal from Shopify: ${formatAmount(cart.subtotal, cart.currencyCode)}.`;
+  return cart.warningCodes.length === 0
+    ? subtotal
+    : `${subtotal} Shopify warnings: ${cart.warningCodes.join(', ')}.`;
+}
+
 /**
- * P3-01 test screen: opens the development store's checkout in Checkout Kit. It exists only in
- * development builds; any other build is sent back to the start screen. It never shows the
- * checkout URL, the store's domain or the token.
+ * Test screen for early checks (P3-01, P3-02): builds a cart on the development store from
+ * chosen quantities and opens its checkout in Checkout Kit. It exists only in development
+ * builds; any other build is sent back to the start screen. It never shows the checkout URL,
+ * the store's domain or the token.
  */
 export default function DevCheckoutScreen() {
   if (getAppEnvironment() !== 'development') return <Redirect href="/" />;
@@ -42,6 +71,9 @@ export default function DevCheckoutScreen() {
 function DevCheckout() {
   const checkout = useShopifyCheckoutSheet();
   const [status, setStatus] = useState<Status>({ state: 'idle' });
+  const [variants, setVariants] = useState<Variants>({ state: 'loading' });
+  const [quantities, setQuantities] = useState<Readonly<Record<string, number>>>({});
+  const [cart, setCart] = useState<DevCheckoutCart | undefined>(undefined);
   const configured = getStoreConfigStatus() === 'configured';
 
   useEffect(() => {
@@ -59,60 +91,154 @@ function DevCheckout() {
     return () => subscriptions.forEach((subscription) => subscription?.remove());
   }, [checkout]);
 
+  useEffect(() => {
+    if (!configured) return;
+    let active = true;
+    listDevCheckoutVariants().then(
+      (loaded) => {
+        if (active) setVariants({ state: 'loaded', variants: loaded });
+      },
+      (error: unknown) => {
+        if (active) {
+          setVariants({ state: 'failed', message: errorMessage(error, 'Unexpected error.') });
+        }
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [configured]);
+
+  const loaded = variants.state === 'loaded' ? variants.variants : [];
+  const lines = loaded
+    .filter((variant) => (quantities[variant.id] ?? 0) > 0)
+    .map((variant) => ({ merchandiseId: variant.id, quantity: quantities[variant.id] ?? 0 }));
+  const estimate = loaded.reduce(
+    (sum, variant) => sum + variant.price * (quantities[variant.id] ?? 0),
+    0,
+  );
+
+  function changeQuantity(id: string, change: number) {
+    setQuantities((current) => {
+      const next = Math.min(MAX_DEV_CHECKOUT_QUANTITY, Math.max(0, (current[id] ?? 0) + change));
+      return { ...current, [id]: next };
+    });
+  }
+
   async function openCheckout() {
     setStatus({ state: 'creating-cart' });
+    setCart(undefined);
     try {
-      const checkoutUrl = await createDevCheckoutUrl();
-      checkout.present(checkoutUrl);
+      const created = await createDevCheckout(lines);
+      setCart(created);
+      checkout.present(created.checkoutUrl);
       setStatus({ state: 'presented' });
     } catch (error) {
-      // Any other error's text is not ours to show: it could carry the store's URL.
-      const message =
-        error instanceof DevCheckoutError ? error.message : 'Unexpected error opening checkout.';
-      setStatus({ state: 'error', message });
+      setStatus({
+        state: 'error',
+        message: errorMessage(error, 'Unexpected error opening checkout.'),
+      });
     }
   }
 
   const busy = status.state === 'creating-cart';
+  const canOpen = !busy && lines.length > 0;
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text accessibilityRole="header" style={styles.title}>
         Test checkout
       </Text>
       <Text style={styles.body}>
-        Development store only. Builds a one-book cart and opens its checkout in Checkout Kit.
+        Development store only. Choose quantities, then open the cart in Checkout Kit.
       </Text>
-      {configured ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: busy }}
-          disabled={busy}
-          onPress={() => void openCheckout()}
-          style={[styles.button, busy && styles.buttonDisabled]}
-        >
-          <Text style={styles.buttonText}>Open test checkout</Text>
-        </Pressable>
-      ) : (
+      {!configured ? (
         <Text style={styles.status}>Store configuration: not configured</Text>
+      ) : variants.state === 'loading' ? (
+        <Text style={styles.status}>Loading books from the store…</Text>
+      ) : variants.state === 'failed' ? (
+        <Text style={styles.status}>{variants.message}</Text>
+      ) : (
+        <>
+          {variants.variants.map((variant) => {
+            const quantity = quantities[variant.id] ?? 0;
+            return (
+              <View key={variant.id} style={styles.row}>
+                <Text style={styles.rowTitle}>
+                  {variant.title}, {formatAmount(variant.price, variant.currencyCode)}
+                </Text>
+                <Pressable
+                  accessibilityLabel={`Remove one ${variant.title}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: quantity === 0 }}
+                  disabled={quantity === 0}
+                  onPress={() => changeQuantity(variant.id, -1)}
+                  style={[styles.stepper, quantity === 0 && styles.buttonDisabled]}
+                >
+                  <Text style={styles.buttonText}>−</Text>
+                </Pressable>
+                <Text accessibilityLabel={`Quantity of ${variant.title}`} style={styles.quantity}>
+                  {quantity}
+                </Text>
+                <Pressable
+                  accessibilityLabel={`Add one ${variant.title}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: quantity === MAX_DEV_CHECKOUT_QUANTITY }}
+                  disabled={quantity === MAX_DEV_CHECKOUT_QUANTITY}
+                  onPress={() => changeQuantity(variant.id, 1)}
+                  style={[
+                    styles.stepper,
+                    quantity === MAX_DEV_CHECKOUT_QUANTITY && styles.buttonDisabled,
+                  ]}
+                >
+                  <Text style={styles.buttonText}>+</Text>
+                </Pressable>
+              </View>
+            );
+          })}
+          <Text style={styles.status}>
+            Estimated subtotal: {formatAmount(estimate, variants.variants[0]?.currencyCode ?? '')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canOpen }}
+            disabled={!canOpen}
+            onPress={() => void openCheckout()}
+            style={[styles.button, !canOpen && styles.buttonDisabled]}
+          >
+            <Text style={styles.buttonText}>Open test checkout</Text>
+          </Pressable>
+        </>
       )}
       <Text accessibilityLiveRegion="polite" style={styles.status}>
         {status.state === 'error' ? status.message : STATUS_TEXT[status.state]}
       </Text>
-    </View>
+      {cart !== undefined && <Text style={styles.status}>{cartSummary(cart)}</Text>}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
     backgroundColor: '#fff',
   },
   title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
-  body: { fontSize: 16, textAlign: 'center' },
+  body: { fontSize: 16, textAlign: 'center', marginBottom: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', marginTop: 12 },
+  rowTitle: { flex: 1, fontSize: 14 },
+  stepper: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  quantity: { width: 32, fontSize: 16, textAlign: 'center' },
   button: {
     marginTop: 24,
     paddingVertical: 12,
