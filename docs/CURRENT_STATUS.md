@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 3 October 2026 (P3-03: early checks re-planned, roadmap and design direction recorded, P4-01 proposed).
+Last updated: 3 October 2026 (P3-03 merged; P4-01 in progress on branch `feat/p4-01-app-shell`).
 
 ## Phase
 
-Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merged. P3-03 (this change, branch `docs/p3-03-early-checks-replan`) re-plans the remaining early checks and records the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 4 (mobile foundation) is next; `NEXT_TASK.md` proposes P4-01, not started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 4 (mobile foundation) is in progress: P4-01 (app shell: navigation, design tokens, environment banner) is being built on branch `feat/p4-01-app-shell`. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and records the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -40,7 +40,7 @@ Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merg
   - Both apps' App Store listings say they run on Shopify Functions; neither mentions Checkout Kit. Shopify's Checkout Kit page says Functions run inside Checkout Kit as on the web.
   - The test screen now lists the development store's books with a quantity stepper and shows Shopify's cart subtotal, so each cart bracket can be reached. Tests cover it.
   - On-device check with the owner, 3 October 2026: **passed on all seven cases** (details in `SHOPIFY_INTEGRATION.md`). Rates ₹75 and ₹125 under ₹200; ₹75 off both from ₹200 (prepaid free, cash on delivery ₹50); ACOD shows Cash on Delivery payment only with the Cash on Delivery rate; R2 blocks a ₹539 cart; R3 blocks Maharashtra 400001; a ₹540 cash-on-delivery order (₹490 subtotal) completed, the app received `completed`, and the owner saw it in the development store's admin. R2 and ACOD's ₹500 limit both check the subtotal. Risk 1 is open for iOS only.
-- P3-03 (awaiting review): documentation only.
+- P3-03 (merged, `9d561d9`): documentation only.
   - D-033: early check 1a is not run on the development store. Razorpay is offered only to stores with an Indian business entity; the development store's is in Bahrain, and changing it needs the owner's personal identity details, which the owner declined to enter for a test store. Checks 1a and 1b both run at an owner-approved launch rehearsal on the live store with one small real order. Risk 2 stays open and high. Mitigation, built with the checkout screens: a remote feature flag switches checkout between the Checkout Kit sheet and the system browser with a return link, so a failure at the rehearsal needs no rebuild.
   - D-034: check 3 moves to Phase 7 (login), check 4 to Phase 10 (backend), check 5 to Phase 12 (deep links), check 6 to Phase 13 (reviews).
   - D-035: `ROADMAP.md` numbers the phases 0 to 20, linked from `CLAUDE.md`.
@@ -80,4 +80,4 @@ Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merg
 
 ## Last passing build
 
-`main` at `79d5466` (P3-02), 3 October 2026: lint, format check, type check, tests (86), audit gate and `expo-doctor` pass, and CI was green on PR #5's latest commit before the merge. Android development build bb476119 (P3-01) runs that JavaScript on the owner's phone. P3-03 changes documentation only; its CI result is shown on its pull request.
+`main` at `79d5466` (P3-02), 3 October 2026: lint, format check, type check, tests (86), audit gate and `expo-doctor` pass, and CI was green on PR #5's latest commit before the merge. Android development build bb476119 (P3-01) runs that JavaScript on the owner's phone. `main` at `9d561d9` (P3-03) changed documentation only; CI was green on PR #6 before the merge.
