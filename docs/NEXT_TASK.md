@@ -1,38 +1,40 @@
-# Next task (proposal): P2-02, protect main and connect the development store
+# Next task: P2-02, protect main and connect the development store
 
-Status: proposal. It starts only after the owner approves P2-01 and replies to the questions below.
+Status: approved by the architect on 3 October 2026, with changes. In progress on branch `feat/p2-02-dev-store`.
 
 ## Goal
 
 Make `main` safe to build on, and give the app a development store to talk to, without touching the live store.
 
-## Needs from the owner first
+## Answers from the owner and the architect (3 October 2026)
 
-1. Merge the P2-01 pull request after review.
-2. Say whether Claude may switch on branch protection for `main` (pull request required, the two CI jobs required, no force pushes). It changes repository settings, so it is not done without a yes.
-3. Create the Shopify development store, as `ARCHITECTURE.md` describes, or name who does. Claude does not create accounts.
-4. Confirm that the cash-on-delivery fee is a flat shipping rate, as `SHOPIFY_AUDIT.md` says.
+1. P2-01 is merged (`de4701f`).
+2. Branch protection on `main`: yes (pull request required, both CI jobs required, no force pushes). If GitHub refuses because the repository is private on GitHub Free, do not change the plan or the visibility; skip it and record it in `CURRENT_STATUS.md` and `RISKS.md`.
+3. The owner creates the development store, installs the Headless channel and publishes sample products. Claude creates `.env.local` from the values the owner gives.
+4. Cash on delivery: a ₹125 flat rate named "Cash On Delivery" against ₹75 prepaid, plus the ACOD app's own fee, amount unknown. Both are cart hints only; checkout decides (D-024).
+5. Review rule: required approving reviews stay at 0; the architect reviews in chat; merge only on the owner's "approved, merge" (D-026).
 
-Settled in review on 3 October 2026: D-020 to D-022 approved; the `decode-uri-component` advisory is risk 17 and waits for Phase 12; the free-delivery hint is ₹200 for prepaid orders (D-023).
+Settled earlier: D-020 to D-023 approved; the `decode-uri-component` advisory is risk 17 and waits for Phase 12.
 
-## Steps (after the answers)
+## Steps
 
-1. Turn on branch protection on `main`, if approved.
-2. In the development store only, with the owner's go-ahead, install the Headless channel and publish a few sample products to it (`SHOPIFY_INTEGRATION.md`, additions 1 and 2, on the development store).
-3. Put the development store's public values in `.env.local` (never committed) and check that `getStoreConfig()` parses them.
-4. Pin the Storefront API version and record it in `docs/SHOPIFY_INTEGRATION.md` with the date.
-5. Run the six early checks from `docs/SHOPIFY_INTEGRATION.md` that need no phone, and list the ones that do.
+1. Try branch protection on `main` once; record the outcome.
+2. Add the public Storefront token to the store configuration and pin the Storefront API version (D-025).
+3. Create `.env.local` (never committed) and check it with `npm run check:dev-store`: `getStoreConfig()` parses, the store's currency matches, products can be read.
+4. Record the API version, the development store and, for each of the six early checks, whether it needs a real phone. The checks themselves run in Phase 3.
+5. Add the merge rule and the Shopify Admin MCP tools rule to `CLAUDE.md`; update `RELEASE.md` and `SECURITY.md` for D-026.
 6. Update `docs/CURRENT_STATUS.md` and propose the next task.
 
 ## Acceptance checks
 
-- A pull request into `main` cannot be merged without passing CI.
+- A pull request into `main` cannot be merged without passing CI, or the reason it cannot be enforced is recorded.
 - `getStoreConfig()` returns a valid configuration against the development store's values.
-- A scripted read of the development store's products succeeds.
+- A scripted read of the development store's products succeeds, and the store's currency matches the configuration.
 - No secret, token or live-store value appears anywhere in the repository.
 
 ## Out of scope
 
 - Anything on the live store.
+- Running any of the six early checks (Phase 3).
 - Screens, checkout, login, Firebase, Sentry, EAS.
 - Any credential that is not public by design.

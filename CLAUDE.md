@@ -31,6 +31,14 @@ A production mobile app for iPhone and Android for JustBookify's India store, ju
 10. For anything version-sensitive (Shopify APIs, Checkout Kit, Expo, Apple and Google requirements), check the official documentation and record the version used.
 11. Preserve existing behaviour unless the task says to change it.
 12. End every session by updating `docs/CURRENT_STATUS.md` and proposing the next `docs/NEXT_TASK.md`.
+13. Never call the Shopify Admin MCP tools in this project (products, orders, customers, inventory, collections, discounts, analytics, GraphQL queries and mutations, store switching). They may be connected to the live store. Searching Shopify's documentation is allowed.
+
+## Merging pull requests
+
+- Never merge a pull request unless the owner writes the words "approved, merge".
+- Then: confirm CI is green on the pull request's latest commit, squash-merge, delete the branch, switch to `main` and pull.
+- If any check is not green, stop and show the owner the failure instead of merging.
+- `main` has no branch protection (a private repository on GitHub Free), so this rule is the only gate. Never push to `main` directly (D-026, risk 18).
 
 ## Stop and ask the owner when
 
@@ -78,6 +86,7 @@ Node 24 (see `.nvmrc`). Install with `npm ci`. Add Expo packages with `npx expo 
 | `npm test` | Jest and React Native Testing Library (watch-free; `npm run test:ci` for CI) |
 | `npm run audit:gate` | Dependency audit; fails on high or critical advisories not in `.github/audit-allowlist.json` |
 | `npx expo-doctor` | Checks the project against the SDK |
+| `npm run check:dev-store` | Reads `.env.local`: checks `getStoreConfig()`, the store's currency and a product read over the Storefront API. Development store only; not run in CI |
 
 Run `lint`, `format:check`, `typecheck`, `test` and `audit:gate` before reporting. CI runs the same five, plus a secret scan.
 

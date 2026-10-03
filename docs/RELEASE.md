@@ -2,7 +2,7 @@
 
 ## Branching
 
-- `main` is protected: no direct pushes, required checks, one approving review.
+- `main` takes changes only through pull requests, never direct pushes. The architect reviews in chat; a pull request is merged only when the owner writes "approved, merge" and CI is green on its latest commit (D-026). GitHub branch protection is not available on the current plan (risk 18), so this rule is the gate.
 - Short-lived feature branches, one task each.
 - Release tags trigger staging and production builds.
 
