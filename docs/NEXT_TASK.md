@@ -1,35 +1,45 @@
-# Next task (proposal): P3-01, Checkout Kit in the development build, for early checks 1 and 2
+# Next task: P3-01, Checkout Kit opens the development store's checkout
 
-Status: proposal. It starts only after P2-03 is merged and the owner approves this task.
+Status: approved by the architect on 3 October 2026, with a narrower scope. In progress on branch `feat/p3-01-checkout-kit`.
 
 ## Goal
 
-Start Phase 3. Add Checkout Kit to the Android development build with one test path, so early checks 1 (Razorpay, UPI, card, net banking) and 2 (cash on delivery and the checkout rules) can run on the owner's Android phone against the development store. iOS waits for Apple access (D-019).
+Start Phase 3. Prove two things on the owner's Android phone, with the Android development build:
 
-## Needs from the owner first
+1. Checkout Kit opens the development store's checkout.
+2. A test order can be completed there with cash on delivery.
 
-1. Approve `@shopify/checkout-sheet-kit` 4.0.x (the package chosen in D-017) as a new native dependency. It gets its own decision record with the exact version.
-2. On the development store only: install the ACOD and SMART Checkout Rules apps, and set Razorpay up in test mode. Claude does not do this; it is a store-admin task, and the live store is never touched.
-3. Confirm that a test order on the development store is acceptable for the checks. No order is ever placed on the live store.
+iOS waits for Apple access (D-019). Early checks 1 and 2 are **not** run in this task.
 
-## Steps (after the answers)
+## Owner's answers
 
-1. Check Shopify's Checkout Kit documentation for React Native and Expo, and record the version used.
-2. Install `@shopify/checkout-sheet-kit` with `npx expo install`, pin it exactly, and add its config plugin if one is needed.
-3. In the development build only, add a test screen that builds a cart from one development-store product over the Storefront API and opens its checkout URL in Checkout Kit.
-4. Rebuild the Android development build on EAS. Native modules change, so the existing build is not enough.
-5. Run early checks 1 and 2 on the owner's phone, with the owner, and record each result in `SHOPIFY_INTEGRATION.md`.
-6. Update `docs/CURRENT_STATUS.md` and propose the next task.
+1. Checkout Kit package: D-017 named `@shopify/checkout-sheet-kit` 4.0.x, but 4.0.x is not published. The owner chose 3.9.1, the latest stable release (D-030).
+2. The owner sets up the development store with delivery rates and a manual cash-on-delivery payment method only. Razorpay, ACOD and SMART Checkout Rules are not part of this task.
+3. Test orders on the development store are acceptable. Never on the live store.
+
+## Steps
+
+1. Check Shopify's Checkout Kit documentation, pin the exact version and record a decision (D-030).
+2. Install `@shopify/checkout-sheet-kit` with `npx expo install` and pin it exactly.
+3. Add a development-only test screen that builds a one-item cart over the Storefront API and opens its checkout URL in Checkout Kit.
+4. Rebuild the Android development build on EAS. The native modules changed.
+5. On the owner's phone, with the owner: open the test checkout and complete a cash-on-delivery order. **If the checkout lands on the store's password page, stop and report what is on screen. Do not work around it.**
+6. Record the result in `SHOPIFY_INTEGRATION.md`. Record the Razorpay test-mode/live-mode split of early check 1 there.
+7. Update `docs/CURRENT_STATUS.md` and propose the next task.
 
 ## Acceptance checks
 
-- Checkout Kit opens the development store's checkout from the Android development build.
-- Early checks 1 and 2 have a written result: pass, fail, or a named fallback.
-- The test screen exists only in development builds.
-- No secret or live-store value appears in the repository.
+- The Checkout Kit package is pinned to an exact version, with a decision record that cites the documentation checked and the date.
+- From the Android development build, the test screen opens the development store's checkout in Checkout Kit. If the password page appears instead, that is a recorded stop, not a pass.
+- A test order completes on the development store with cash on delivery, and the app receives Checkout Kit's completed event. The owner confirms it.
+- The test screen and its link exist only in development builds, and tests prove it.
+- No secret, store domain, token or live-store value appears in the repository, the logs or the screen.
+- Lint, format check, type check, tests, audit gate and `expo-doctor` pass, and CI is green.
+- `SHOPIFY_INTEGRATION.md` records that Razorpay's UPI Intent is testable only in live mode, and splits early check 1 into 1a (test mode, development store) and 1b (live mode, at an owner-approved launch rehearsal).
 
 ## Out of scope
 
 - Anything on the live store.
+- Early checks 1 and 2: Razorpay, ACOD, SMART Checkout Rules.
 - Login (Customer Account API), the catalogue screens, Firebase, Sentry.
 - Early checks 3 to 6.
