@@ -15,6 +15,13 @@ describe('buildConfig', () => {
     expect(config.extra?.appEnv).toBe(appEnv);
   });
 
+  it.each(APP_ENVIRONMENTS)('links %s to the one EAS project', (appEnv) => {
+    const config = buildConfig(appEnv);
+
+    expect(config.owner).toBe('hemant6626');
+    expect(config.extra?.eas).toEqual({ projectId: '33687d66-0fd2-4b7d-8f50-30c1cb920c3c' });
+  });
+
   it('keeps fields from the base config that it does not set', () => {
     const config = buildConfig('development', { sdkVersion: '57.0.0' });
 

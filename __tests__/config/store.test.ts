@@ -1,4 +1,9 @@
-import { parseStoreConfig, StoreConfigError, type RawStoreEnv } from '@/config/store';
+import {
+  parseStoreConfig,
+  StoreConfigError,
+  type RawStoreEnv,
+  type StoreConfigStatus,
+} from '@/config/store';
 
 // Invented values for the parser only. They are not the store's real settings.
 const validEnv: RawStoreEnv = {
@@ -86,5 +91,39 @@ describe('parseStoreConfig', () => {
 
     expect(error.message).toContain('EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN');
     expect(error.message).not.toContain('invented');
+  });
+});
+
+describe('getStoreConfigStatus', () => {
+  const originalEnv = process.env;
+
+  // getStoreConfig caches its result, so each case loads a fresh copy of the module.
+  function statusWith(env: Partial<RawStoreEnv>): StoreConfigStatus {
+    process.env = { ...originalEnv, ...env };
+    let status: StoreConfigStatus | undefined;
+    jest.isolateModules(() => {
+      const store = jest.requireActual<typeof import('@/config/store')>('@/config/store');
+      status = store.getStoreConfigStatus();
+    });
+    if (status === undefined) throw new Error('Expected a status.');
+    return status;
+  }
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it('reports a complete configuration as configured', () => {
+    expect(statusWith(validEnv)).toBe('configured');
+  });
+
+  it('reports a missing variable as not configured instead of throwing', () => {
+    expect(statusWith({ ...validEnv, EXPO_PUBLIC_STORE_DOMAIN: undefined })).toBe('not configured');
+  });
+
+  it('reports a secret token as not configured', () => {
+    expect(statusWith({ ...validEnv, EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN: 'shpat_invented' })).toBe(
+      'not configured',
+    );
   });
 });

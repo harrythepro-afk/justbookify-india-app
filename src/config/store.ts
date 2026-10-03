@@ -159,3 +159,16 @@ export function getStoreConfig(): StoreConfig {
   });
   return cached;
 }
+
+export type StoreConfigStatus = 'configured' | 'not configured';
+
+/** For screens that may say whether the store is set up. It never exposes a value. */
+export function getStoreConfigStatus(): StoreConfigStatus {
+  try {
+    getStoreConfig();
+    return 'configured';
+  } catch (error) {
+    if (error instanceof StoreConfigError) return 'not configured';
+    throw error;
+  }
+}

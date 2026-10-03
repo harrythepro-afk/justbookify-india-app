@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { getAppEnvironment, getEnvironmentLabel } from '@/config';
+import { getAppEnvironment, getEnvironmentLabel, getStoreConfigStatus } from '@/config';
 
 export default function PlaceholderScreen() {
   const environment = getAppEnvironment();
@@ -12,7 +12,11 @@ export default function PlaceholderScreen() {
       </Text>
       <Text style={styles.body}>The app is set up. Screens arrive in later tasks.</Text>
       {environment !== 'production' && (
-        <Text style={styles.environment}>{getEnvironmentLabel(environment)} build</Text>
+        <>
+          <Text style={styles.environment}>{getEnvironmentLabel(environment)} build</Text>
+          {/* Status only. The store's values never appear on screen. */}
+          <Text style={styles.status}>Store configuration: {getStoreConfigStatus()}</Text>
+        </>
       )}
     </View>
   );
@@ -29,4 +33,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '700', marginBottom: 8 },
   body: { fontSize: 16, textAlign: 'center' },
   environment: { fontSize: 14, marginTop: 16, color: '#666' },
+  status: { fontSize: 14, marginTop: 4, color: '#666' },
 });
