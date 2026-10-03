@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 3 October 2026 (P3-01).
+Last updated: 3 October 2026 (P3-02, in progress).
 
 ## Phase
 
-Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged. P3-01 (Checkout Kit opens the development store's checkout) passed on the owner's phone and is on branch `feat/p3-01-checkout-kit`, awaiting review.
+Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged. P3-01 (Checkout Kit opens the development store's checkout) is merged (`874b4c2`). P3-02 (early check 2: ACOD and SMART Checkout Rules inside Checkout Kit) is in progress on branch `feat/p3-02-checkout-apps`.
 
 ## Done
 
@@ -26,7 +26,7 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
   - Android development build 34b4b82c (version 1.0.0, version code 1) finished on EAS on 3 October 2026.
   - `eas build:inspect` showed the upload holds no `.env.local`, keystore or credential file; the store's domain and token appear in neither the upload nor the repository.
   - The placeholder screen shows "Store configuration: configured" or "not configured" on non-production builds, never the values.
-- P3-01 (awaiting review):
+- P3-01 (merged, `874b4c2`):
   - `@shopify/checkout-sheet-kit` 3.9.1 installed and pinned (D-030). D-017's 4.0.x is not published; the owner chose 3.9.1 on 3 October 2026. No Expo config plugin.
   - Development-only test screen `src/app/dev-checkout.tsx`. It builds a one-item cart with two named Storefront operations (`src/shopify/devCheckout.ts`) and presents the checkout URL in Checkout Kit. It shows completed, closed or error status, never the URL, domain or token. Any other build is redirected to the start screen. The placeholder screen links to it on development builds only.
   - Android development build bb476119 built on EAS on 3 October 2026. `eas build:inspect` showed that the upload holds no `.env.local`, keystore or credential file, and neither the store's domain nor its token.
@@ -45,7 +45,7 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
 
 - **Branch protection on `main`.** GitHub refused on 3 October 2026 (HTTP 403: "Upgrade to GitHub Pro or make this repository public"). As instructed, the plan and the visibility were not changed. The merge rule in `CLAUDE.md` is the gate (risk 18, D-026).
 - The development store is a development store with Basic-plan features. Development stores cannot remove the storefront password. The public Storefront token cannot read the plan; confirm it through the Admin API's `shop.plan` once the backend custom app exists.
-- The development store does not yet have Razorpay in test mode (early check 1a) or the ACOD and SMART Checkout Rules apps (early check 2). These come in later tasks.
+- The development store does not yet have Razorpay in test mode (early check 1a). ACOD and SMART Checkout Rules were installed there by the owner on 3 October 2026 for P3-02.
 - Early check 1b (Razorpay UPI Intent hand-off) can run only in Razorpay live mode, at an owner-approved launch rehearsal.
 - iOS development build: waits for Apple access (D-019).
 - No store additions on the live store. No Firebase or Sentry accounts. No access to the Apple or Google developer accounts yet (D-019).
@@ -58,7 +58,7 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
 - `npm audit` reports a high advisory, GHSA-vfj7-8cjw-p6xm (CVE-2026-93687, stack exhaustion through deeply nested brace patterns) in `braces` 3.0.3. Every version is affected and no patched release exists; an upstream fix is in progress. GitHub updated the advisory on 2 October 2026, which made `main` fail the gate. `braces` comes in only through `micromatch` 4.0.8, used by Jest, Metro's file map and the Expo CLI: developer and build tooling that matches file paths and is never bundled into the app. It is allowlisted until **2026-11-15** (D-027). Remove the entry in the same commit that picks up a patched `braces`.
 - `npm audit` also reports, as before: `node-forge` (high, allowlisted until 2026-12-31, D-022); `uuid` and `decode-uri-component` (moderate, not gated; the second is risk 17).
 - Icons and splash image are the Expo placeholders. They must be replaced before any store build.
-- Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125 plus the ACOD app's own fee of unknown amount, free prepaid delivery from ₹200 (D-023, D-024). Checkout sets the final amount.
+- Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125, and ₹75 off either from a cart total of ₹200, so free prepaid and ₹50 cash on delivery (D-023, D-031; the ACOD app adds no fee, correcting D-024). The configuration does not yet carry the ₹75 discount amount; that comes with the cart screens. Checkout sets the final amount.
 - `userInterfaceStyle` is fixed to light until a dark theme is designed.
 
 ## Last passing build

@@ -41,14 +41,16 @@ Read-only audit completed on 2 October 2026, through the Shopify connection, the
 | --- | --- |
 | Checkout | Shopify's own. No third-party checkout app |
 | Payment | Razorpay as an offsite provider: UPI, cards, wallets, net banking. PayPal inactive |
-| Cash on delivery | One manual method; rare (7 orders in total). ACOD app adds its fee and limits |
+| Cash on delivery | One manual method; rare (7 orders in total). The ACOD app adds no fee (corrected 3 October 2026, D-031). It ties the cash-on-delivery shipping rate to the Cash on Delivery payment method and allows cash on delivery only up to a cart total of ₹500 |
 | Contact method | Email. Phone number required with the shipping address |
 | Shipping | One zone: Karnataka, Andhra Pradesh, Tamil Nadu, Telangana, Kerala. Flat rates: prepaid ₹75, cash on delivery ₹125 |
-| Free delivery | An automatic shipping discount from SMART Checkout Rules on larger orders |
-| Rule: Shipping Restriction | Blocks checkout unless the pincode starts with 50 to 53 or 56 to 69 |
-| Rule: Shipping Price Restriction | Blocks checkout when the cart subtotal is ₹500 or more. Deliberate |
+| Shipping discount | SMART Checkout Rules, automatic: when the cart total is ₹200 or more, a fixed ₹75 comes off shipping, on both rates. Prepaid delivery: ₹75 under ₹200, free from ₹200. Cash on delivery: ₹125 under ₹200, ₹50 from ₹200 |
+| Rule: Shipping Restriction (R3) | SMART Checkout Rules validation. Blocks checkout when the postal code does not start with 50, 51, 52, 53, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68 or 69 |
+| Rule: Shipping Price Restriction (R2) | SMART Checkout Rules validation. Blocks checkout when the cart subtotal is ₹500 or more. Deliberate |
 | Discounts | Influencer codes, a first-order free-shipping code, the automatic shipping discount |
 | Marketing opt-in | Email box pre-ticked for India. No WhatsApp consent collected |
+
+The app settings in the rows for cash on delivery, the shipping discount and the two rules were read in the live store's admin by the owner on 3 October 2026 and copied by hand to the development store. Nothing on the live store was changed.
 
 ## Returns
 
