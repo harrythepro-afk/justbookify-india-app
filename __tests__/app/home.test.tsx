@@ -1,10 +1,19 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import HomeScreen from '@/app/(tabs)/index';
 
 let mockAppEnv = 'development';
+let mockCrashReportingOn = true;
+const mockSendTestError = jest.fn();
+const mockTriggerTestNativeCrash = jest.fn();
+
+jest.mock('@/crashReporting/sentry', () => ({
+  isCrashReportingOn: () => mockCrashReportingOn,
+  sendTestError: () => mockSendTestError(),
+  triggerTestNativeCrash: () => mockTriggerTestNativeCrash(),
+}));
 
 jest.mock('expo-router', () => {
   const { Text } = jest.requireActual('react-native');
@@ -37,6 +46,8 @@ function SafeArea({ children }: { children: ReactNode }) {
 describe('HomeScreen', () => {
   beforeEach(() => {
     mockAppEnv = 'development';
+    mockCrashReportingOn = true;
+    jest.clearAllMocks();
   });
 
   it('shows its heading and placeholder message', async () => {
@@ -66,4 +77,40 @@ describe('HomeScreen', () => {
       expect(screen.queryByText('Open the test checkout screen')).not.toBeOnTheScreen();
     },
   );
+
+  it('sends a test error to Sentry on a development build', async () => {
+    await render(<HomeScreen />, { wrapper: SafeArea });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Send a test error to Sentry' }));
+
+    expect(mockSendTestError).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Test error sent. Check Sentry.')).toBeOnTheScreen();
+  });
+
+  it("triggers Sentry's native test crash on a development build", async () => {
+    await render(<HomeScreen />, { wrapper: SafeArea });
+
+    expect(screen.getByText('The app will close; reopen it to send the report.')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('button', { name: 'Trigger a native crash (test)' }));
+
+    expect(mockTriggerTestNativeCrash).toHaveBeenCalledTimes(1);
+  });
+
+  it('says crash reporting is off, with no test controls, when no DSN is set', async () => {
+    mockCrashReportingOn = false;
+
+    await render(<HomeScreen />, { wrapper: SafeArea });
+
+    expect(screen.getByText('Crash reporting is off (no DSN).')).toBeOnTheScreen();
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+  });
+
+  it.each(['staging', 'production'])('shows no crash test controls on a %s build', async (env) => {
+    mockAppEnv = env;
+
+    await render(<HomeScreen />, { wrapper: SafeArea });
+
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Crash reporting is off (no DSN).')).not.toBeOnTheScreen();
+  });
 });
