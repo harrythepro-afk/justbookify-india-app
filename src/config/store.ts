@@ -12,11 +12,16 @@ export type PincodePrefixRange = { readonly from: number; readonly to: number };
 export type StoreConfig = {
   /** Shop domain without a scheme or path. */
   readonly storeDomain: string;
+  /** Public Storefront API access token from the Headless channel. Public by design. */
+  readonly storefrontAccessToken: string;
   /** ISO 4217 code, for example "INR". */
   readonly currencyCode: string;
   /** Flat shipping fee for prepaid orders, in major currency units. */
   readonly shippingFeePrepaid: number;
-  /** Flat shipping fee for cash-on-delivery orders, in major currency units. */
+  /**
+   * Flat shipping fee for cash-on-delivery orders, in major currency units. A cart hint only:
+   * the ACOD app adds its own fee at checkout, and checkout sets the final amount (D-024).
+   */
   readonly shippingFeeCod: number;
   /** Subtotal from which delivery is free, in major currency units. */
   readonly freeDeliveryThreshold: number;
@@ -28,6 +33,7 @@ export type StoreConfig = {
 
 export const STORE_ENV_NAMES = [
   'EXPO_PUBLIC_STORE_DOMAIN',
+  'EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN',
   'EXPO_PUBLIC_STORE_CURRENCY',
   'EXPO_PUBLIC_SHIPPING_FEE_PREPAID',
   'EXPO_PUBLIC_SHIPPING_FEE_COD',
@@ -55,6 +61,17 @@ const DOMAIN_PATTERN = /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
 const RANGE_PATTERN = /^(\d{2})(?:-(\d{2}))?$/;
+const TOKEN_PATTERN = /^\S+$/;
+// Shopify's secret tokens carry a prefix such as shpat_ (Admin API) or shpss_ (shared secret).
+// Rejecting them stops a server-only credential from being bundled into the app by mistake.
+const SECRET_TOKEN_PREFIX = /^shp[a-z]{2}_/i;
+
+function parseToken(value: string | undefined): string | undefined {
+  const text = value?.trim();
+  return text !== undefined && TOKEN_PATTERN.test(text) && !SECRET_TOKEN_PREFIX.test(text)
+    ? text
+    : undefined;
+}
 
 function parseAmount(value: string | undefined): number | undefined {
   const text = value?.trim();
@@ -78,6 +95,7 @@ function parseRanges(value: string | undefined): PincodePrefixRange[] | undefine
 
 export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
   const storeDomain = env.EXPO_PUBLIC_STORE_DOMAIN?.trim().toLowerCase();
+  const storefrontAccessToken = parseToken(env.EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN);
   const currencyCode = env.EXPO_PUBLIC_STORE_CURRENCY?.trim();
   const shippingFeePrepaid = parseAmount(env.EXPO_PUBLIC_SHIPPING_FEE_PREPAID);
   const shippingFeeCod = parseAmount(env.EXPO_PUBLIC_SHIPPING_FEE_COD);
@@ -89,6 +107,7 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
   if (storeDomain === undefined || !DOMAIN_PATTERN.test(storeDomain)) {
     invalid.push('EXPO_PUBLIC_STORE_DOMAIN');
   }
+  if (storefrontAccessToken === undefined) invalid.push('EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN');
   if (currencyCode === undefined || !CURRENCY_PATTERN.test(currencyCode)) {
     invalid.push('EXPO_PUBLIC_STORE_CURRENCY');
   }
@@ -101,6 +120,7 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
   if (
     invalid.length > 0 ||
     storeDomain === undefined ||
+    storefrontAccessToken === undefined ||
     currencyCode === undefined ||
     shippingFeePrepaid === undefined ||
     shippingFeeCod === undefined ||
@@ -113,6 +133,7 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
 
   return {
     storeDomain,
+    storefrontAccessToken,
     currencyCode,
     shippingFeePrepaid,
     shippingFeeCod,
@@ -128,6 +149,7 @@ let cached: StoreConfig | undefined;
 export function getStoreConfig(): StoreConfig {
   cached ??= parseStoreConfig({
     EXPO_PUBLIC_STORE_DOMAIN: process.env.EXPO_PUBLIC_STORE_DOMAIN,
+    EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN: process.env.EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN,
     EXPO_PUBLIC_STORE_CURRENCY: process.env.EXPO_PUBLIC_STORE_CURRENCY,
     EXPO_PUBLIC_SHIPPING_FEE_PREPAID: process.env.EXPO_PUBLIC_SHIPPING_FEE_PREPAID,
     EXPO_PUBLIC_SHIPPING_FEE_COD: process.env.EXPO_PUBLIC_SHIPPING_FEE_COD,

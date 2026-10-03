@@ -19,7 +19,7 @@ Rules:
 
 ## API version
 
-Not pinned yet. Pin the latest stable version when the data layer is built, and record it here with the date.
+Storefront API `2026-10`, pinned on 3 October 2026 in `src/config/shopifyApi.ts` (D-025). Source: the API versions page on shopify.dev, which that day listed `2026-10` as latest stable (released 1 October 2026, accessible until 16 October 2027) and `2027-01` as a release candidate. Next quarterly review: January 2027, when `2027-01` becomes stable.
 
 ## Credentials
 
@@ -36,15 +36,21 @@ Values are never written in this repository. Names and locations only.
 
 The Storefront token gets the minimum scopes: products, collections, cart and checkout. Nothing customer-related.
 
+In the app the shop domain and the public Storefront token are `EXPO_PUBLIC_STORE_DOMAIN` and `EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN`, read through `src/config/`. For development they sit in `.env.local`, which is never committed. The Headless channel's private token is never used in the app.
+
 ## Store additions (owner approval required for each)
 
 | # | Addition | Purpose | Status |
 | --- | --- | --- | --- |
-| 1 | Headless sales channel | Issues the Storefront token and the Customer Account API client ID | Not done; needs the owner's go-ahead |
-| 2 | Publish products to the Headless channel | The app sees only products published to it | Not done |
+| 1 | Headless sales channel | Issues the Storefront token and the Customer Account API client ID | Live store: not done; needs the owner's go-ahead. Development store: installed by the owner, 3 October 2026 |
+| 2 | Publish products to the Headless channel | The app sees only products published to it | Live store: not done. Development store: sample products published by the owner, 3 October 2026 |
 | 3 | One custom app for the backend | Admin API access and webhooks | Not done |
 
 Nothing else on the live store is changed. See D-008.
+
+## Development store
+
+Created by the owner on 3 October 2026. The owner reports it is on the Basic plan, like the live store. Its currency is INR (it was created in BHD and the owner changed it). `npm run check:dev-store` confirmed on 3 October 2026 that the store's currency matches the configuration and that the public token reads products published to the Headless channel. The plan cannot be read with the public Storefront token; confirm it through the Admin API's `shop.plan` once the backend custom app exists, or in the store's admin.
 
 ## Customer Account API
 
@@ -74,9 +80,13 @@ Title, handle, cover image, vendor (author), product type (age groups), tags (se
 
 ## Checks to run first, on a development store
 
-1. Razorpay inside Checkout Kit on a real iPhone and a real Android phone: UPI, card, net banking.
-2. Cash on delivery and the checkout rules inside Checkout Kit.
-3. A guest order from the website appears after login with the same email.
-4. A return filed through the Admin API appears for staff to approve, on the Basic plan.
-5. Links from justbookify.in open the app (verification files on a Shopify-hosted domain).
-6. Judge.me allows reading and submitting reviews on the store's plan.
+All six run at the start of Phase 3, not before (`TESTING.md`).
+
+| # | Check | Needs a real phone |
+| --- | --- | --- |
+| 1 | Razorpay inside Checkout Kit on a real iPhone and a real Android phone: UPI, card, net banking | Yes. UPI hands off to other payment apps, which exist only on a real phone |
+| 2 | Cash on delivery and the checkout rules inside Checkout Kit | No. A development build on an emulator or simulator is enough. The development store needs the ACOD and SMART Checkout Rules apps installed first |
+| 3 | A guest order from the website appears after login with the same email | No |
+| 4 | A return filed through the Admin API appears for staff to approve, on the Basic plan | No. The development store is on the Basic plan (owner-reported; see above), so the check can run there |
+| 5 | Links from justbookify.in open the app (verification files on a Shopify-hosted domain) | Yes. A signed build on a device. The verification files go on the live domain, so this check needs the owner's go-ahead |
+| 6 | Judge.me allows reading and submitting reviews on the store's plan | No |
