@@ -87,6 +87,8 @@ Node 24 (see `.nvmrc`). Install with `npm ci`. Add Expo packages with `npx expo 
 | `npm run audit:gate` | Dependency audit; fails on high or critical advisories not in `.github/audit-allowlist.json` |
 | `npx expo-doctor` | Checks the project against the SDK |
 | `npm run check:dev-store` | Reads `.env.local`: checks `getStoreConfig()`, the store's currency and a product read over the Storefront API. Development store only; not run in CI |
+| `npx eas-cli@24.10.0 build --platform android --profile development` | Builds the Android development app (`com.justbookify.india.dev`) on EAS. Needs the owner's Expo login on this machine; the keystore stays on EAS (D-028, D-029) |
+| `npx expo start --dev-client` | Serves JavaScript, with `.env.local` values, to an installed development build on the same Wi-Fi |
 
 Run `lint`, `format:check`, `typecheck`, `test` and `audit:gate` before reporting. CI runs the same five, plus a secret scan.
 

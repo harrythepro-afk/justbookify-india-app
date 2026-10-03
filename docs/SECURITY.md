@@ -67,3 +67,4 @@ Names and locations only. Fill in as each secret is created.
 
 | Secret | Where it lives | Created | Last rotated |
 | --- | --- | --- | --- |
+| Android signing keystore, development app ID only (D-029) | EAS servers, project `@hemant6626/justbookify-india` | 2026-10-03 | Never |

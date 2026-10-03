@@ -14,7 +14,7 @@ Reviewed at the end of every phase.
 | 8 | App Store rejection for minimum functionality | A thin wrapper is refused | Native browsing, rental status and notifications | Medium | Open |
 | 9 | Half the catalogue is unavailable | Disappointing browsing | "Available now" as the default filter; notify-me | Medium | Open |
 | 10 | Privileged token leak | Exposes customers' addresses and phone numbers | Server-only tokens; least scopes; rotation | Medium | Open |
-| 11 | Developer accounts are in an individual's name | The business is a sole proprietorship today | Move the app to the company's accounts once the company exists | Medium | Open |
+| 11 | Developer accounts are in an individual's name | The business is a sole proprietorship today | Move the app to the company's accounts once the company exists. This includes the EAS project, which is on the owner's personal Expo account (D-028) | Medium | Open |
 | 12 | Deep-link verification on a Shopify-hosted domain | Links may not open the app | Early check 5; fallback is a link subdomain | Medium | Open |
 | 13 | WhatsApp consent gap | Reminders go to the checkout phone number with no separate consent | Owner to review with a local adviser; the app collects its own consent | Medium | Open |
 | 14 | Reviews API not available on the store's plan | Reviews are in version 1 | Early check 6; fallback is ratings only | Medium | Open |
