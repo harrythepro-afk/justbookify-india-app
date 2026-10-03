@@ -44,4 +44,4 @@ Three iPhones and four Android phones, including one with 2 to 3 GB of memory. E
 
 ## Early checks
 
-The six checks in `SHOPIFY_INTEGRATION.md` run at the start of Phase 3, before anything is built on them.
+The six checks in `SHOPIFY_INTEGRATION.md` run at the start of Phase 3, before anything is built on them. Check 1 is split: 1a (redirect to Razorpay and back) runs with Razorpay in test mode on the development store. 1b (hand-off to a real UPI app) can be tested only in Razorpay live mode, so it runs at an owner-approved launch rehearsal.

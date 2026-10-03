@@ -21,6 +21,10 @@ Rules:
 
 Storefront API `2026-10`, pinned on 3 October 2026 in `src/config/shopifyApi.ts` (D-025). Source: the API versions page on shopify.dev, which that day listed `2026-10` as latest stable (released 1 October 2026, accessible until 16 October 2027) and `2027-01` as a release candidate. Next quarterly review: January 2027, when `2027-01` becomes stable.
 
+## Checkout Kit version
+
+`@shopify/checkout-sheet-kit` 3.9.1, pinned on 3 October 2026 (D-030). 4.0.x, named in D-017, was not published that day. Sources: npm registry, the package's GitHub releases and README, and shopify.dev's Checkout Kit page for React Native. Recheck when 4.0.0 is published, and at each quarterly API review.
+
 ## Credentials
 
 Values are never written in this repository. Names and locations only.
@@ -50,7 +54,9 @@ Nothing else on the live store is changed. See D-008.
 
 ## Development store
 
-Created by the owner on 3 October 2026. The owner reports it is on the Basic plan, like the live store. Its currency is INR (it was created in BHD and the owner changed it). `npm run check:dev-store` confirmed on 3 October 2026 that the store's currency matches the configuration and that the public token reads products published to the Headless channel. The plan cannot be read with the public Storefront token; confirm it through the Admin API's `shop.plan` once the backend custom app exists, or in the store's admin.
+Created by the owner on 3 October 2026. For P3-01 the owner sets up delivery rates and a manual cash-on-delivery payment method on it. Razorpay, ACOD and SMART Checkout Rules are not installed there yet; they come in later tasks. Test orders are allowed on the development store only, never on the live store. It is a development store with Basic-plan features (corrected on 3 October 2026; earlier noted as "on the Basic plan"). Like every development store it is always password protected, and Shopify does not allow the password to be removed. Its currency is INR (it was created in BHD and the owner changed it). `npm run check:dev-store` confirmed on 3 October 2026 that the store's currency matches the configuration and that the public token reads products published to the Headless channel. The plan cannot be read with the public Storefront token; confirm it through the Admin API's `shop.plan` once the backend custom app exists, or in the store's admin.
+
+Storefront password: on the development store, the Checkout Kit sheet first shows the store's password page. The tester types the storefront password there; this is the normal way to reach checkout on a development store (architect, 3 October 2026). The live store has no password page, so customers never see it. The app never fills in, stores or logs the password, and no code may be added to do so. The password is not a repository value and never goes into `.env.local`.
 
 ## Customer Account API
 
@@ -84,9 +90,44 @@ All six run at the start of Phase 3, not before (`TESTING.md`).
 
 | # | Check | Needs a real phone |
 | --- | --- | --- |
-| 1 | Razorpay inside Checkout Kit on a real iPhone and a real Android phone: UPI, card, net banking | Yes. UPI hands off to other payment apps, which exist only on a real phone |
+| 1a | Razorpay inside Checkout Kit: redirect to Razorpay and return to the app, on a real iPhone and a real Android phone | Yes. Testable with Razorpay in test mode on the development store |
+| 1b | Razorpay UPI Intent: hand-off to a real UPI app and back | Yes. Testable only in Razorpay live mode, so it runs at an owner-approved launch rehearsal, never as a routine test |
 | 2 | Cash on delivery and the checkout rules inside Checkout Kit | No. A development build on an emulator or simulator is enough. The development store needs the ACOD and SMART Checkout Rules apps installed first |
 | 3 | A guest order from the website appears after login with the same email | No |
-| 4 | A return filed through the Admin API appears for staff to approve, on the Basic plan | No. The development store is on the Basic plan (owner-reported; see above), so the check can run there |
+| 4 | A return filed through the Admin API appears for staff to approve, on the Basic plan | No. The development store has Basic-plan features (see above), so the check can run there |
 | 5 | Links from justbookify.in open the app (verification files on a Shopify-hosted domain) | Yes. A signed build on a device. The verification files go on the live domain, so this check needs the owner's go-ahead |
 | 6 | Judge.me allows reading and submitting reviews on the store's plan | No |
+
+Razorpay test mode and live mode: Razorpay's documentation says UPI Intent can be tested only in Live Mode, not in Test Mode (recorded on 3 October 2026 at the architect's instruction). That is why check 1 is split. Check 1a needs Razorpay in test mode on the development store. Check 1b needs live mode and real money, so it is done only at a launch rehearsal the owner approves.
+
+### P3-01: Checkout Kit opens the development store's checkout
+
+Scope: Checkout Kit opens the development store's checkout from the Android development build, and a test order completes with cash on delivery. This is not early check 1 or 2. Neither Razorpay nor the ACOD or SMART Checkout Rules apps are involved.
+
+How: the development-only screen `src/app/dev-checkout.tsx` builds a one-item cart with the named Storefront operations `DevCheckoutProduct` and `DevCheckoutCartCreate`, then presents the cart's checkout URL in Checkout Kit. The screen shows Checkout Kit's `completed`, `close` and `error` events in its status line and logs nothing, so the status line is the record of what the app received.
+
+Result, 3 October 2026, on the owner's Android phone (development build bb476119, JavaScript from Metro): **pass, with the development store's password page in front of checkout.**
+
+1. Tapping "Open test checkout" created a cart over the Storefront API and opened the Checkout Kit sheet ("Checkout").
+2. Inside the sheet Shopify first showed its development-store password page: the Shopify logo, "JustBookify Dev", "This store is password protected. Use the password to enter the store.", a password field, "Enter", and "Are you the store owner? Log in here". Claude stopped here and reported it. The architect ruled it a development-store artifact (see "Storefront password" above).
+3. The owner typed the storefront password. Checkout did **not** appear straight after the password. It appeared only after the owner closed the sheet and tapped "Open test checkout" again, which created a second cart (the first is left abandoned on the development store).
+4. The owner completed the order with the manual cash-on-delivery method. The test screen's status line then read "Checkout completed: the order was placed.", so the app received Checkout Kit's `completed` event (owner-reported; the screen logs nothing, so the Metro log shows only the bundle loads).
+5. The order appears in the development store's admin (owner-confirmed). Claude did not read it: the Admin tools are not used in this project.
+
+What this shows:
+
+- Checkout Kit 3.9.1 builds and runs on Expo SDK 57 / React Native 0.86.3 on Android, presents a checkout URL from the Storefront API, and reports `completed` to the app.
+- On a development store the storefront password gates the checkout URL inside Checkout Kit. Checkout Kit renders the password page; it does not raise `storefront_password_required` as an error. After the password is accepted the sheet does not continue to checkout by itself; the checkout has to be presented again. Checkout Kit has no supported bypass (open feature request Shopify/checkout-sheet-kit-swift#151), and none is wanted.
+- Not covered: Razorpay, ACOD and SMART Checkout Rules (early checks 1 and 2), iOS, and the fees and shipping rate shown at checkout.
+
+Acceptance checks (wording as approved for P3-01, updated 3 October 2026):
+
+| Check | Result |
+| --- | --- |
+| Checkout Kit pinned to an exact version, with a decision record citing the documentation checked and the date | Pass: 3.9.1, D-030 |
+| From the Android development build, the test screen opens the development store's checkout in Checkout Kit. On a development store the sheet first shows the store password page; the tester enters the storefront password, which the app never fills in, stores or logs. The live store has no password page | Pass |
+| A test order completes on the development store with cash on delivery, and the app receives Checkout Kit's `completed` event | Pass (owner-confirmed: status line and the development store's admin) |
+| The test screen and its link exist only in development builds, and tests prove it | Pass |
+| No secret, store domain, token, storefront password or live-store value in the repository, the logs or the screen | Pass |
+| Lint, format check, type check, tests, audit gate and `expo-doctor` pass, and CI is green | Pass (CI result on the pull request) |
+| Razorpay's live-mode-only UPI Intent recorded, and early check 1 split into 1a and 1b | Pass |

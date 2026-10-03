@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { getAppEnvironment, getEnvironmentLabel, getStoreConfigStatus } from '@/config';
@@ -18,6 +19,11 @@ export default function PlaceholderScreen() {
           <Text style={styles.status}>Store configuration: {getStoreConfigStatus()}</Text>
         </>
       )}
+      {environment === 'development' && (
+        <Link href="/dev-checkout" style={styles.link}>
+          Open the test checkout screen
+        </Link>
+      )}
     </View>
   );
 }
@@ -34,4 +40,5 @@ const styles = StyleSheet.create({
   body: { fontSize: 16, textAlign: 'center' },
   environment: { fontSize: 14, marginTop: 16, color: '#666' },
   status: { fontSize: 14, marginTop: 4, color: '#666' },
+  link: { fontSize: 16, marginTop: 24, color: '#0a58ca', textDecorationLine: 'underline' },
 });

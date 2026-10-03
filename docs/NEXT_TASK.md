@@ -1,35 +1,45 @@
-# Next task (proposal): P3-01, Checkout Kit in the development build, for early checks 1 and 2
+# Next task (proposal): P3-02, early check 2: cash on delivery and the checkout rules inside Checkout Kit
 
-Status: proposal. It starts only after P2-03 is merged and the owner approves this task.
+Status: proposal. It starts only after P3-01 is merged and the owner approves this task.
 
 ## Goal
 
-Start Phase 3. Add Checkout Kit to the Android development build with one test path, so early checks 1 (Razorpay, UPI, card, net banking) and 2 (cash on delivery and the checkout rules) can run on the owner's Android phone against the development store. iOS waits for Apple access (D-019).
+Run early check 2 (risk 1, high) on the owner's Android phone, with the Android development build: do the ACOD and SMART Checkout Rules apps behave inside Checkout Kit as they do on the website? P3-01 proved that Checkout Kit opens the development store's checkout and completes a plain cash-on-delivery order. This task adds the two checkout apps on top. iOS waits for Apple access (D-019).
+
+Why before early check 1a (Razorpay test mode): it builds directly on the cash-on-delivery order already proven, and needs no payment-provider credentials.
 
 ## Needs from the owner first
 
-1. Approve `@shopify/checkout-sheet-kit` 4.0.x (the package chosen in D-017) as a new native dependency. It gets its own decision record with the exact version.
-2. On the development store only: install the ACOD and SMART Checkout Rules apps, and set Razorpay up in test mode. Claude does not do this; it is a store-admin task, and the live store is never touched.
-3. Confirm that a test order on the development store is acceptable for the checks. No order is ever placed on the live store.
+1. On the **development store only**, install the ACOD and SMART Checkout Rules apps. Copy the live store's settings into them by hand: the shipping restriction for pincodes 50 to 53 and 56 to 69 (R3), the free-delivery shipping discount (R4, D-023), the ₹500 subtotal rule (R2), wherever the live store sets it, and the ACOD fee and limits. Reading the live store's settings in its admin is fine; changing anything there is not. Claude does not do this; it is a store-admin task.
+2. Make sure the development store has products priced so that a cart can sit under ₹200, between ₹200 and ₹500, and at or above ₹500.
+3. Confirm that more test orders on the development store are acceptable.
 
 ## Steps (after the answers)
 
-1. Check Shopify's Checkout Kit documentation for React Native and Expo, and record the version used.
-2. Install `@shopify/checkout-sheet-kit` with `npx expo install`, pin it exactly, and add its config plugin if one is needed.
-3. In the development build only, add a test screen that builds a cart from one development-store product over the Storefront API and opens its checkout URL in Checkout Kit.
-4. Rebuild the Android development build on EAS. Native modules change, so the existing build is not enough.
-5. Run early checks 1 and 2 on the owner's phone, with the owner, and record each result in `SHOPIFY_INTEGRATION.md`.
-6. Update `docs/CURRENT_STATUS.md` and propose the next task.
+1. Read the two apps' documentation for any statement about Checkout Kit, headless or mobile checkouts, and record what it says.
+2. If the checks need a bigger cart, add a development-only quantity control to the test screen. No other app code changes.
+3. On the owner's phone, with the owner, through Checkout Kit (entering the storefront password as in P3-01):
+   - Cash on delivery shows the ACOD fee and limits as on the website.
+   - A pincode outside R3 is blocked; one inside is accepted.
+   - A subtotal at or above ₹500 is blocked (R2).
+   - The free-delivery discount applies from ₹200 for prepaid orders and not for cash on delivery (R4). Prepaid is checked only as far as the shipping line, because Razorpay is not set up.
+   - One cash-on-delivery order completes, and the app receives `completed`.
+4. Compare each result with the website's checkout on the development store, and record pass, fail or a named fallback in `SHOPIFY_INTEGRATION.md`. Update risk 1.
+5. Update `docs/CURRENT_STATUS.md` and propose the next task (early check 1a, Razorpay test mode).
 
 ## Acceptance checks
 
-- Checkout Kit opens the development store's checkout from the Android development build.
-- Early checks 1 and 2 have a written result: pass, fail, or a named fallback.
-- The test screen exists only in development builds.
-- No secret or live-store value appears in the repository.
+- Early check 2 has a written result for each rule above: pass, fail, or a named fallback.
+- Any app code change is development-only and tested.
+- No secret, storefront password or live-store value appears in the repository; nothing on the live store is changed.
+- Lint, format check, type check, tests, audit gate and `expo-doctor` pass, and CI is green.
 
 ## Out of scope
 
-- Anything on the live store.
-- Login (Customer Account API), the catalogue screens, Firebase, Sentry.
-- Early checks 3 to 6.
+- Anything that changes the live store.
+- Razorpay (early checks 1a and 1b), login, the catalogue screens, Firebase, Sentry.
+- The app's own cart-side cap, pincode and fee hints (R2 to R4 in the cart). Those are built with the cart screens.
+
+## Open note from P3-01
+
+On the development store, checkout did not appear straight after the storefront password; the sheet had to be closed and the checkout opened again. This is a development-store artifact (the live store has no password page) and needs no code.
