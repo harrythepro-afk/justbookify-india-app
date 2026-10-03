@@ -25,6 +25,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.claude/settings.local.json
 
 # typescript and test output
 *.tsbuildinfo

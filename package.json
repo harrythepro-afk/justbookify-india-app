@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:ci": "jest --ci --coverage=false",
-    "audit:gate": "node scripts/audit-gate.mjs"
+    "audit:gate": "node scripts/audit-gate.mjs",
+    "check:dev-store": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-dev-store.mjs"
   },
   "jest": {
     "preset": "jest-expo",

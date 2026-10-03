@@ -1,38 +1,32 @@
-# Next task (proposal): P2-02, protect main and connect the development store
+# Next task (proposal): P2-03, first development build
 
-Status: proposal. It starts only after the owner approves P2-01 and replies to the questions below.
+Status: proposal. It starts only after P2-02 is merged and the owner approves this task.
 
 ## Goal
 
-Make `main` safe to build on, and give the app a development store to talk to, without touching the live store.
+Get the app running as a development build on an Android emulator or phone, pointed at the development store, so Phase 3's early checks have something to run in.
 
 ## Needs from the owner first
 
-1. Merge the P2-01 pull request after review.
-2. Say whether Claude may switch on branch protection for `main` (pull request required, the two CI jobs required, no force pushes). It changes repository settings, so it is not done without a yes.
-3. Create the Shopify development store, as `ARCHITECTURE.md` describes, or name who does. Claude does not create accounts.
-4. Confirm that the cash-on-delivery fee is a flat shipping rate, as `SHOPIFY_AUDIT.md` says.
-
-Settled in review on 3 October 2026: D-020 to D-022 approved; the `decode-uri-component` advisory is risk 17 and waits for Phase 12; the free-delivery hint is ₹200 for prepaid orders (D-023).
+1. Create an Expo account (or organisation) for the app, or name who does, and sign the Expo CLI in on this machine. Claude does not create accounts or enter passwords.
+2. Approve `expo-dev-client` as a new dependency (a development build needs it). It gets its own decision record.
 
 ## Steps (after the answers)
 
-1. Turn on branch protection on `main`, if approved.
-2. In the development store only, with the owner's go-ahead, install the Headless channel and publish a few sample products to it (`SHOPIFY_INTEGRATION.md`, additions 1 and 2, on the development store).
-3. Put the development store's public values in `.env.local` (never committed) and check that `getStoreConfig()` parses them.
-4. Pin the Storefront API version and record it in `docs/SHOPIFY_INTEGRATION.md` with the date.
-5. Run the six early checks from `docs/SHOPIFY_INTEGRATION.md` that need no phone, and list the ones that do.
-6. Update `docs/CURRENT_STATUS.md` and propose the next task.
+1. Add `eas.json` with `development`, `staging` and `production` profiles that set `APP_ENV`, matching D-021.
+2. Install `expo-dev-client` with `npx expo install` and record the version in a decision.
+3. Build an Android development build with EAS and run it on an emulator. iOS waits for Apple access in Phase 3 (D-019).
+4. Show the development store's configuration in the development build's placeholder screen only as "configured" or "not configured", never the values.
+5. Update `docs/CURRENT_STATUS.md` and propose the next task.
 
 ## Acceptance checks
 
-- A pull request into `main` cannot be merged without passing CI.
-- `getStoreConfig()` returns a valid configuration against the development store's values.
-- A scripted read of the development store's products succeeds.
-- No secret, token or live-store value appears anywhere in the repository.
+- The Android development build installs and opens on an emulator, named "JustBookify (Dev)" with app ID `com.justbookify.india.dev`.
+- The build reads the development store's configuration through `getStoreConfig()`.
+- No secret, token or live-store value appears anywhere in the repository or in the EAS project's committed configuration.
 
 ## Out of scope
 
 - Anything on the live store.
-- Screens, checkout, login, Firebase, Sentry, EAS.
-- Any credential that is not public by design.
+- Checkout Kit, login, screens beyond the placeholder, Firebase, Sentry, store listings.
+- The six early checks (Phase 3).

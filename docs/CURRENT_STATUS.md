@@ -4,7 +4,7 @@ Last updated: 3 October 2026.
 
 ## Phase
 
-Phase 2: repository, documentation and environments. Task P2-01 (repository skeleton and quality gates) is complete. The architect reviewed it on 3 October 2026 and approved D-020 to D-022; the owner merges after review. GitHub Actions passed on the pull request (lint, format, type check, tests, dependency audit, secret scan).
+Phase 2: repository, documentation and environments. P2-01 is merged (`de4701f`). P2-02 (protect `main`, connect the development store) is pull request #2. The architect approved it on 3 October 2026, together with an allowlist entry for a new `braces` advisory (D-027). It merges once CI is green on its latest commit.
 
 ## Done
 
@@ -12,30 +12,37 @@ Phase 2: repository, documentation and environments. Task P2-01 (repository skel
 - Phase 1: the owner approved twelve decisions. See `DECISIONS.md` and `PRODUCT_REQUIREMENTS.md`.
 - Project documentation written.
 - P2-01: private GitHub repository `justbookify-india-app`; Expo SDK 57 app with Expo Router, TypeScript strict and one placeholder screen; ESLint, Prettier, Jest and React Native Testing Library; typed store configuration in `src/config/`; `.env.example` with empty placeholders; `.gitignore` for env files, signing files, keystores and service-account files; CI workflow (lint, format check, type check, tests, dependency audit, secret scan). Versions are recorded in D-020.
+- P2-02:
+  - The owner created the development store (Basic plan, owner-reported; currency INR), installed the Headless channel and published sample products to it.
+  - The store configuration carries the public Storefront token, and refuses Shopify secret-token prefixes. The Storefront API is pinned to `2026-10` (D-025).
+  - `.env.local` holds the development store's values. It is gitignored and never committed.
+  - `npm run check:dev-store` passed on 3 October 2026: `getStoreConfig()` returns a valid configuration, the store's currency (INR) matches, and 3 products were read over Storefront API `2026-10`.
+  - The six early checks are classified by whether they need a real phone (checks 1 and 5 do). None was run; they belong to Phase 3. See `SHOPIFY_INTEGRATION.md`.
+  - Decisions D-024 (cash-on-delivery figures are hints), D-025 (token and API version), D-026 (review rule) and D-027 (`braces` allowlist entry). `CLAUDE.md` gained the merge rule and the rule never to call the Shopify Admin MCP tools.
 
 ## What works
 
-- `npm run lint`, `format:check`, `typecheck`, `test` (38 tests) and `audit:gate` pass locally.
-- `npx expo-doctor` passes 21 of 21 checks.
-- The app bundles for iOS and Android with Metro, and the dev server serves a bundle that contains the placeholder screen.
-- The app config gives the right name and app ID for `development`, `staging` and `production`, and refuses an unknown `APP_ENV`.
+- `npm run lint`, `format:check`, `typecheck`, `test` (44 tests) and `audit:gate` pass locally.
+- `npm run check:dev-store` passes against the development store, It fails cleanly, without printing the token or the domain, when `.env.local` is missing, when the currency does not match, when the token is wrong (HTTP 401) or looks like a secret token, and when the host cannot be reached.
+- From P2-01: `npx expo-doctor` passed 21 of 21 checks; the app bundles for iOS and Android with Metro; the app config gives the right name and app ID for each `APP_ENV`.
 
 ## Not done
 
-- The app has not been run on a phone or an emulator. No device was available to the build agent; the placeholder screen is covered by a component test and by the bundle check above.
-- No Shopify development store yet. `.env.example` values are blank, so `getStoreConfig()` throws until they are filled in. Nothing calls it yet.
-- No store additions made. The Headless channel is not installed.
-- No Firebase, Sentry or Expo accounts created. No EAS configuration (out of scope for P2-01).
-- No access to the Apple or Google developer accounts yet (see D-019).
-- Branch protection on `main` is not switched on (`SECURITY.md` requires it). It changes repository settings, so it waits for the owner.
+- **Branch protection on `main`.** GitHub refused on 3 October 2026 (HTTP 403: "Upgrade to GitHub Pro or make this repository public"). As instructed, the plan and the visibility were not changed. The merge rule in `CLAUDE.md` is the gate (risk 18, D-026).
+- The development store's plan is owner-reported. The public Storefront token cannot read it; confirm it through the Admin API's `shop.plan` once the backend custom app exists.
+- The development store does not yet have the ACOD and SMART Checkout Rules apps that early check 2 needs.
+- The app has not been run on a phone or an emulator.
+- No store additions on the live store. No Firebase, Sentry or Expo accounts, no EAS configuration. No access to the Apple or Google developer accounts yet (D-019).
+- Storefront operations are not yet typed through code generation; that comes with the data layer, and the code generator is a dependency that needs a decision.
 
 ## Known issues
 
-- `npm audit` reports 15 findings, all in Expo's own dependencies. One is high (`node-forge`, GHSA-86w9-cpqp-85rv, reached only through the Expo CLI's local code signing; no patched release exists). It is on the gate's allowlist until 2026-12-31 and is re-checked at every Expo upgrade (D-022, approved). Two are moderate and not gated: `uuid` through the Expo config plugin tooling, and `decode-uri-component` through Expo Router's `query-string`. The second is risk 17 in `RISKS.md`: it must be fixed or mitigated before deep links are enabled in Phase 12. The major upgrade is deferred.
+- `npm audit` reports a high advisory, GHSA-vfj7-8cjw-p6xm (CVE-2026-93687, stack exhaustion through deeply nested brace patterns) in `braces` 3.0.3. Every version is affected and no patched release exists; an upstream fix is in progress. GitHub updated the advisory on 2 October 2026, which made `main` fail the gate. `braces` comes in only through `micromatch` 4.0.8, used by Jest, Metro's file map and the Expo CLI: developer and build tooling that matches file paths and is never bundled into the app. It is allowlisted until **2026-11-15** (D-027). Remove the entry in the same commit that picks up a patched `braces`.
+- `npm audit` also reports, as before: `node-forge` (high, allowlisted until 2026-12-31, D-022); `uuid` and `decode-uri-component` (moderate, not gated; the second is risk 17).
 - Icons and splash image are the Expo placeholders. They must be replaced before any store build.
-- The store configuration's fee field names come from `SHOPIFY_AUDIT.md` and R4. The free-delivery threshold is ₹200 for prepaid orders (D-023). It is a hint only, set through `EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD`, and not written in code.
+- Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125 plus the ACOD app's own fee of unknown amount, free prepaid delivery from ₹200 (D-023, D-024). Checkout sets the final amount.
 - `userInterfaceStyle` is fixed to light until a dark theme is designed.
 
 ## Last passing build
 
-P2-01 branch `feat/p2-01-repository-skeleton`, local run on 3 October 2026. The GitHub Actions result is shown on the pull request.
+P2-02 branch `feat/p2-02-dev-store`, local run on 3 October 2026: lint, format check, type check, tests, audit gate and `check:dev-store` pass. The GitHub Actions result is shown on pull request #2.

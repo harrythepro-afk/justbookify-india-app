@@ -50,7 +50,8 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 - [ ] A new native module needs a decision record
 
 ### Development
-- [ ] Protected main branch; required review
+- [ ] Protected main branch: pull request required, both CI jobs required, no force pushes. Not available on GitHub Free for a private repository; the merge rule in `CLAUDE.md` stands in (risk 18)
+- [x] Review: the architect reviews every pull request in chat; merge only on the owner's "approved, merge" (D-026)
 - [ ] No production credentials on developer machines
 - [ ] Separate Shopify apps and tokens per environment
 

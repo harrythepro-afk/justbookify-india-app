@@ -3,6 +3,7 @@ import { parseStoreConfig, StoreConfigError, type RawStoreEnv } from '@/config/s
 // Invented values for the parser only. They are not the store's real settings.
 const validEnv: RawStoreEnv = {
   EXPO_PUBLIC_STORE_DOMAIN: 'Test-Store.example.com',
+  EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN: ' invented-public-token ',
   EXPO_PUBLIC_STORE_CURRENCY: 'USD',
   EXPO_PUBLIC_SHIPPING_FEE_PREPAID: '4.50',
   EXPO_PUBLIC_SHIPPING_FEE_COD: '7',
@@ -25,6 +26,7 @@ describe('parseStoreConfig', () => {
   it('parses a complete configuration', () => {
     expect(parseStoreConfig(validEnv)).toEqual({
       storeDomain: 'test-store.example.com',
+      storefrontAccessToken: 'invented-public-token',
       currencyCode: 'USD',
       shippingFeePrepaid: 4.5,
       shippingFeeCod: 7,
@@ -40,6 +42,7 @@ describe('parseStoreConfig', () => {
   it('reports every variable that is missing, by name', () => {
     const empty: RawStoreEnv = {
       EXPO_PUBLIC_STORE_DOMAIN: undefined,
+      EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN: '  ',
       EXPO_PUBLIC_STORE_CURRENCY: '',
       EXPO_PUBLIC_SHIPPING_FEE_PREPAID: undefined,
       EXPO_PUBLIC_SHIPPING_FEE_COD: undefined,
@@ -55,6 +58,9 @@ describe('parseStoreConfig', () => {
     ['EXPO_PUBLIC_STORE_DOMAIN', 'https://test-store.example.com'],
     ['EXPO_PUBLIC_STORE_DOMAIN', 'test-store.example.com/path'],
     ['EXPO_PUBLIC_STORE_DOMAIN', 'localhost'],
+    ['EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN', 'two words'],
+    ['EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN', 'shpat_invented'],
+    ['EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN', 'SHPSS_invented'],
     ['EXPO_PUBLIC_STORE_CURRENCY', 'usd'],
     ['EXPO_PUBLIC_STORE_CURRENCY', 'USDX'],
     ['EXPO_PUBLIC_SHIPPING_FEE_PREPAID', '-1'],
@@ -73,5 +79,12 @@ describe('parseStoreConfig', () => {
 
     expect(error.message).toContain('EXPO_PUBLIC_STORE_DOMAIN');
     expect(error.message).not.toContain('12345');
+  });
+
+  it('never puts a rejected token in the error message', () => {
+    const error = thrownBy({ ...validEnv, EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN: 'shpat_invented' });
+
+    expect(error.message).toContain('EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN');
+    expect(error.message).not.toContain('invented');
   });
 });
