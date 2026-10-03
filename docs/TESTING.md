@@ -17,6 +17,12 @@
 
 Mocks are for unit and component tests only. Anything touching cart, checkout or login is tested against a real development store. Never test on the live store.
 
+### Design token checks (P4-01)
+
+- Colour literals: ESLint's `no-restricted-syntax` rule in `eslint.config.js` fails any string in `src/` that starts like a colour (`#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb(`, `rgba(`, `hsl(`, `hsla(`), except in `src/theme/tokens.ts`. `__tests__/theme/colourLiterals.test.ts` runs ESLint on sample code, so removing the rule fails a test. Named colours such as `white` are not caught; reviews check for them.
+- Contrast: `__tests__/theme/tokens.test.ts` checks every pair in `textPairs` (`src/theme/tokens.ts`) at 4.5:1 or more (WCAG 2.2 AA for normal text), checks the ratios recorded in D-038 and D-039, and fails if cream text is ever paired with the brand green. A new text colour or background needs a new entry in `textPairs`.
+- Environment banner and tabs: component tests render the banner on each environment and the tab navigator through `expo-router/testing-library`.
+
 ## Edge cases
 
 | Case | Expected behaviour |

@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 3 October 2026 (P3-03 merged; P4-01 in progress on branch `feat/p4-01-app-shell`).
+Last updated: 3 October 2026 (P4-01: app shell, design tokens and environment banner; awaiting review. P4-02 proposed).
 
 ## Phase
 
-Phase 4 (mobile foundation) is in progress: P4-01 (app shell: navigation, design tokens, environment banner) is being built on branch `feat/p4-01-app-shell`. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and records the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 4 (mobile foundation) is in progress. P4-01 (this change, branch `feat/p4-01-app-shell`) builds the app shell: five tabs, design tokens and the environment banner. It is awaiting review; `NEXT_TASK.md` proposes P4-02. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -49,6 +49,18 @@ Phase 4 (mobile foundation) is in progress: P4-01 (app shell: navigation, design
   - D-038: brand colours and fonts read from justbookify.in's public pages (read only). Every text pair the site uses passes WCAG AA except cream on green; the adjusted green `#3E7916` is proposed for the owner to confirm.
   - `SHOPIFY_INTEGRATION.md`, `RISKS.md`, `TESTING.md`, `PRODUCT_REQUIREMENTS.md` and `NEXT_TASK.md` updated to match.
 
+- P4-01 (awaiting review):
+  - D-039: the owner confirmed the greens. Text on the brand green `#9DE46D` is dark maroon, never cream; a green that carries light text or stands alone is `#3E7916`.
+  - D-040: tab icons from `@react-native-vector-icons/ionicons` 13.1.4. Expo's icon guide (read 3 October 2026) says `@expo/vector-icons` "will be deprecated and is not recommended"; the owner chose Expo's recommended replacement, which is maintained by its community, not by Expo.
+  - D-041: Asul and Archivo from `@expo-google-fonts/asul` 0.4.1 and `@expo-google-fonts/archivo` 0.4.2, loaded at runtime with `expo-font` 57.0.4 (already in the app through `expo`, now a direct dependency). No config plugins, so no new native build.
+  - `src/theme/tokens.ts`: the D-038 colours as named roles, the text pairs the tokens allow, fonts (one family per face), type sizes, spacing, radius and icon size. `src/theme/contrast.ts` computes WCAG contrast.
+  - A lint rule fails any colour literal in `src/` outside `tokens.ts`. The test checkout screen moved to tokens too.
+  - Five tabs (Home, Browse, Cart, My Books, Account) with placeholder screens in `src/app/(tabs)/`; filled icon for the active tab, outline for the others.
+  - `EnvironmentBanner` above the navigator on development and staging builds: environment name and store configuration status, never values. Nothing on production. The store configuration line moved there from the old start screen.
+  - The test checkout link stays on Home, development builds only.
+  - On-device check with the owner, 3 October 2026, development build bb476119 with JavaScript from Metro (one Android bundle, 1,488 modules, no errors or warnings): the app shows the banner ("Development build", "Store configuration: configured"); all five tabs show icon and label and open their screens, with the active tab filled and in maroon; headings are in Asul and body text in Archivo (owner screenshots). **No new EAS build was needed.** The expo-dev-client menu button sits over the banner's right edge on development builds; it is not part of the app.
+  - 124 tests (38 new).
+
 ## What works
 
 - `npm run lint`, `format:check`, `typecheck`, `test` (86 tests) and `audit:gate` pass on `main` after P3-02. `npx expo-doctor` passes 21 of 21 checks.
@@ -79,5 +91,7 @@ Phase 4 (mobile foundation) is in progress: P4-01 (app shell: navigation, design
 - `userInterfaceStyle` is fixed to light until a dark theme is designed.
 
 ## Last passing build
+
+Branch `feat/p4-01-app-shell` (P4-01), 3 October 2026: lint, format check, type check, tests (124), audit gate and `expo-doctor` (21 of 21) pass locally; CI runs on its pull request. Android development build bb476119 runs it on the owner's phone.
 
 `main` at `79d5466` (P3-02), 3 October 2026: lint, format check, type check, tests (86), audit gate and `expo-doctor` pass, and CI was green on PR #5's latest commit before the merge. Android development build bb476119 (P3-01) runs that JavaScript on the owner's phone. `main` at `9d561d9` (P3-03) changed documentation only; CI was green on PR #6 before the merge.
