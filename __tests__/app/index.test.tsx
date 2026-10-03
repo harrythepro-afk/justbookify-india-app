@@ -1,8 +1,15 @@
 import { render, screen } from '@testing-library/react-native';
 
 import PlaceholderScreen from '@/app/index';
+import type { StoreConfigStatus } from '@/config/store';
 
 let mockAppEnv = 'development';
+let mockStoreStatus: StoreConfigStatus = 'configured';
+
+jest.mock('@/config/store', () => ({
+  ...jest.requireActual('@/config/store'),
+  getStoreConfigStatus: () => mockStoreStatus,
+}));
 
 // The getter reads mockAppEnv when the screen renders, after the import hoisting has settled.
 jest.mock('expo-constants', () => ({
@@ -17,6 +24,7 @@ jest.mock('expo-constants', () => ({
 describe('PlaceholderScreen', () => {
   beforeEach(() => {
     mockAppEnv = 'development';
+    mockStoreStatus = 'configured';
   });
 
   it('shows the app name and the placeholder message', async () => {
@@ -40,5 +48,24 @@ describe('PlaceholderScreen', () => {
     await render(<PlaceholderScreen />);
 
     expect(screen.queryByText(/ build$/)).not.toBeOnTheScreen();
+  });
+
+  it.each(['configured', 'not configured'] as const)(
+    'says the store is %s on a development build',
+    async (status) => {
+      mockStoreStatus = status;
+
+      await render(<PlaceholderScreen />);
+
+      expect(screen.getByText(`Store configuration: ${status}`)).toBeOnTheScreen();
+    },
+  );
+
+  it('does not show the store configuration on a production build', async () => {
+    mockAppEnv = 'production';
+
+    await render(<PlaceholderScreen />);
+
+    expect(screen.queryByText(/^Store configuration/)).not.toBeOnTheScreen();
   });
 });

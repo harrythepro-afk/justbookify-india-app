@@ -9,6 +9,10 @@ const PRODUCTION_APP_ID = 'com.justbookify.india';
 
 const APP_NAME = 'JustBookify';
 
+// The Expo account that owns the EAS project, and that project's ID. Neither is a secret (D-028).
+const EAS_OWNER = 'hemant6626';
+const EAS_PROJECT_ID = '33687d66-0fd2-4b7d-8f50-30c1cb920c3c';
+
 const ENVIRONMENT_VARIANTS: Record<AppEnvironment, { idSuffix: string; nameSuffix: string }> = {
   development: { idSuffix: '.dev', nameSuffix: ' (Dev)' },
   staging: { idSuffix: '.staging', nameSuffix: ' (Staging)' },
@@ -34,6 +38,7 @@ export function buildConfig(appEnv: AppEnvironment, base: Partial<ExpoConfig> = 
   return {
     ...base,
     name: `${APP_NAME}${nameSuffix}`,
+    owner: EAS_OWNER,
     slug: 'justbookify-india',
     version: '1.0.0',
     orientation: 'portrait',
@@ -54,7 +59,7 @@ export function buildConfig(appEnv: AppEnvironment, base: Partial<ExpoConfig> = 
     web: { favicon: './assets/favicon.png' },
     plugins: ['expo-router', 'expo-status-bar'],
     experiments: { typedRoutes: true },
-    extra: { appEnv },
+    extra: { appEnv, eas: { projectId: EAS_PROJECT_ID } },
   };
 }
 
