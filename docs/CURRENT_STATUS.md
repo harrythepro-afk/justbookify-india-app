@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 3 October 2026 (P3-03: early checks re-planned, roadmap and design direction recorded, P4-01 proposed).
+Last updated: 3 October 2026 (P4-01: app shell, design tokens and environment banner; awaiting review. P4-02 proposed).
 
 ## Phase
 
-Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merged. P3-03 (this change, branch `docs/p3-03-early-checks-replan`) re-plans the remaining early checks and records the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 4 (mobile foundation) is next; `NEXT_TASK.md` proposes P4-01, not started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 4 (mobile foundation) is in progress. P4-01 (this change, branch `feat/p4-01-app-shell`) builds the app shell: five tabs, design tokens and the environment banner. The architect approved it on 4 October 2026; `NEXT_TASK.md` proposes P4-02. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -40,7 +40,7 @@ Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merg
   - Both apps' App Store listings say they run on Shopify Functions; neither mentions Checkout Kit. Shopify's Checkout Kit page says Functions run inside Checkout Kit as on the web.
   - The test screen now lists the development store's books with a quantity stepper and shows Shopify's cart subtotal, so each cart bracket can be reached. Tests cover it.
   - On-device check with the owner, 3 October 2026: **passed on all seven cases** (details in `SHOPIFY_INTEGRATION.md`). Rates ₹75 and ₹125 under ₹200; ₹75 off both from ₹200 (prepaid free, cash on delivery ₹50); ACOD shows Cash on Delivery payment only with the Cash on Delivery rate; R2 blocks a ₹539 cart; R3 blocks Maharashtra 400001; a ₹540 cash-on-delivery order (₹490 subtotal) completed, the app received `completed`, and the owner saw it in the development store's admin. R2 and ACOD's ₹500 limit both check the subtotal. Risk 1 is open for iOS only.
-- P3-03 (awaiting review): documentation only.
+- P3-03 (merged, `9d561d9`): documentation only.
   - D-033: early check 1a is not run on the development store. Razorpay is offered only to stores with an Indian business entity; the development store's is in Bahrain, and changing it needs the owner's personal identity details, which the owner declined to enter for a test store. Checks 1a and 1b both run at an owner-approved launch rehearsal on the live store with one small real order. Risk 2 stays open and high. Mitigation, built with the checkout screens: a remote feature flag switches checkout between the Checkout Kit sheet and the system browser with a return link, so a failure at the rehearsal needs no rebuild.
   - D-034: check 3 moves to Phase 7 (login), check 4 to Phase 10 (backend), check 5 to Phase 12 (deep links), check 6 to Phase 13 (reviews).
   - D-035: `ROADMAP.md` numbers the phases 0 to 20, linked from `CLAUDE.md`.
@@ -48,6 +48,18 @@ Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merg
   - D-037: version 1 follows the website's colours, fonts, wording and section order; every visual value is a design token; five tabs (Home, Browse, Cart, My Books, Account); screen layouts for Home, the book card, Browse and My Books recorded in `PRODUCT_REQUIREMENTS.md`. Scope (D-001) unchanged.
   - D-038: brand colours and fonts read from justbookify.in's public pages (read only). Every text pair the site uses passes WCAG AA except cream on green; the adjusted green `#3E7916` is proposed for the owner to confirm.
   - `SHOPIFY_INTEGRATION.md`, `RISKS.md`, `TESTING.md`, `PRODUCT_REQUIREMENTS.md` and `NEXT_TASK.md` updated to match.
+
+- P4-01 (awaiting review):
+  - D-039: the owner confirmed the greens. Text on the brand green `#9DE46D` is dark maroon, never cream; a green that carries light text or stands alone is `#3E7916`.
+  - D-040: tab icons from `@react-native-vector-icons/ionicons` 13.1.4. Expo's icon guide (read 3 October 2026) says `@expo/vector-icons` "will be deprecated and is not recommended"; the owner chose Expo's recommended replacement, which is maintained by its community, not by Expo.
+  - D-041: Asul and Archivo from `@expo-google-fonts/asul` 0.4.1 and `@expo-google-fonts/archivo` 0.4.2, loaded at runtime with `expo-font` 57.0.4 (already in the app through `expo`, now a direct dependency). No config plugins, so no new native build.
+  - `src/theme/tokens.ts`: the D-038 colours as named roles, the text pairs the tokens allow, fonts (one family per face), type sizes, spacing, radius and icon size. `src/theme/contrast.ts` computes WCAG contrast.
+  - A lint rule fails any colour literal in `src/` outside `tokens.ts`. The test checkout screen moved to tokens too.
+  - Five tabs (Home, Browse, Cart, My Books, Account) with placeholder screens in `src/app/(tabs)/`; filled icon for the active tab, outline for the others.
+  - `EnvironmentBanner` above the navigator on development and staging builds: environment name and store configuration status, never values. Nothing on production. The store configuration line moved there from the old start screen.
+  - The test checkout link stays on Home, development builds only.
+  - On-device check with the owner, 3 October 2026, development build bb476119 with JavaScript from Metro (one Android bundle, 1,488 modules, no errors or warnings): the app shows the banner ("Development build", "Store configuration: configured"); all five tabs show icon and label and open their screens, with the active tab filled and in maroon; headings are in Asul and body text in Archivo (owner screenshots). The Home link opens the test checkout screen, styled from the tokens, below the banner; it lists the development store's books and shows "Ready." **No new EAS build was needed.** The expo-dev-client menu button sits over the banner's right edge on development builds; it is not part of the app.
+  - 124 tests (38 new).
 
 ## What works
 
@@ -77,7 +89,10 @@ Phase 3 is complete on Android. P3-01 (`874b4c2`) and P3-02 (`79d5466`) are merg
 - Icons and splash image are the Expo placeholders. They must be replaced before any store build.
 - Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125, and ₹75 off either from a cart total of ₹200, so free prepaid and ₹50 cash on delivery (D-023, D-031; the ACOD app adds no fee, correcting D-024). The configuration does not yet carry the ₹75 discount amount; that comes with the cart screens. Checkout sets the final amount.
 - `userInterfaceStyle` is fixed to light until a dark theme is designed.
+- Android's system navigation buttons are light on the off-white screens and almost invisible (architect's review of PR #7). Light screens need dark buttons; recorded as a follow-up in `NEXT_TASK.md`.
 
 ## Last passing build
 
-`main` at `79d5466` (P3-02), 3 October 2026: lint, format check, type check, tests (86), audit gate and `expo-doctor` pass, and CI was green on PR #5's latest commit before the merge. Android development build bb476119 (P3-01) runs that JavaScript on the owner's phone. P3-03 changes documentation only; its CI result is shown on its pull request.
+Branch `feat/p4-01-app-shell` (P4-01), 3 October 2026: lint, format check, type check, tests (124), audit gate and `expo-doctor` (21 of 21) pass locally; CI runs on its pull request. Android development build bb476119 runs it on the owner's phone.
+
+`main` at `79d5466` (P3-02), 3 October 2026: lint, format check, type check, tests (86), audit gate and `expo-doctor` pass, and CI was green on PR #5's latest commit before the merge. Android development build bb476119 (P3-01) runs that JavaScript on the owner's phone. `main` at `9d561d9` (P3-03) changed documentation only; CI was green on PR #6 before the merge.
