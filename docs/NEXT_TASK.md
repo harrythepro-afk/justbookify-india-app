@@ -1,51 +1,51 @@
-# Next task (proposal): P4-02, crash reporting with Sentry, personal data scrubbed
+# Next task (proposal): P4-03, feature flags with Firebase Remote Config
 
-Status: proposal. It starts only after P4-01 is merged and the owner starts it in a new session.
+Status: proposal. It starts only after P4-02 is merged and the owner starts it in a new session.
 
 ## Phase 4: mobile foundation
 
 | Task | Scope | Needs |
 | --- | --- | --- |
-| P4-01 (done, awaiting review) | Navigation shell, design tokens, environment banner | Done: D-039, D-040, D-041 |
-| **P4-02 (this task)** | Crash reporting with Sentry, with personal data scrubbed (`SECURITY.md`, `ANALYTICS.md`) | A Sentry account (owner), a dependency decision, a new development build |
-| P4-03 | Feature-flag plumbing with Firebase Remote Config: typed flags with safe in-app defaults, including the checkout presentation flag (D-033) | A Firebase project (owner), a dependency decision, a new development build |
+| P4-01 (done, `df35fa0`) | Navigation shell, design tokens, environment banner | Done: D-039, D-040, D-041 |
+| P4-02 (done, awaiting review) | Crash reporting with Sentry, personal data scrubbed; Android navigation buttons | Done: D-042, D-043 |
+| **P4-03 (this task)** | Feature-flag plumbing with Firebase Remote Config: typed flags with safe in-app defaults, including the checkout presentation flag (D-033) | A Firebase project (owner), a dependency decision, a new development build |
 | P4-04 | Analytics plumbing with Google Analytics for Firebase: the event names in `ANALYTICS.md`, no personal data | P4-03's Firebase project, a dependency decision |
 
-## Goal of P4-02
+## Goal of P4-03
 
-Crashes and unhandled errors in development, staging and production builds reach Sentry (D-012) with the build's environment and release, and with no personal data: no names, emails, phone numbers, addresses, order details, tokens, store domain or URLs with query strings.
+The app reads typed feature flags from Firebase Remote Config (D-012). Every flag has a safe default compiled into the app, so a missing network, an empty Remote Config or a failed fetch leaves the app working. The first flag is the checkout presentation switch from D-033: the Checkout Kit sheet or the system browser with a return link. Its plumbing is built now; its use comes with the checkout screens in Phase 9.
 
-## Answers recorded (4 October 2026)
+## Questions for the owner before starting
 
-1. **Account:** the owner creates the Sentry account and chooses the **EU** data region.
-2. **Plan:** the free plan. Nothing paid without the owner's approval.
-3. **Source maps:** yes, uploaded during EAS builds. The owner stores the upload token in EAS themselves; it never goes into the repository, `.env.local` or the chat. The DSN is public by design and may be given to Claude.
+1. **Firebase project:** the owner creates it (Firebase console, on the owner's Google account), adds an Android app with package `com.justbookify.india.dev`, and later the staging and production IDs. Which Google account should own it?
+2. **Region:** D-012 and `CLAUDE.md` say the backend runs in `asia-south1`. Remote Config has no region, but the project's default resource location is fixed at creation. Confirm `asia-south1`.
+3. **Config files:** `google-services.json` is not a secret in Firebase's model, but it identifies the project. Should it be committed (Expo's usual setup) or supplied as an EAS file variable?
 
 ## Steps
 
-1. Read Sentry's and Expo's current documentation for `@sentry/react-native` on Expo SDK 57 (install, Expo config plugin, Metro config, EAS source map upload), and record the versions and dates.
-2. Decision record for the package (pinned exactly, `npx expo install`) and its config plugin, approved by the owner before installing. Run the audit gate. If the documentation requires a different package, stop and ask.
-3. The DSN is a public value: `EXPO_PUBLIC_SENTRY_DSN` in `.env.example` (empty) and read through `src/config/`. Unset DSN means Sentry stays off, with no error.
-4. Initialise Sentry once in the root layout with the environment from `getAppEnvironment()` and the app version. `sendDefaultPii` off; no session replay, screenshots or view hierarchy; a `beforeSend` and `beforeBreadcrumb` that drop request bodies, query strings, user fields and anything matching the store domain or a token prefix. Tested with unit tests.
-5. A development-only way to raise a test error (on the Home placeholder beside the test checkout link), so the owner can see one event arrive.
-6. A new Android development build on EAS (native code is added), checked with `eas build:inspect` for no secrets; then the on-device check with the owner: one test error appears in Sentry with environment `development`, readable stack trace if source maps were approved, and no personal data.
-7. Update `SECURITY.md` (crash report line), `CURRENT_STATUS.md`, and propose P4-03.
+1. Read the current React Native Firebase and Expo documentation for Remote Config on Expo SDK 57 (`@react-native-firebase/app` and `/remote-config` with their config plugins, or the Firebase JS SDK), and record versions and dates. If the documentation requires something unexpected, stop and ask.
+2. A decision record for the packages, pinned exactly with `npx expo install`, approved by the owner before installing. Run the audit gate.
+3. `src/config/featureFlags.ts`: one typed list of flags with in-app defaults; Remote Config values are parsed and anything unknown or malformed falls back to the default. The first flag: `checkout_presentation` = `sheet` | `browser`, default `sheet`.
+4. Fetch and activate once at start, with a short timeout and a minimum fetch interval suited to each environment. A failure is reported to Sentry without personal data and leaves the defaults in place.
+5. A development-only line on Home showing each flag's current value and whether it came from Remote Config or the default.
+6. A new Android development build on EAS, checked with `eas build:inspect`; then the on-device check: change the flag in the Firebase console, reopen the app, see the new value; turn off Wi-Fi, see the default.
+7. Update `ARCHITECTURE.md` (flags), `SECURITY.md` if needed, `CURRENT_STATUS.md`, and propose P4-04.
 
 ## Acceptance checks
 
-- A test error from the development build appears in Sentry under environment `development` with the app version.
-- Unit tests prove the scrubbing: a sample event carrying an email, a phone number, a token-like string and a URL with a query string comes out without them.
-- With no DSN set, the app starts and tests pass, and nothing is sent.
-- No secret in the repository, the build upload or the logs; the auth token exists only as an EAS secret.
+- Unit tests: defaults when Remote Config is empty, unreachable or returns a malformed value; a valid value overrides the default.
+- The development build shows the flag's value from the Firebase console, and the default with no network.
+- Tests run without Firebase (no network in CI).
+- No secret in the repository or the build upload.
 - Lint, format check, type check, tests, audit gate and `expo-doctor` pass, and CI is green.
 
 ## Out of scope
 
-- Remote Config (P4-03), analytics (P4-04).
-- Performance tracing and session replay.
+- Using the checkout flag in checkout screens (Phase 9).
+- Analytics (P4-04), push notifications.
 - iOS builds (Apple access in Phase 9, D-036).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P4-02)
+## Follow-ups (recorded, not part of P4-03)
 
-- **Android navigation buttons** (architect's review of PR #7, 4 October 2026): on Android the system navigation buttons at the bottom are almost invisible, light on the off-white background. Light screens need dark navigation buttons. Seen on the owner's phone with development build bb476119. To be scheduled as its own small task.
+- **First staging build (from P4-02):** check that Sentry receives a native crash (the development build's dev client catches it, so it cannot be checked there) and that source maps upload during the build. Needs `EXPO_PUBLIC_SENTRY_DSN` as an EAS variable for the staging build's environment, an EAS-generated keystore for `com.justbookify.india.staging` (a decision), and an installable APK for internal testing.

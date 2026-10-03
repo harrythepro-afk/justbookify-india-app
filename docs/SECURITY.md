@@ -17,6 +17,7 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 ### Device storage
 - [ ] Tokens only in iOS Keychain and Android Keystore-backed storage
 - [ ] Nothing sensitive in AsyncStorage, plain files, logs or crash reports
+- [x] Crash reports (Sentry, D-042): `sendDefaultPii` off; no tracing, replay, screenshots, view hierarchy, logs or failed-request capture. `beforeSend` and `beforeBreadcrumb` (`src/crashReporting/scrub.ts`) remove the user, request headers, cookies, bodies and query strings, the device name, frame variables and console breadcrumbs. They also filter emails, phone numbers, tokens, customer and order GIDs, the store domain and the Storefront token from every string. Unit tests prove it. Native crashes skip that code; Sentry's server-side data scrubbing and "Prevent Storing of IP Addresses" cover them. The source-map upload token is an EAS secret only
 
 ### Network
 - [ ] TLS everywhere; no cleartext exceptions

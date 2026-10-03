@@ -23,6 +23,12 @@ Mocks are for unit and component tests only. Anything touching cart, checkout or
 - Contrast: `__tests__/theme/tokens.test.ts` checks every pair in `textPairs` (`src/theme/tokens.ts`) at 4.5:1 or more (WCAG 2.2 AA for normal text), checks the ratios recorded in D-038 and D-039, and fails if cream text is ever paired with the brand green. A new text colour or background needs a new entry in `textPairs`.
 - Environment banner and tabs: component tests render the banner on each environment and the tab navigator through `expo-router/testing-library`.
 
+### Crash report checks (P4-02)
+
+- Scrubbing: `__tests__/crashReporting/scrub.test.ts` passes a sample event carrying an email, a phone number, a Shopify secret token, a token-like string, the store domain, the Storefront token, a URL with a query string, headers, cookies, a request body, a user and a device name through `scrubEvent`. The output must hold none of them, with stack frames unchanged apart from their local variables. It also lists strings that must be left alone, such as timestamps, product GIDs and UUIDs, so over-filtering shows up too. A new kind of personal data in the app needs a new case here.
+- Switching on: `__tests__/config/crashReporting.test.ts` shows crash reporting is off with no DSN, with a malformed DSN and always under Jest. `__tests__/crashReporting/sentry.test.ts` checks the `Sentry.init` options: no personal data, tracing, replay or attachments, and the environment tag.
+- Native crashes skip the JavaScript scrubber. They are checked by hand on a development build ("Trigger a native crash (test)" on Home), and Sentry's server-side data scrubbing covers them.
+
 ## Edge cases
 
 | Case | Expected behaviour |
