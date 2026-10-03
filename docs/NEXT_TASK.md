@@ -15,11 +15,11 @@ Status: proposal. It starts only after P4-01 is merged and the owner starts it i
 
 Crashes and unhandled errors in development, staging and production builds reach Sentry (D-012) with the build's environment and release, and with no personal data: no names, emails, phone numbers, addresses, order details, tokens, store domain or URLs with query strings.
 
-## Questions for the owner before work starts
+## Answers recorded (4 October 2026)
 
-1. **Sentry account and project.** Create a Sentry organisation and one React Native project (or say who should). Which data region: US or EU? It cannot be changed later.
-2. **Plan.** The free plan's limits are enough for development; confirm before anything paid is chosen.
-3. **Source maps.** Readable stack traces need an upload during EAS builds with a Sentry auth token. The token is a secret: the owner stores it as an EAS environment variable (secret visibility); it never enters this repository, `.env.local` or the chat. Approve this, or choose no source maps for now.
+1. **Account:** the owner creates the Sentry account and chooses the **EU** data region.
+2. **Plan:** the free plan. Nothing paid without the owner's approval.
+3. **Source maps:** yes, uploaded during EAS builds. The owner stores the upload token in EAS themselves; it never goes into the repository, `.env.local` or the chat. The DSN is public by design and may be given to Claude.
 
 ## Steps
 
@@ -45,3 +45,7 @@ Crashes and unhandled errors in development, staging and production builds reach
 - Performance tracing and session replay.
 - iOS builds (Apple access in Phase 9, D-036).
 - Anything on the live store.
+
+## Follow-ups (recorded, not part of P4-02)
+
+- **Android navigation buttons** (architect's review of PR #7, 4 October 2026): on Android the system navigation buttons at the bottom are almost invisible, light on the off-white background. Light screens need dark navigation buttons. Seen on the owner's phone with development build bb476119. To be scheduled as its own small task.

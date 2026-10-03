@@ -4,7 +4,7 @@ Last updated: 3 October 2026 (P4-01: app shell, design tokens and environment ba
 
 ## Phase
 
-Phase 4 (mobile foundation) is in progress. P4-01 (this change, branch `feat/p4-01-app-shell`) builds the app shell: five tabs, design tokens and the environment banner. It is awaiting review; `NEXT_TASK.md` proposes P4-02. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 4 (mobile foundation) is in progress. P4-01 (this change, branch `feat/p4-01-app-shell`) builds the app shell: five tabs, design tokens and the environment banner. The architect approved it on 4 October 2026; `NEXT_TASK.md` proposes P4-02. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -89,6 +89,7 @@ Phase 4 (mobile foundation) is in progress. P4-01 (this change, branch `feat/p4-
 - Icons and splash image are the Expo placeholders. They must be replaced before any store build.
 - Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125, and ₹75 off either from a cart total of ₹200, so free prepaid and ₹50 cash on delivery (D-023, D-031; the ACOD app adds no fee, correcting D-024). The configuration does not yet carry the ₹75 discount amount; that comes with the cart screens. Checkout sets the final amount.
 - `userInterfaceStyle` is fixed to light until a dark theme is designed.
+- Android's system navigation buttons are light on the off-white screens and almost invisible (architect's review of PR #7). Light screens need dark buttons; recorded as a follow-up in `NEXT_TASK.md`.
 
 ## Last passing build
 
