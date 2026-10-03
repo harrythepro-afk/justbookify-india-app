@@ -54,7 +54,7 @@ Nothing else on the live store is changed. See D-008.
 
 ## Development store
 
-Created by the owner on 3 October 2026. For P3-01 the owner set up delivery rates and a manual cash-on-delivery payment method on it. For P3-02 the owner installed ACOD and SMART Checkout Rules on it on 3 October 2026 and copied the live store's settings by hand (`SHOPIFY_AUDIT.md`, D-031): all three SMART Checkout Rules rules ("Shipping discount", "Shipping Price Restriction", "Shipping Restriction") and both ACOD features are active. ACOD showed a plan screen that Shopify marked as a test charge, which is never billed on a development store; no payment method was added (D-032). The shipping rates are named "Prepaid" (₹75) and "Cash on Delivery" (₹125). Its India shipping zone covers the whole country, unlike the live store's five states, so a pincode outside R3 still gets rates and only the SMART rule can block it. Two sample products have a stock of 10 and a third has 1. Razorpay is not installed there yet (early check 1a). Test orders are allowed on the development store only, never on the live store. It is a development store with Basic-plan features (corrected on 3 October 2026; earlier noted as "on the Basic plan"). Like every development store it is always password protected, and Shopify does not allow the password to be removed. Its currency is INR (it was created in BHD and the owner changed it). `npm run check:dev-store` confirmed on 3 October 2026 that the store's currency matches the configuration and that the public token reads products published to the Headless channel. The plan cannot be read with the public Storefront token; confirm it through the Admin API's `shop.plan` once the backend custom app exists, or in the store's admin.
+Created by the owner on 3 October 2026. For P3-01 the owner set up delivery rates and a manual cash-on-delivery payment method on it. For P3-02 the owner installed ACOD and SMART Checkout Rules on it on 3 October 2026 and copied the live store's settings by hand (`SHOPIFY_AUDIT.md`, D-031): all three SMART Checkout Rules rules ("Shipping discount", "Shipping Price Restriction", "Shipping Restriction") and both ACOD features are active. ACOD showed a plan screen that Shopify marked as a test charge, which is never billed on a development store; no payment method was added (D-032). The shipping rates are named "Prepaid" (₹75) and "Cash on Delivery" (₹125). Its India shipping zone covers the whole country, unlike the live store's five states, so a pincode outside R3 still gets rates and only the SMART rule can block it. Two sample products have a stock of 10 and a third has 1. Razorpay is not installed there and will not be: Razorpay is offered only to stores with an Indian business entity, and the development store's entity is in Bahrain (D-033). So the development store has no prepaid payment method. Test orders are allowed on the development store only, never on the live store. It is a development store with Basic-plan features (corrected on 3 October 2026; earlier noted as "on the Basic plan"). Like every development store it is always password protected, and Shopify does not allow the password to be removed. Its currency is INR (it was created in BHD and the owner changed it). `npm run check:dev-store` confirmed on 3 October 2026 that the store's currency matches the configuration and that the public token reads products published to the Headless channel. The plan cannot be read with the public Storefront token; confirm it through the Admin API's `shop.plan` once the backend custom app exists, or in the store's admin.
 
 Storefront password: on the development store, the Checkout Kit sheet first shows the store's password page. The tester types the storefront password there; this is the normal way to reach checkout on a development store (architect, 3 October 2026). The live store has no password page, so customers never see it. The app never fills in, stores or logs the password, and no code may be added to do so. The password is not a repository value and never goes into `.env.local`.
 
@@ -85,21 +85,43 @@ Title, handle, cover image, vendor (author), product type (age groups), tags (se
 - ACOD: the cash-on-delivery rate goes with the Cash on Delivery payment method, which is offered only up to a cart total of ₹500 (D-031).
 - Razorpay is an offsite provider; UPI may hand off to another app.
 
-## Checks to run first, on a development store
+## Early checks
 
-All six run at the start of Phase 3, not before (`TESTING.md`).
+Each check runs before anything is built on its result. Check 2 ran in Phase 3. Checks 1a and 1b run at the launch rehearsal in Phase 19 (D-033). Checks 3 to 6 run in the phase that builds the feature each one needs (D-034). Phase numbers are in `ROADMAP.md` (D-035).
 
-| # | Check | Needs a real phone |
-| --- | --- | --- |
-| 1a | Razorpay inside Checkout Kit: redirect to Razorpay and return to the app, on a real iPhone and a real Android phone | Yes. Testable with Razorpay in test mode on the development store |
-| 1b | Razorpay UPI Intent: hand-off to a real UPI app and back | Yes. Testable only in Razorpay live mode, so it runs at an owner-approved launch rehearsal, never as a routine test |
-| 2 | Cash on delivery and the checkout rules inside Checkout Kit | No. A development build on an emulator or simulator is enough. **Passed on Android, 3 October 2026 (P3-02, below).** iOS waits for Apple access |
-| 3 | A guest order from the website appears after login with the same email | No |
-| 4 | A return filed through the Admin API appears for staff to approve, on the Basic plan | No. The development store has Basic-plan features (see above), so the check can run there |
-| 5 | Links from justbookify.in open the app (verification files on a Shopify-hosted domain) | Yes. A signed build on a device. The verification files go on the live domain, so this check needs the owner's go-ahead |
-| 6 | Judge.me allows reading and submitting reviews on the store's plan | No |
+| # | Check | Needs a real phone | When and where |
+| --- | --- | --- | --- |
+| 1a | Razorpay inside Checkout Kit: redirect to Razorpay and return to the app, on a real iPhone and a real Android phone | Yes | Phase 19, launch rehearsal, live store, one small real order (D-033). Cannot run on the development store (see "Development store") |
+| 1b | Razorpay UPI Intent: hand-off to a real UPI app and back | Yes | Phase 19, launch rehearsal, live store, same order or session as 1a (D-033). Razorpay supports it only in live mode |
+| 2 | Cash on delivery and the checkout rules inside Checkout Kit | No. A development build on an emulator or simulator is enough | **Passed on Android, 3 October 2026 (P3-02, below).** iPhone side in Phase 9, on the development store, once Apple access exists (D-036) |
+| 3 | A guest order from the website appears after login with the same email | No | Phase 7, login and account (Customer Account API), on the development store |
+| 4 | A return filed through the Admin API appears for staff to approve, on the Basic plan | No | Phase 10, backend foundation (needs store addition 3, the custom app), on the development store, which has Basic-plan features (see above) |
+| 5 | Links from justbookify.in open the app (verification files on a Shopify-hosted domain) | Yes. A signed build on a device | Phase 12, notifications and deep links (risk 17). The verification files go on the live domain, so this check needs the owner's go-ahead |
+| 6 | Judge.me allows reading and submitting reviews on the store's plan | No | Phase 13, reviews |
 
-Razorpay test mode and live mode: Razorpay's documentation says UPI Intent can be tested only in Live Mode, not in Test Mode (recorded on 3 October 2026 at the architect's instruction). That is why check 1 is split. Check 1a needs Razorpay in test mode on the development store. Check 1b needs live mode and real money, so it is done only at a launch rehearsal the owner approves.
+Razorpay test mode and live mode: Razorpay's documentation says UPI Intent can be tested only in Live Mode, not in Test Mode (recorded on 3 October 2026 at the architect's instruction). That is why check 1 was split into 1a and 1b in P3-01. 1a was to run in test mode on the development store; D-033 moved it to the launch rehearsal with 1b.
+
+### Launch rehearsal: early checks 1a and 1b
+
+Decided on 3 October 2026 (D-033). Part of Phase 19. Not scheduled yet; it needs the owner's approval when it is scheduled.
+
+Why not earlier: Razorpay is offered only to stores with an Indian business entity. The development store's entity is in Bahrain, and changing it requires the owner's personal identity details, which the owner declined to enter for a test store. So no prepaid checkout can be tested before the rehearsal. Risk 2 stays open and high until then.
+
+What it is: on the live store, with the owner's approval on the day, one small real order through the app's checkout. Claude never places an order on the live store (`CLAUDE.md` rule 5). The book taken out of circulation and the delivery it triggers are accepted by the owner for this one order (risk 5).
+
+Needs first:
+
+- Store additions 1 and 2 on the live store (Headless channel and published products), each with the owner's go-ahead (D-008).
+- A build that points at the live store.
+- The checkout presentation flag below, so a failure can be handled without a rebuild.
+- Apple access (D-036, requested in Phase 9) for the iPhone half of 1a.
+
+What to record, for each of iPhone and Android:
+
+- 1a: Razorpay is offered with the "Prepaid" rate; "Pay now" opens Razorpay; a completed payment returns to Shopify's confirmation page inside the sheet, the order exists, and the app receives `completed`. A cancelled payment returns to checkout without an order. Closing the sheet during the Razorpay step gives `close` and no order.
+- 1b: paying by UPI Intent hands off to a real UPI app and comes back to checkout, then to the confirmation page.
+
+Mitigation to build with the checkout screens (Phase 9): how checkout is presented is switchable by a remote feature flag (Firebase Remote Config, D-012): the in-app Checkout Kit sheet, or the system browser with a return link to the app. If 1a or 1b fails at the rehearsal, the flag moves checkout to the browser with no rebuild. The flag's plumbing is part of the Phase 4 mobile foundation; its use is part of the checkout screens in Phase 9.
 
 ### P3-01: Checkout Kit opens the development store's checkout
 
@@ -152,7 +174,7 @@ Result, 3 October 2026, on the owner's Android phone (development build bb476119
 | # | Case | Cart / input | Expected | Result |
 | --- | --- | --- | --- | --- |
 | 1 | Rates under ₹200 | 1 book, ₹49; Karnataka 560001 | "Prepaid" ₹75 and "Cash on Delivery" ₹125; no separate cash-on-delivery fee | **Pass.** Prepaid ₹75.00, Cash on Delivery ₹125.00. With Cash on Delivery: subtotal ₹49, shipping ₹125, total ₹174, no fee line. 4 books (₹196): the same two rates, no discount |
-| 2 | ACOD ties rate and payment | 1 book | "Cash on Delivery" rate: Cash on Delivery payment offered. "Prepaid" rate: not offered | **Pass.** Cash on Delivery rate: "Cash on Delivery (COD)" is the only payment method. Prepaid rate: Cash on Delivery is hidden; checkout shows "This store can't accept payments right now" and a disabled "Pay now", because the development store has no prepaid provider until Razorpay is set up (early check 1a) |
+| 2 | ACOD ties rate and payment | 1 book | "Cash on Delivery" rate: Cash on Delivery payment offered. "Prepaid" rate: not offered | **Pass.** Cash on Delivery rate: "Cash on Delivery (COD)" is the only payment method. Prepaid rate: Cash on Delivery is hidden; checkout shows "This store can't accept payments right now" and a disabled "Pay now", because the development store has no prepaid provider (Razorpay cannot be installed there, D-033) |
 | 3 | Shipping discount | 5 books, ₹245 | Prepaid ₹0, cash on delivery ₹50 | **Pass.** Prepaid ₹75 struck through, "FREE"; Cash on Delivery ₹125 struck through, ₹50, labelled "SHIPPING DISCOUNT". Total with cash on delivery ₹295, "Total savings ₹75" |
 | 4 | R2 "Shipping Price Restriction" | 11 books, ₹539 | Checkout blocked | **Pass.** Banner: "Your order doesn't meet our current requirements. At the moment, we accept orders with a total amount of ₹500 or less." No order could be placed |
 | 5 | ACOD ₹500 limit | 9 books (₹441) and 10 books (₹490) | Record whether cash on delivery is offered | **Recorded.** 9 books: offered, total ₹491. 10 books: still offered with a total of ₹540 (₹490 + ₹50 shipping), and the order completed (case 7). So ACOD's limit does not count shipping |
@@ -167,7 +189,7 @@ What this shows:
 - R3 also blocks an empty pincode: changing the state clears the address fields, and submitting then shows the R3 banner.
 - The test order took Harry potter's stock on the development store from 10 to 0. The owner can restock it in the development store's admin.
 - Differences between the development store and the live store, not caused by Checkout Kit: the development store's zone is all of India (the live zone is five states), and its checkout shows the phone number as optional (the audit says the live store requires it with the shipping address).
-- Not covered: iOS (D-019) and Razorpay (early check 1a).
+- Not covered: iOS (Phase 9, D-036) and Razorpay (early check 1a, Phase 19).
 
 Acceptance checks:
 

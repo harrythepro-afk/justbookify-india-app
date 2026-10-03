@@ -39,6 +39,7 @@ Mocks are for unit and component tests only. Anything touching cart, checkout or
 | Subtotal under ₹500, total with shipping over ₹500 | Checkout allowed, including cash on delivery (R2 and ACOD check the subtotal; P3-02) |
 | Cash on delivery from ₹200 | Shipping hint ₹50, not free (D-031) |
 | Pincode outside the service area | Clear message before checkout opens |
+| Checkout presentation flag set to browser | Checkout opens in the system browser; the return link brings the customer back to the app; no rebuild needed (D-033) |
 
 ## Device matrix
 
@@ -46,4 +47,15 @@ Three iPhones and four Android phones, including one with 2 to 3 GB of memory. E
 
 ## Early checks
 
-The six checks in `SHOPIFY_INTEGRATION.md` run at the start of Phase 3, before anything is built on them. Check 1 is split: 1a (redirect to Razorpay and back) runs with Razorpay in test mode on the development store. 1b (hand-off to a real UPI app) can be tested only in Razorpay live mode, so it runs at an owner-approved launch rehearsal.
+The checks in `SHOPIFY_INTEGRATION.md` each run before anything is built on their result.
+
+| Check | When |
+| --- | --- |
+| 1a (redirect to Razorpay and back) and 1b (hand-off to a real UPI app) | Both at the owner-approved launch rehearsal in Phase 19, on the live store, with one small real order (D-033). Razorpay cannot be installed on the development store, whose business entity is in Bahrain, and UPI Intent works only in Razorpay live mode |
+| 2 (cash on delivery and checkout rules) | Passed on Android in Phase 3 (P3-02). iPhone side in Phase 9 (D-036) |
+| 3 (guest order after login) | Phase 7, login and account (D-034, D-035) |
+| 4 (return through the Admin API) | Phase 10, backend foundation (D-034, D-035) |
+| 5 (links open the app) | Phase 12, notifications and deep links (D-034, D-035, risk 17) |
+| 6 (Judge.me reviews) | Phase 13, reviews (D-034, D-035) |
+
+Until the rehearsal, nothing proves that a prepaid payment works inside Checkout Kit (risk 2). The checkout screens (Phase 9) therefore ship with a remote flag that can move checkout to the system browser with a return link (D-033). Tests for the checkout screens cover both settings of the flag.
