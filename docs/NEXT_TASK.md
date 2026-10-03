@@ -1,40 +1,33 @@
-# Next task: P2-02, protect main and connect the development store
+# Next task (proposal): P2-03, first development build
 
-Status: approved by the architect on 3 October 2026, with changes. In progress on branch `feat/p2-02-dev-store`.
+Status: proposal. It starts only after the owner merges P2-02 and approves this task.
 
 ## Goal
 
-Make `main` safe to build on, and give the app a development store to talk to, without touching the live store.
+Get the app running as a development build on an Android emulator or phone, pointed at the development store, so Phase 3's early checks have something to run in.
 
-## Answers from the owner and the architect (3 October 2026)
+## Needs from the owner first
 
-1. P2-01 is merged (`de4701f`).
-2. Branch protection on `main`: yes (pull request required, both CI jobs required, no force pushes). If GitHub refuses because the repository is private on GitHub Free, do not change the plan or the visibility; skip it and record it in `CURRENT_STATUS.md` and `RISKS.md`.
-3. The owner creates the development store, installs the Headless channel and publishes sample products. Claude creates `.env.local` from the values the owner gives.
-4. Cash on delivery: a ₹125 flat rate named "Cash On Delivery" against ₹75 prepaid, plus the ACOD app's own fee, amount unknown. Both are cart hints only; checkout decides (D-024).
-5. Review rule: required approving reviews stay at 0; the architect reviews in chat; merge only on the owner's "approved, merge" (D-026).
+1. Decide on the `braces` advisory that blocks the P2-02 merge (`CURRENT_STATUS.md`, Known issues): approve an allowlist entry under D-022, or say otherwise. Then merge P2-02.
+2. Create an Expo account (or organisation) for the app, or name who does, and sign the Expo CLI in on this machine. Claude does not create accounts or enter passwords.
+3. Approve `expo-dev-client` as a new dependency (a development build needs it). It gets its own decision record.
 
-Settled earlier: D-020 to D-023 approved; the `decode-uri-component` advisory is risk 17 and waits for Phase 12.
+## Steps (after the answers)
 
-## Steps
-
-1. Try branch protection on `main` once; record the outcome.
-2. Add the public Storefront token to the store configuration and pin the Storefront API version (D-025).
-3. Create `.env.local` (never committed) and check it with `npm run check:dev-store`: `getStoreConfig()` parses, the store's currency matches, products can be read.
-4. Record the API version, the development store and, for each of the six early checks, whether it needs a real phone. The checks themselves run in Phase 3.
-5. Add the merge rule and the Shopify Admin MCP tools rule to `CLAUDE.md`; update `RELEASE.md` and `SECURITY.md` for D-026.
-6. Update `docs/CURRENT_STATUS.md` and propose the next task.
+1. Add `eas.json` with `development`, `staging` and `production` profiles that set `APP_ENV`, matching D-021.
+2. Install `expo-dev-client` with `npx expo install` and record the version in a decision.
+3. Build an Android development build with EAS and run it on an emulator. iOS waits for Apple access in Phase 3 (D-019).
+4. Show the development store's configuration in the development build's placeholder screen only as "configured" or "not configured", never the values.
+5. Update `docs/CURRENT_STATUS.md` and propose the next task.
 
 ## Acceptance checks
 
-- A pull request into `main` cannot be merged without passing CI, or the reason it cannot be enforced is recorded.
-- `getStoreConfig()` returns a valid configuration against the development store's values.
-- A scripted read of the development store's products succeeds, and the store's currency matches the configuration.
-- No secret, token or live-store value appears anywhere in the repository.
+- The Android development build installs and opens on an emulator, named "JustBookify (Dev)" with app ID `com.justbookify.india.dev`.
+- The build reads the development store's configuration through `getStoreConfig()`.
+- No secret, token or live-store value appears anywhere in the repository or in the EAS project's committed configuration.
 
 ## Out of scope
 
 - Anything on the live store.
-- Running any of the six early checks (Phase 3).
-- Screens, checkout, login, Firebase, Sentry, EAS.
-- Any credential that is not public by design.
+- Checkout Kit, login, screens beyond the placeholder, Firebase, Sentry, store listings.
+- The six early checks (Phase 3).
