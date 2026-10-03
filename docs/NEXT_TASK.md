@@ -1,6 +1,6 @@
 # Next task (proposal): P2-03, first development build
 
-Status: proposal. It starts only after the owner merges P2-02 and approves this task.
+Status: proposal. It starts only after P2-02 is merged and the owner approves this task.
 
 ## Goal
 
@@ -8,9 +8,8 @@ Get the app running as a development build on an Android emulator or phone, poin
 
 ## Needs from the owner first
 
-1. Decide on the `braces` advisory that blocks the P2-02 merge (`CURRENT_STATUS.md`, Known issues): approve an allowlist entry under D-022, or say otherwise. Then merge P2-02.
-2. Create an Expo account (or organisation) for the app, or name who does, and sign the Expo CLI in on this machine. Claude does not create accounts or enter passwords.
-3. Approve `expo-dev-client` as a new dependency (a development build needs it). It gets its own decision record.
+1. Create an Expo account (or organisation) for the app, or name who does, and sign the Expo CLI in on this machine. Claude does not create accounts or enter passwords.
+2. Approve `expo-dev-client` as a new dependency (a development build needs it). It gets its own decision record.
 
 ## Steps (after the answers)
 

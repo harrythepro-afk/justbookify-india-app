@@ -4,7 +4,7 @@ Last updated: 3 October 2026.
 
 ## Phase
 
-Phase 2: repository, documentation and environments. P2-01 is merged (`de4701f`). P2-02 (protect `main`, connect the development store) is done on branch `feat/p2-02-dev-store` and waits for the architect's review and the owner's "approved, merge". It cannot merge yet: the CI audit gate fails on a new advisory in `braces` that needs an approved decision (see Known issues).
+Phase 2: repository, documentation and environments. P2-01 is merged (`de4701f`). P2-02 (protect `main`, connect the development store) is pull request #2. The architect approved it on 3 October 2026, together with an allowlist entry for a new `braces` advisory (D-027). It merges once CI is green on its latest commit.
 
 ## Done
 
@@ -18,12 +18,11 @@ Phase 2: repository, documentation and environments. P2-01 is merged (`de4701f`)
   - `.env.local` holds the development store's values. It is gitignored and never committed.
   - `npm run check:dev-store` passed on 3 October 2026: `getStoreConfig()` returns a valid configuration, the store's currency (INR) matches, and 3 products were read over Storefront API `2026-10`.
   - The six early checks are classified by whether they need a real phone (checks 1 and 5 do). None was run; they belong to Phase 3. See `SHOPIFY_INTEGRATION.md`.
-  - Decisions D-024 (cash-on-delivery figures are hints), D-025 (token and API version) and D-026 (review rule). `CLAUDE.md` gained the merge rule and the rule never to call the Shopify Admin MCP tools.
+  - Decisions D-024 (cash-on-delivery figures are hints), D-025 (token and API version), D-026 (review rule) and D-027 (`braces` allowlist entry). `CLAUDE.md` gained the merge rule and the rule never to call the Shopify Admin MCP tools.
 
 ## What works
 
-- `npm run lint`, `format:check`, `typecheck` and `test` (44 tests) pass locally.
-- `npm run audit:gate` fails: see Known issues. It passed on P2-01.
+- `npm run lint`, `format:check`, `typecheck`, `test` (44 tests) and `audit:gate` pass locally.
 - `npm run check:dev-store` passes against the development store, It fails cleanly, without printing the token or the domain, when `.env.local` is missing, when the currency does not match, when the token is wrong (HTTP 401) or looks like a secret token, and when the host cannot be reached.
 - From P2-01: `npx expo-doctor` passed 21 of 21 checks; the app bundles for iOS and Android with Metro; the app config gives the right name and app ID for each `APP_ENV`.
 
@@ -38,7 +37,7 @@ Phase 2: repository, documentation and environments. P2-01 is merged (`de4701f`)
 
 ## Known issues
 
-- **Blocking the P2-02 merge:** `npm audit` now reports a high advisory, GHSA-vfj7-8cjw-p6xm (CVE-2026-93687, stack exhaustion through deeply nested brace patterns) in `braces` 3.0.3. Every version is affected and no patched release exists. GitHub updated the advisory on 2 October 2026 at 22:36 UTC, one minute after P2-01's CI passed, so `main` fails the gate too. `braces` comes in only through `micromatch` 4.0.8, used by Jest, Metro's file map and the Expo CLI: developer and build tooling that matches file paths and is never bundled into the app. Upgrading Jest would not remove it, because Metro also needs it. Clearing the gate needs an allowlist entry under D-022, which needs the architect's approval. It has not been added.
+- `npm audit` reports a high advisory, GHSA-vfj7-8cjw-p6xm (CVE-2026-93687, stack exhaustion through deeply nested brace patterns) in `braces` 3.0.3. Every version is affected and no patched release exists; an upstream fix is in progress. GitHub updated the advisory on 2 October 2026, which made `main` fail the gate. `braces` comes in only through `micromatch` 4.0.8, used by Jest, Metro's file map and the Expo CLI: developer and build tooling that matches file paths and is never bundled into the app. It is allowlisted until **2026-11-15** (D-027). Remove the entry in the same commit that picks up a patched `braces`.
 - `npm audit` also reports, as before: `node-forge` (high, allowlisted until 2026-12-31, D-022); `uuid` and `decode-uri-component` (moderate, not gated; the second is risk 17).
 - Icons and splash image are the Expo placeholders. They must be replaced before any store build.
 - Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125 plus the ACOD app's own fee of unknown amount, free prepaid delivery from ₹200 (D-023, D-024). Checkout sets the final amount.
@@ -46,4 +45,4 @@ Phase 2: repository, documentation and environments. P2-01 is merged (`de4701f`)
 
 ## Last passing build
 
-P2-01 merge commit `de4701f` on `main`, 3 October 2026. P2-02 branch, local run on 3 October 2026: lint, format check, type check, tests and `check:dev-store` pass; the audit gate fails as described above.
+P2-02 branch `feat/p2-02-dev-store`, local run on 3 October 2026: lint, format check, type check, tests, audit gate and `check:dev-store` pass. The GitHub Actions result is shown on pull request #2.
