@@ -30,7 +30,7 @@ Phase 2: repository, documentation and environments. P2-01 (`de4701f`) and P2-02
 ## What works
 
 - `npm run lint`, `format:check`, `typecheck`, `test` (53 tests) and `audit:gate` pass locally. `npx expo-doctor` passes 21 of 21 checks.
-- The Android development build is ready to install from EAS; it loads JavaScript from `npx expo start --dev-client` on this machine, which answers on the laptop's Wi-Fi address. Not yet confirmed on the owner's phone.
+- The Android development build runs on the owner's Android phone (3 October 2026). It installed from EAS, loaded JavaScript from `npx expo start --dev-client` on this machine over Wi-Fi, and showed "JustBookify", "Development build" and "Store configuration: configured" (owner-reported; Metro logged the Android bundle).
 - `npm run check:dev-store` passes against the development store, It fails cleanly, without printing the token or the domain, when `.env.local` is missing, when the currency does not match, when the token is wrong (HTTP 401) or looks like a secret token, and when the host cannot be reached.
 - From P2-01: `npx expo-doctor` passed 21 of 21 checks; the app bundles for iOS and Android with Metro; the app config gives the right name and app ID for each `APP_ENV`.
 
@@ -53,4 +53,4 @@ Phase 2: repository, documentation and environments. P2-01 (`de4701f`) and P2-02
 
 ## Last passing build
 
-P2-03 branch `feat/p2-03-dev-build`, 3 October 2026: lint, format check, type check, tests, audit gate and `expo-doctor` pass locally; EAS Android development build 34b4b82c finished. The GitHub Actions result is shown on the pull request.
+P2-03 branch `feat/p2-03-dev-build`, 3 October 2026: lint, format check, type check, tests, audit gate and `expo-doctor` pass locally; EAS Android development build 34b4b82c finished and runs on the owner's phone. The GitHub Actions result is shown on the pull request.
