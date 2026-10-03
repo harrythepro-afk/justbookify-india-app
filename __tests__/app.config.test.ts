@@ -27,7 +27,10 @@ describe('buildConfig', () => {
       (plugin) => Array.isArray(plugin) && plugin[0] === '@sentry/react-native/expo',
     );
 
-    expect(sentry).toEqual(['@sentry/react-native/expo', { url: 'https://de.sentry.io/' }]);
+    expect(sentry).toEqual([
+      '@sentry/react-native/expo',
+      { url: 'https://de.sentry.io/', organization: 'justbookify', project: 'react-native' },
+    ]);
   });
 
   it.each(APP_ENVIRONMENTS)('keeps %s light on Android through expo-system-ui', (appEnv) => {
