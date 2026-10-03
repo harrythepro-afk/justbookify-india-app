@@ -1,45 +1,45 @@
-# Next task: P3-01, Checkout Kit opens the development store's checkout
+# Next task (proposal): P3-02, early check 2: cash on delivery and the checkout rules inside Checkout Kit
 
-Status: approved by the architect on 3 October 2026, with a narrower scope. In progress on branch `feat/p3-01-checkout-kit`.
+Status: proposal. It starts only after P3-01 is merged and the owner approves this task.
 
 ## Goal
 
-Start Phase 3. Prove two things on the owner's Android phone, with the Android development build:
+Run early check 2 (risk 1, high) on the owner's Android phone, with the Android development build: do the ACOD and SMART Checkout Rules apps behave inside Checkout Kit as they do on the website? P3-01 proved that Checkout Kit opens the development store's checkout and completes a plain cash-on-delivery order. This task adds the two checkout apps on top. iOS waits for Apple access (D-019).
 
-1. Checkout Kit opens the development store's checkout.
-2. A test order can be completed there with cash on delivery.
+Why before early check 1a (Razorpay test mode): it builds directly on the cash-on-delivery order already proven, and needs no payment-provider credentials.
 
-iOS waits for Apple access (D-019). Early checks 1 and 2 are **not** run in this task.
+## Needs from the owner first
 
-## Owner's answers
+1. On the **development store only**, install the ACOD and SMART Checkout Rules apps. Copy the live store's settings into them by hand: the shipping restriction for pincodes 50 to 53 and 56 to 69 (R3), the free-delivery shipping discount (R4, D-023), the ₹500 subtotal rule (R2), wherever the live store sets it, and the ACOD fee and limits. Reading the live store's settings in its admin is fine; changing anything there is not. Claude does not do this; it is a store-admin task.
+2. Make sure the development store has products priced so that a cart can sit under ₹200, between ₹200 and ₹500, and at or above ₹500.
+3. Confirm that more test orders on the development store are acceptable.
 
-1. Checkout Kit package: D-017 named `@shopify/checkout-sheet-kit` 4.0.x, but 4.0.x is not published. The owner chose 3.9.1, the latest stable release (D-030).
-2. The owner sets up the development store with delivery rates and a manual cash-on-delivery payment method only. Razorpay, ACOD and SMART Checkout Rules are not part of this task.
-3. Test orders on the development store are acceptable. Never on the live store.
+## Steps (after the answers)
 
-## Steps
-
-1. Check Shopify's Checkout Kit documentation, pin the exact version and record a decision (D-030).
-2. Install `@shopify/checkout-sheet-kit` with `npx expo install` and pin it exactly.
-3. Add a development-only test screen that builds a one-item cart over the Storefront API and opens its checkout URL in Checkout Kit.
-4. Rebuild the Android development build on EAS. The native modules changed.
-5. On the owner's phone, with the owner: open the test checkout and complete a cash-on-delivery order. **If the checkout lands on the store's password page, stop and report what is on screen. Do not work around it.**
-6. Record the result in `SHOPIFY_INTEGRATION.md`. Record the Razorpay test-mode/live-mode split of early check 1 there.
-7. Update `docs/CURRENT_STATUS.md` and propose the next task.
+1. Read the two apps' documentation for any statement about Checkout Kit, headless or mobile checkouts, and record what it says.
+2. If the checks need a bigger cart, add a development-only quantity control to the test screen. No other app code changes.
+3. On the owner's phone, with the owner, through Checkout Kit (entering the storefront password as in P3-01):
+   - Cash on delivery shows the ACOD fee and limits as on the website.
+   - A pincode outside R3 is blocked; one inside is accepted.
+   - A subtotal at or above ₹500 is blocked (R2).
+   - The free-delivery discount applies from ₹200 for prepaid orders and not for cash on delivery (R4). Prepaid is checked only as far as the shipping line, because Razorpay is not set up.
+   - One cash-on-delivery order completes, and the app receives `completed`.
+4. Compare each result with the website's checkout on the development store, and record pass, fail or a named fallback in `SHOPIFY_INTEGRATION.md`. Update risk 1.
+5. Update `docs/CURRENT_STATUS.md` and propose the next task (early check 1a, Razorpay test mode).
 
 ## Acceptance checks
 
-- The Checkout Kit package is pinned to an exact version, with a decision record that cites the documentation checked and the date.
-- From the Android development build, the test screen opens the development store's checkout in Checkout Kit. If the password page appears instead, that is a recorded stop, not a pass.
-- A test order completes on the development store with cash on delivery, and the app receives Checkout Kit's completed event. The owner confirms it.
-- The test screen and its link exist only in development builds, and tests prove it.
-- No secret, store domain, token or live-store value appears in the repository, the logs or the screen.
+- Early check 2 has a written result for each rule above: pass, fail, or a named fallback.
+- Any app code change is development-only and tested.
+- No secret, storefront password or live-store value appears in the repository; nothing on the live store is changed.
 - Lint, format check, type check, tests, audit gate and `expo-doctor` pass, and CI is green.
-- `SHOPIFY_INTEGRATION.md` records that Razorpay's UPI Intent is testable only in live mode, and splits early check 1 into 1a (test mode, development store) and 1b (live mode, at an owner-approved launch rehearsal).
 
 ## Out of scope
 
-- Anything on the live store.
-- Early checks 1 and 2: Razorpay, ACOD, SMART Checkout Rules.
-- Login (Customer Account API), the catalogue screens, Firebase, Sentry.
-- Early checks 3 to 6.
+- Anything that changes the live store.
+- Razorpay (early checks 1a and 1b), login, the catalogue screens, Firebase, Sentry.
+- The app's own cart-side cap, pincode and fee hints (R2 to R4 in the cart). Those are built with the cart screens.
+
+## Open note from P3-01
+
+On the development store, checkout did not appear straight after the storefront password; the sheet had to be closed and the checkout opened again. This is a development-store artifact (the live store has no password page) and needs no code.

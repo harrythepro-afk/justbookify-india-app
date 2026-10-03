@@ -4,7 +4,7 @@ Last updated: 3 October 2026 (P3-01).
 
 ## Phase
 
-Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged. P3-01 (Checkout Kit opens the development store's checkout) is on branch `feat/p3-01-checkout-kit`, awaiting the on-device check and review.
+Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged. P3-01 (Checkout Kit opens the development store's checkout) passed on the owner's phone and is on branch `feat/p3-01-checkout-kit`, awaiting review.
 
 ## Done
 
@@ -13,7 +13,7 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
 - Project documentation written.
 - P2-01: private GitHub repository `justbookify-india-app`; Expo SDK 57 app with Expo Router, TypeScript strict and one placeholder screen; ESLint, Prettier, Jest and React Native Testing Library; typed store configuration in `src/config/`; `.env.example` with empty placeholders; `.gitignore` for env files, signing files, keystores and service-account files; CI workflow (lint, format check, type check, tests, dependency audit, secret scan). Versions are recorded in D-020.
 - P2-02:
-  - The owner created the development store (Basic plan, owner-reported; currency INR), installed the Headless channel and published sample products to it.
+  - The owner created the development store (a development store with Basic-plan features; currency INR), installed the Headless channel and published sample products to it.
   - The store configuration carries the public Storefront token, and refuses Shopify secret-token prefixes. The Storefront API is pinned to `2026-10` (D-025).
   - `.env.local` holds the development store's values. It is gitignored and never committed.
   - `npm run check:dev-store` passed on 3 October 2026: `getStoreConfig()` returns a valid configuration, the store's currency (INR) matches, and 3 products were read over Storefront API `2026-10`.
@@ -26,12 +26,13 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
   - Android development build 34b4b82c (version 1.0.0, version code 1) finished on EAS on 3 October 2026.
   - `eas build:inspect` showed the upload holds no `.env.local`, keystore or credential file; the store's domain and token appear in neither the upload nor the repository.
   - The placeholder screen shows "Store configuration: configured" or "not configured" on non-production builds, never the values.
-- P3-01 (in progress):
+- P3-01 (awaiting review):
   - `@shopify/checkout-sheet-kit` 3.9.1 installed and pinned (D-030). D-017's 4.0.x is not published; the owner chose 3.9.1 on 3 October 2026. No Expo config plugin.
   - Development-only test screen `src/app/dev-checkout.tsx`. It builds a one-item cart with two named Storefront operations (`src/shopify/devCheckout.ts`) and presents the checkout URL in Checkout Kit. It shows completed, closed or error status, never the URL, domain or token. Any other build is redirected to the start screen. The placeholder screen links to it on development builds only.
-  - Android development build bb476119 queued on EAS on 3 October 2026. `eas build:inspect` showed that the upload holds no `.env.local`, keystore or credential file, and neither the store's domain nor its token.
+  - Android development build bb476119 built on EAS on 3 October 2026. `eas build:inspect` showed that the upload holds no `.env.local`, keystore or credential file, and neither the store's domain nor its token.
   - `SHOPIFY_INTEGRATION.md` and `TESTING.md` split early check 1 into 1a (Razorpay test mode, development store) and 1b (UPI Intent, live mode only, at an owner-approved launch rehearsal).
-  - On-device check with the owner, 3 October 2026: the new build installed and loaded JavaScript from Metro. Tapping "Open test checkout" created a cart and opened Checkout Kit, which showed **the development store's password page** instead of checkout. Stopped there as instructed: no password entered, nothing changed on the store, no order placed. Details in `SHOPIFY_INTEGRATION.md`.
+  - EAS Android development build bb476119 finished on 3 October 2026, so Checkout Kit 3.9.1 compiles natively on Expo SDK 57 / React Native 0.86.3.
+  - On-device check with the owner, 3 October 2026: **passed.** The development store's checkout sheet first shows the store's password page. The tester enters the storefront password; this page does not exist on the live store. Checkout appeared only after the sheet was closed and "Open test checkout" tapped again. The owner completed a cash-on-delivery test order. The status line showed "Checkout completed: the order was placed." The order appears in the development store's admin (owner-confirmed). Details in `SHOPIFY_INTEGRATION.md`.
 
 ## What works
 
@@ -43,10 +44,9 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
 ## Not done
 
 - **Branch protection on `main`.** GitHub refused on 3 October 2026 (HTTP 403: "Upgrade to GitHub Pro or make this repository public"). As instructed, the plan and the visibility were not changed. The merge rule in `CLAUDE.md` is the gate (risk 18, D-026).
-- The development store's plan is owner-reported. The public Storefront token cannot read it; confirm it through the Admin API's `shop.plan` once the backend custom app exists.
+- The development store is a development store with Basic-plan features. Development stores cannot remove the storefront password. The public Storefront token cannot read the plan; confirm it through the Admin API's `shop.plan` once the backend custom app exists.
 - The development store does not yet have Razorpay in test mode (early check 1a) or the ACOD and SMART Checkout Rules apps (early check 2). These come in later tasks.
 - Early check 1b (Razorpay UPI Intent hand-off) can run only in Razorpay live mode, at an owner-approved launch rehearsal.
-- **P3-01 is blocked by the development store's password.** Checkout Kit shows the storefront password page, so the cash-on-delivery test order cannot be placed. Decision needed from the owner and architect: remove the password on the development store (only possible on a paid plan, which makes its online store public), keep it and close P3-01 at "checkout opens", or use another non-live test store. The page shown is Shopify's development-store password page, so the owner-reported Basic plan needs confirming.
 - iOS development build: waits for Apple access (D-019).
 - No store additions on the live store. No Firebase or Sentry accounts. No access to the Apple or Google developer accounts yet (D-019).
 - Storefront operations are not yet typed through code generation; that comes with the data layer, and the code generator is a dependency that needs a decision.
