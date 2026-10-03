@@ -79,7 +79,7 @@ Title, handle, cover image, vendor (author), product type (age groups), tags (se
 
 ## Checkout behaviour to respect
 
-- Order subtotal under ₹500 (R2).
+- Order subtotal under ₹500 (R2). The rule checks the subtotal, not the total with shipping (P3-02).
 - Pincode prefix rule (R3).
 - Flat shipping rates and the automatic shipping discount: ₹75 off either rate from ₹200 (R4, D-031).
 - ACOD: the cash-on-delivery rate goes with the Cash on Delivery payment method, which is offered only up to a cart total of ₹500 (D-031).
@@ -93,7 +93,7 @@ All six run at the start of Phase 3, not before (`TESTING.md`).
 | --- | --- | --- |
 | 1a | Razorpay inside Checkout Kit: redirect to Razorpay and return to the app, on a real iPhone and a real Android phone | Yes. Testable with Razorpay in test mode on the development store |
 | 1b | Razorpay UPI Intent: hand-off to a real UPI app and back | Yes. Testable only in Razorpay live mode, so it runs at an owner-approved launch rehearsal, never as a routine test |
-| 2 | Cash on delivery and the checkout rules inside Checkout Kit | No. A development build on an emulator or simulator is enough. The development store needs the ACOD and SMART Checkout Rules apps installed first |
+| 2 | Cash on delivery and the checkout rules inside Checkout Kit | No. A development build on an emulator or simulator is enough. **Passed on Android, 3 October 2026 (P3-02, below).** iOS waits for Apple access |
 | 3 | A guest order from the website appears after login with the same email | No |
 | 4 | A return filed through the Admin API appears for staff to approve, on the Basic plan | No. The development store has Basic-plan features (see above), so the check can run there |
 | 5 | Links from justbookify.in open the app (verification files on a Shopify-hosted domain) | Yes. A signed build on a device. The verification files go on the live domain, so this check needs the owner's go-ahead |
@@ -147,12 +147,33 @@ How: the development-only test screen `src/app/dev-checkout.tsx` lists the devel
 
 The expected results come from the live store's own settings, so a matching result needs no second run. Only a case whose result differs is tried again on the development store's website checkout.
 
+Result, 3 October 2026, on the owner's Android phone (development build bb476119, JavaScript from Metro): **pass on every case.** All three sample books cost ₹49, so carts were built from 1, 4, 5, 9, 10 and 11 books. Exactly ₹200 cannot be reached with ₹49 books; ₹196 and ₹245 bracket it. No result differed from the expected one, so no case was repeated on the website checkout.
+
 | # | Case | Cart / input | Expected | Result |
 | --- | --- | --- | --- | --- |
-| 1 | Rates under ₹200 | Subtotal under ₹200, Karnataka 560001 | "Prepaid" ₹75 and "Cash on Delivery" ₹125; no separate cash-on-delivery fee | Pending |
-| 2 | ACOD ties rate and payment | Case 1 cart | "Cash on Delivery" rate: Cash on Delivery payment offered. "Prepaid" rate: not offered | Pending |
-| 3 | Shipping discount | Subtotal from ₹200 to under ₹500 | Prepaid ₹0, cash on delivery ₹50 | Pending |
-| 4 | R2 "Shipping Price Restriction" | Subtotal ₹500 or more | Checkout blocked | Pending |
-| 5 | ACOD ₹500 limit | Subtotal just under ₹500, so that ₹50 shipping takes the total over ₹500 | Record whether cash on delivery is offered | Pending |
-| 6 | R3 "Shipping Restriction" | Outside: Maharashtra 400001. Inside: Karnataka 560001 | Outside blocked; inside accepted | Pending |
-| 7 | Completion | One cash-on-delivery order | Order completes; status line "Checkout completed"; order in the development store's admin | Pending |
+| 1 | Rates under ₹200 | 1 book, ₹49; Karnataka 560001 | "Prepaid" ₹75 and "Cash on Delivery" ₹125; no separate cash-on-delivery fee | **Pass.** Prepaid ₹75.00, Cash on Delivery ₹125.00. With Cash on Delivery: subtotal ₹49, shipping ₹125, total ₹174, no fee line. 4 books (₹196): the same two rates, no discount |
+| 2 | ACOD ties rate and payment | 1 book | "Cash on Delivery" rate: Cash on Delivery payment offered. "Prepaid" rate: not offered | **Pass.** Cash on Delivery rate: "Cash on Delivery (COD)" is the only payment method. Prepaid rate: Cash on Delivery is hidden; checkout shows "This store can't accept payments right now" and a disabled "Pay now", because the development store has no prepaid provider until Razorpay is set up (early check 1a) |
+| 3 | Shipping discount | 5 books, ₹245 | Prepaid ₹0, cash on delivery ₹50 | **Pass.** Prepaid ₹75 struck through, "FREE"; Cash on Delivery ₹125 struck through, ₹50, labelled "SHIPPING DISCOUNT". Total with cash on delivery ₹295, "Total savings ₹75" |
+| 4 | R2 "Shipping Price Restriction" | 11 books, ₹539 | Checkout blocked | **Pass.** Banner: "Your order doesn't meet our current requirements. At the moment, we accept orders with a total amount of ₹500 or less." No order could be placed |
+| 5 | ACOD ₹500 limit | 9 books (₹441) and 10 books (₹490) | Record whether cash on delivery is offered | **Recorded.** 9 books: offered, total ₹491. 10 books: still offered with a total of ₹540 (₹490 + ₹50 shipping), and the order completed (case 7). So ACOD's limit does not count shipping |
+| 6 | R3 "Shipping Restriction" | Outside: Maharashtra 400001. Inside: Karnataka 560001 | Outside blocked; inside accepted | **Pass.** Maharashtra 400001: both rates still appear (the development store's zone is all of India), and Complete order with cash on delivery shows the banner "Your order doesn't meet our current requirements. At the moment, we accept orders only within Karnataka, Andhra Pradesh, Tamil Nadu, Telangana and Kerala." Karnataka 560001: accepted (case 7) |
+| 7 | Completion | 10 books, ₹490, cash on delivery, Karnataka 560001 | Order completes; status line "Checkout completed"; order in the development store's admin | **Pass.** Shopify's confirmation page: cash-on-delivery shipping and payment, ₹540.00 (₹615.00 before the discount). The status line read "Checkout completed: the order was placed." The owner confirmed the ₹540 order in the development store's admin. Claude did not read it |
+
+What this shows:
+
+- On Android, ACOD and all three SMART Checkout Rules rules behave inside Checkout Kit as the live store's settings say they should. Shopify Functions run in Checkout Kit as on the web, as Shopify's documentation states. No fallback is needed.
+- R2 is checked against the **subtotal**: a ₹490 subtotal with ₹50 shipping (total ₹540) is accepted. Its customer-facing message says "total amount of ₹500 or less", which is the SMART rule's own wording, set by the owner. The app's cart hint must use the subtotal (R2).
+- ACOD's ₹500 cash-on-delivery limit does not count shipping either. With R2 blocking subtotals of ₹500 or more, it never removes cash on delivery from an order that R2 allows.
+- R3 also blocks an empty pincode: changing the state clears the address fields, and submitting then shows the R3 banner.
+- The test order took Harry potter's stock on the development store from 10 to 0. The owner can restock it in the development store's admin.
+- Differences between the development store and the live store, not caused by Checkout Kit: the development store's zone is all of India (the live zone is five states), and its checkout shows the phone number as optional (the audit says the live store requires it with the shipping address).
+- Not covered: iOS (D-019) and Razorpay (early check 1a).
+
+Acceptance checks:
+
+| Check | Result |
+| --- | --- |
+| Early check 2 has a written result for each case: pass, fail or a named fallback | Pass: seven cases above |
+| Any app code change is development-only and tested | Pass: the test screen and its helper only; 86 tests |
+| No secret, storefront password or live-store value in the repository; nothing on the live store changed | Pass |
+| Lint, format check, type check, tests, audit gate and `expo-doctor` pass, and CI is green | Pass locally; CI result on the pull request |

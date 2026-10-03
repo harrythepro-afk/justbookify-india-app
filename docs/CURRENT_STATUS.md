@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 3 October 2026 (P3-02, in progress).
+Last updated: 3 October 2026 (P3-02).
 
 ## Phase
 
-Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged. P3-01 (Checkout Kit opens the development store's checkout) is merged (`874b4c2`). P3-02 (early check 2: ACOD and SMART Checkout Rules inside Checkout Kit) is in progress on branch `feat/p3-02-checkout-apps`.
+Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged. P3-01 (Checkout Kit opens the development store's checkout) is merged (`874b4c2`). P3-02 (early check 2: ACOD and SMART Checkout Rules inside Checkout Kit) passed on the owner's phone and is on branch `feat/p3-02-checkout-apps` (PR #5), awaiting review.
 
 ## Done
 
@@ -34,12 +34,12 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
   - EAS Android development build bb476119 finished on 3 October 2026, so Checkout Kit 3.9.1 compiles natively on Expo SDK 57 / React Native 0.86.3.
   - On-device check with the owner, 3 October 2026: **passed.** The development store's checkout sheet first shows the store's password page. The tester enters the storefront password; this page does not exist on the live store. Checkout appeared only after the sheet was closed and "Open test checkout" tapped again. The owner completed a cash-on-delivery test order. The status line showed "Checkout completed: the order was placed." The order appears in the development store's admin (owner-confirmed). Details in `SHOPIFY_INTEGRATION.md`.
 
-- P3-02 (in progress, branch `feat/p3-02-checkout-apps`):
+- P3-02 (awaiting review, PR #5):
   - The owner installed ACOD and SMART Checkout Rules on the development store and copied the live settings (D-031). ACOD's plan screen was a never-billed test charge (D-032).
   - D-031 corrects D-024: ACOD adds no fee; the shipping discount takes ₹75 off both rates from ₹200. R4 and `SHOPIFY_AUDIT.md` updated.
   - Both apps' App Store listings say they run on Shopify Functions; neither mentions Checkout Kit. Shopify's Checkout Kit page says Functions run inside Checkout Kit as on the web.
   - The test screen now lists the development store's books with a quantity stepper and shows Shopify's cart subtotal, so each cart bracket can be reached. Tests cover it.
-  - On-device check: pending, with the owner.
+  - On-device check with the owner, 3 October 2026: **passed on all seven cases** (details in `SHOPIFY_INTEGRATION.md`). Rates ₹75 and ₹125 under ₹200; ₹75 off both from ₹200 (prepaid free, cash on delivery ₹50); ACOD shows Cash on Delivery payment only with the Cash on Delivery rate; R2 blocks a ₹539 cart; R3 blocks Maharashtra 400001; a ₹540 cash-on-delivery order (₹490 subtotal) completed, the app received `completed`, and the owner saw it in the development store's admin. R2 and ACOD's ₹500 limit both check the subtotal. Risk 1 is open for iOS only.
 
 ## What works
 
@@ -52,7 +52,7 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
 
 - **Branch protection on `main`.** GitHub refused on 3 October 2026 (HTTP 403: "Upgrade to GitHub Pro or make this repository public"). As instructed, the plan and the visibility were not changed. The merge rule in `CLAUDE.md` is the gate (risk 18, D-026).
 - The development store is a development store with Basic-plan features. Development stores cannot remove the storefront password. The public Storefront token cannot read the plan; confirm it through the Admin API's `shop.plan` once the backend custom app exists.
-- The development store does not yet have Razorpay in test mode (early check 1a). ACOD and SMART Checkout Rules were installed there by the owner on 3 October 2026 for P3-02.
+- The development store does not yet have Razorpay in test mode (early check 1a). ACOD and SMART Checkout Rules were installed there by the owner on 3 October 2026 for P3-02. P3-02's test order left the book "Harry potter" at a stock of 0 there; the owner can restock it.
 - Early check 1b (Razorpay UPI Intent hand-off) can run only in Razorpay live mode, at an owner-approved launch rehearsal.
 - iOS development build: waits for Apple access (D-019).
 - No store additions on the live store. No Firebase or Sentry accounts. No access to the Apple or Google developer accounts yet (D-019).
@@ -70,4 +70,4 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
 
 ## Last passing build
 
-P3-01 branch `feat/p3-01-checkout-kit`, 3 October 2026: lint, format check, type check, tests (74), audit gate and `expo-doctor` pass locally. On `main`: P2-03's EAS Android development build 34b4b82c runs on the owner's phone. The GitHub Actions result is shown on the pull request.
+P3-02 branch `feat/p3-02-checkout-apps`, 3 October 2026: lint, format check, type check, tests (86), audit gate and `expo-doctor` pass locally. Android development build bb476119 (P3-01) runs P3-02's JavaScript on the owner's phone. The GitHub Actions result is shown on the pull request.

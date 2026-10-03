@@ -36,6 +36,8 @@ Mocks are for unit and component tests only. Anything touching cart, checkout or
 | Payment pending | "Confirming payment" state; never invite a second payment |
 | Two devices at once | Cart is per device; orders and returns always consistent |
 | Order cap reached | Cart explains the ₹500 cap and blocks checkout |
+| Subtotal under ₹500, total with shipping over ₹500 | Checkout allowed, including cash on delivery (R2 and ACOD check the subtotal; P3-02) |
+| Cash on delivery from ₹200 | Shipping hint ₹50, not free (D-031) |
 | Pincode outside the service area | Clear message before checkout opens |
 
 ## Device matrix
