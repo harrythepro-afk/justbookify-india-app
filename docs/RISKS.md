@@ -4,7 +4,7 @@ Reviewed at the end of every phase.
 
 | # | Risk | Why it matters | Mitigation | Severity | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Checkout apps behave differently inside the app | ACOD and SMART Checkout Rules alter checkout and must work inside Checkout Kit | Early check 2 | High | Open |
+| 1 | Checkout apps behave differently inside the app | ACOD and SMART Checkout Rules alter checkout and must work inside Checkout Kit | Early check 2. Passed on Android on 3 October 2026 (P3-02): rates, discount, R2, R3 and ACOD all behave as on the live store's settings. Repeat on iOS when Apple access exists (D-019) | High | Open for iOS only |
 | 2 | Razorpay redirect and UPI hand-off inside an in-app checkout | A payment could fail or strand the customer between apps | Early check 1; fallback is browser checkout with a return link | High | Open |
 | 3 | Rental records may be incomplete | About 600 fulfilled orders have no return recorded | Spot-check the oldest before launch | High | Open |
 | 4 | Old books not collected when a new order arrives | A family may hold two sets | Show the books due for collection at checkout | High | Open |

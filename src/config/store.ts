@@ -20,7 +20,7 @@ export type StoreConfig = {
   readonly shippingFeePrepaid: number;
   /**
    * Flat shipping fee for cash-on-delivery orders, in major currency units. A cart hint only:
-   * the ACOD app adds its own fee at checkout, and checkout sets the final amount (D-024).
+   * checkout sets the final amount. The ACOD app adds no fee of its own (D-031).
    */
   readonly shippingFeeCod: number;
   /** Subtotal from which delivery is free, in major currency units. */

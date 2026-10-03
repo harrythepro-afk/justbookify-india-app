@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 3 October 2026 (P3-01).
+Last updated: 3 October 2026 (P3-02).
 
 ## Phase
 
-Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged. P3-01 (Checkout Kit opens the development store's checkout) passed on the owner's phone and is on branch `feat/p3-01-checkout-kit`, awaiting review.
+Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged. P3-01 (Checkout Kit opens the development store's checkout) is merged (`874b4c2`). P3-02 (early check 2: ACOD and SMART Checkout Rules inside Checkout Kit) passed on the owner's phone and is on branch `feat/p3-02-checkout-apps` (PR #5), awaiting review.
 
 ## Done
 
@@ -26,7 +26,7 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
   - Android development build 34b4b82c (version 1.0.0, version code 1) finished on EAS on 3 October 2026.
   - `eas build:inspect` showed the upload holds no `.env.local`, keystore or credential file; the store's domain and token appear in neither the upload nor the repository.
   - The placeholder screen shows "Store configuration: configured" or "not configured" on non-production builds, never the values.
-- P3-01 (awaiting review):
+- P3-01 (merged, `874b4c2`):
   - `@shopify/checkout-sheet-kit` 3.9.1 installed and pinned (D-030). D-017's 4.0.x is not published; the owner chose 3.9.1 on 3 October 2026. No Expo config plugin.
   - Development-only test screen `src/app/dev-checkout.tsx`. It builds a one-item cart with two named Storefront operations (`src/shopify/devCheckout.ts`) and presents the checkout URL in Checkout Kit. It shows completed, closed or error status, never the URL, domain or token. Any other build is redirected to the start screen. The placeholder screen links to it on development builds only.
   - Android development build bb476119 built on EAS on 3 October 2026. `eas build:inspect` showed that the upload holds no `.env.local`, keystore or credential file, and neither the store's domain nor its token.
@@ -34,9 +34,16 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
   - EAS Android development build bb476119 finished on 3 October 2026, so Checkout Kit 3.9.1 compiles natively on Expo SDK 57 / React Native 0.86.3.
   - On-device check with the owner, 3 October 2026: **passed.** The development store's checkout sheet first shows the store's password page. The tester enters the storefront password; this page does not exist on the live store. Checkout appeared only after the sheet was closed and "Open test checkout" tapped again. The owner completed a cash-on-delivery test order. The status line showed "Checkout completed: the order was placed." The order appears in the development store's admin (owner-confirmed). Details in `SHOPIFY_INTEGRATION.md`.
 
+- P3-02 (awaiting review, PR #5):
+  - The owner installed ACOD and SMART Checkout Rules on the development store and copied the live settings (D-031). ACOD's plan screen was a never-billed test charge (D-032).
+  - D-031 corrects D-024: ACOD adds no fee; the shipping discount takes ₹75 off both rates from ₹200. R4 and `SHOPIFY_AUDIT.md` updated.
+  - Both apps' App Store listings say they run on Shopify Functions; neither mentions Checkout Kit. Shopify's Checkout Kit page says Functions run inside Checkout Kit as on the web.
+  - The test screen now lists the development store's books with a quantity stepper and shows Shopify's cart subtotal, so each cart bracket can be reached. Tests cover it.
+  - On-device check with the owner, 3 October 2026: **passed on all seven cases** (details in `SHOPIFY_INTEGRATION.md`). Rates ₹75 and ₹125 under ₹200; ₹75 off both from ₹200 (prepaid free, cash on delivery ₹50); ACOD shows Cash on Delivery payment only with the Cash on Delivery rate; R2 blocks a ₹539 cart; R3 blocks Maharashtra 400001; a ₹540 cash-on-delivery order (₹490 subtotal) completed, the app received `completed`, and the owner saw it in the development store's admin. R2 and ACOD's ₹500 limit both check the subtotal. Risk 1 is open for iOS only.
+
 ## What works
 
-- `npm run lint`, `format:check`, `typecheck`, `test` (74 tests) and `audit:gate` pass locally. `npx expo-doctor` passes 21 of 21 checks (with Checkout Kit installed, P3-01).
+- `npm run lint`, `format:check`, `typecheck`, `test` (86 tests) and `audit:gate` pass locally on the P3-02 branch. `npx expo-doctor` passes 21 of 21 checks.
 - The Android development build runs on the owner's Android phone (3 October 2026). It installed from EAS, loaded JavaScript from `npx expo start --dev-client` on this machine over Wi-Fi, and showed "JustBookify", "Development build" and "Store configuration: configured" (owner-reported; Metro logged the Android bundle).
 - `npm run check:dev-store` passes against the development store, It fails cleanly, without printing the token or the domain, when `.env.local` is missing, when the currency does not match, when the token is wrong (HTTP 401) or looks like a secret token, and when the host cannot be reached.
 - From P2-01: `npx expo-doctor` passed 21 of 21 checks; the app bundles for iOS and Android with Metro; the app config gives the right name and app ID for each `APP_ENV`.
@@ -45,7 +52,7 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
 
 - **Branch protection on `main`.** GitHub refused on 3 October 2026 (HTTP 403: "Upgrade to GitHub Pro or make this repository public"). As instructed, the plan and the visibility were not changed. The merge rule in `CLAUDE.md` is the gate (risk 18, D-026).
 - The development store is a development store with Basic-plan features. Development stores cannot remove the storefront password. The public Storefront token cannot read the plan; confirm it through the Admin API's `shop.plan` once the backend custom app exists.
-- The development store does not yet have Razorpay in test mode (early check 1a) or the ACOD and SMART Checkout Rules apps (early check 2). These come in later tasks.
+- The development store does not yet have Razorpay in test mode (early check 1a). ACOD and SMART Checkout Rules were installed there by the owner on 3 October 2026 for P3-02. P3-02's test order left the book "Harry potter" at a stock of 0 there; the owner can restock it.
 - Early check 1b (Razorpay UPI Intent hand-off) can run only in Razorpay live mode, at an owner-approved launch rehearsal.
 - iOS development build: waits for Apple access (D-019).
 - No store additions on the live store. No Firebase or Sentry accounts. No access to the Apple or Google developer accounts yet (D-019).
@@ -58,9 +65,9 @@ Phase 3 has started. Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) a
 - `npm audit` reports a high advisory, GHSA-vfj7-8cjw-p6xm (CVE-2026-93687, stack exhaustion through deeply nested brace patterns) in `braces` 3.0.3. Every version is affected and no patched release exists; an upstream fix is in progress. GitHub updated the advisory on 2 October 2026, which made `main` fail the gate. `braces` comes in only through `micromatch` 4.0.8, used by Jest, Metro's file map and the Expo CLI: developer and build tooling that matches file paths and is never bundled into the app. It is allowlisted until **2026-11-15** (D-027). Remove the entry in the same commit that picks up a patched `braces`.
 - `npm audit` also reports, as before: `node-forge` (high, allowlisted until 2026-12-31, D-022); `uuid` and `decode-uri-component` (moderate, not gated; the second is risk 17).
 - Icons and splash image are the Expo placeholders. They must be replaced before any store build.
-- Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125 plus the ACOD app's own fee of unknown amount, free prepaid delivery from ₹200 (D-023, D-024). Checkout sets the final amount.
+- Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125, and ₹75 off either from a cart total of ₹200, so free prepaid and ₹50 cash on delivery (D-023, D-031; the ACOD app adds no fee, correcting D-024). The configuration does not yet carry the ₹75 discount amount; that comes with the cart screens. Checkout sets the final amount.
 - `userInterfaceStyle` is fixed to light until a dark theme is designed.
 
 ## Last passing build
 
-P3-01 branch `feat/p3-01-checkout-kit`, 3 October 2026: lint, format check, type check, tests (74), audit gate and `expo-doctor` pass locally. On `main`: P2-03's EAS Android development build 34b4b82c runs on the owner's phone. The GitHub Actions result is shown on the pull request.
+P3-02 branch `feat/p3-02-checkout-apps`, 3 October 2026: lint, format check, type check, tests (86), audit gate and `expo-doctor` pass locally. Android development build bb476119 (P3-01) runs P3-02's JavaScript on the owner's phone. The GitHub Actions result is shown on the pull request.
