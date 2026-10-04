@@ -100,6 +100,8 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (
     5. The owner published the malformed value `Browser`. Second cold start: `sheet (in-app default)`. Sentry received one warning (REACT-NATIVE-2, "Remote Config: malformed value for checkout_presentation; the in-app default is used", 0 users); the owner checked that the raw event does not contain the value. No Remote Config event came from the offline checks.
     6. Firebase console, Analytics → Realtime: the report area was empty, no users shown. The APK's manifest separately shows analytics collection deactivated.
   - Afterwards the owner set `checkout_presentation` back to a valid value in the development project. `adb reverse` removed, Metro stopped.
+  - Two adb commands during the check were outside what the owner had approved, both read only: `adb shell dumpsys activity activities` (once, to see which screen was in the foreground), and an `adb logcat -d -b crash,main` search that was not filtered to the app's process (once, while looking for a crash). The second printed an unrelated MIUI system line listing the apps installed on the owner's phone; it was not kept or used. The architect's review of PR #9 then set the adb rule now in `CLAUDE.md` and `TESTING.md`.
+  - Architect's review of PR #9 added two staging release-gate checks (`TESTING.md`): a fresh install must reach Home on its first launch, and the permission list must hold only what the app needs (`SYSTEM_ALERT_WINDOW`, external storage and `CHANGE_WIFI_MULTICAST_STATE` absent or justified).
 
 ## What works
 

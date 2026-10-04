@@ -40,6 +40,15 @@ A production mobile app for iPhone and Android for JustBookify's India store, ju
 - If any check is not green, stop and show the owner the failure instead of merging.
 - `main` has no branch protection (a private repository on GitHub Free), so this rule is the only gate. Never push to `main` directly (D-026, risk 18).
 
+## Phone checks with adb
+
+Standard `adb` from Google's SDK Platform-Tools only; no third-party MCP server, skill or app. Method in `docs/TESTING.md` ("Phone checks over USB with adb").
+
+- Allowed without asking: `adb devices`; `adb reverse tcp:8081 tcp:8081` and `adb reverse --remove tcp:8081`; reading logs filtered to this app's own process from the very first command, `adb logcat -d --pid=$(adb shell pidof com.justbookify.india.dev)`.
+- A screenshot needs the owner's yes each time, with the JustBookify app in the foreground.
+- Every other adb command needs the owner's yes each time, including read-only ones.
+- Never run an unfiltered log or a package listing.
+
 ## Stop and ask the owner when
 
 - A task needs a credential or access you do not have.
