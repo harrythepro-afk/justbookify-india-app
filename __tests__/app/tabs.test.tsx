@@ -15,6 +15,12 @@ jest.mock('expo-font', () => ({
   useFonts: () => [true, null],
 }));
 
+// The root layout starts the feature flags; Remote Config itself never loads in tests.
+jest.mock('@/featureFlags/remoteConfig', () => ({
+  activateLastFetched: () => Promise.resolve({}),
+  fetchForNextLaunch: () => Promise.resolve(),
+}));
+
 jest.mock('expo-constants', () => ({
   __esModule: true,
   default: {

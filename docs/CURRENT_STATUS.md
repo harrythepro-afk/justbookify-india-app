@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 4 October 2026 (P4-02: crash reporting with Sentry and the Android navigation buttons fix; awaiting review. P4-03 proposed).
+Last updated: 4 October 2026 (P4-03: feature flags with Firebase Remote Config; on-device check passed on build 97582938; awaiting review. P4-04 proposed).
 
 ## Phase
 
-Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) is merged. P4-02 (this change, branch `feat/p4-02-sentry`, PR #8) adds crash reporting with Sentry and fixes the Android navigation buttons; `NEXT_TASK.md` proposes P4-03. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (`f783367`, PR #8) are merged. P4-03 (this change, branch `feat/p4-03-remote-config`, PR #9) adds feature flags from Firebase Remote Config; its on-device check passed and it awaits review. `NEXT_TASK.md` proposes P4-04. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -61,7 +61,7 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) is merged. 
   - On-device check with the owner, 3 October 2026, development build bb476119 with JavaScript from Metro (one Android bundle, 1,488 modules, no errors or warnings): the app shows the banner ("Development build", "Store configuration: configured"); all five tabs show icon and label and open their screens, with the active tab filled and in maroon; headings are in Asul and body text in Archivo (owner screenshots). The Home link opens the test checkout screen, styled from the tokens, below the banner; it lists the development store's books and shows "Ready." **No new EAS build was needed.** The expo-dev-client menu button sits over the banner's right edge on development builds; it is not part of the app.
   - 124 tests (38 new).
 
-- P4-02 (awaiting review):
+- P4-02 (merged, `f783367`):
   - D-042: `@sentry/react-native` **8.29.0**, chosen by the owner over the `~7.11.0` that Expo SDK 57 lists (released before React Native 0.86; the 7.x line has had no release since February). It is listed in `expo.install.exclude`, so `expo-doctor` passes. The config plugin points at the EU region, organisation `justbookify`, project `react-native`; `metro.config.js` uses `getSentryExpoConfig`.
   - The DSN is `EXPO_PUBLIC_SENTRY_DSN`, read through `src/config/crashReporting.ts`; it is public by design, in `.env.local`, and an empty placeholder is in `.env.example`. Crash reporting is off with no DSN, with a malformed DSN, and always under Jest.
   - Sentry starts once in the root layout and reports errors only: no personal data, tracing, replay, screenshots, view hierarchy, logs or failed-request capture, and no `Sentry.wrap`.
@@ -79,6 +79,30 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) is merged. 
     - Native crash: **not provable on a development build.** `Sentry.nativeCrash()` throws on React Native's native-modules thread. In a development build React Native hands that exception to the dev client (`ReactHostImpl.handleHostException` → `DevLauncherBridgelessDevSupportManager`), which shows "There was a problem loading the project". It never reaches Android's crash handler, where Sentry records native crashes, so no report exists. In staging and production builds React Native rethrows it (`DefaultReactHostDelegate`), and Sentry records it. Owner's decision: verify the native crash, together with the source-map upload, at the first staging build. The full explanation is in `TESTING.md` ("Crash report checks").
   - Release gate (architect's review of PR #8, recorded in `TESTING.md` and as risk 19): no build goes to any tester other than the owner until, on a staging build, a real native crash arrives in Sentry, source maps upload and the stack trace is readable, and the raw crash event shows no IP address, city, device ID, store domain or token.
 
+- P4-03 (awaiting review, branch `feat/p4-03-remote-config`, PR #9):
+  - D-044: one Firebase project per environment; `justbookify-india-dev` exists (owner's Google account, Spark plan). `google-services.json` is gitignored and comes from the EAS file variable `GOOGLE_SERVICES_JSON`; restricting its API key is a Phase 14 item.
+  - D-045: React Native Firebase 26.4.0 (`app`, `remote-config`, `analytics`). Remote Config requires the Analytics package; Claude stopped and reported, and the architect chose to install it with collection off. D-009 is permanent for version 1: `AD_ID` blocked, Advertising ID and SSAID off, advertising consents denied (`firebase.json`, pinned by a test).
+  - D-047: the audit gate's new high advisory in `@grpc/grpc-js` is allowlisted for the mobile app only, until 2026-11-15, after a source-map check showed the Android bundle holds no `@grpc`, `@firebase` or `protobufjs` module.
+  - D-046: typed flags in `src/config/featureFlags.ts`, first `checkout_presentation` (`sheet` | `browser`, default `sheet`). Start-up never waits; consumers await local activation for at most 3 seconds, then one snapshot is frozen for the session; new values are fetched in the background and apply from the next cold start. Minimum fetch interval: production 1 hour, staging 15 minutes, development 0. A production change reaches a phone at its second cold start after the change: typically within a day, not minutes (`RELEASE.md` corrected). Phase 9 must make the checkout flag act without two restarts.
+  - Sentry gets unexpected flag problems by code only, and malformed values by flag name only; `remoteConfig/failure` and `remoteConfig/throttled` are never sent.
+  - Development line on Home: each flag's value and source, and the fetch status.
+  - Release gate added to `TESTING.md` (risk 20): every staging and production build is shown to fetch a changed flag before release, and again after the Phase 14 key restriction.
+  - 255 tests (66 new).
+  - The owner put `google-services.json` in the project folder and added `GOOGLE_SERVICES_JSON` (file, Secret, development only) to EAS; Claude checked both by name, package and project only.
+  - EAS build 3dd75f68 compiled (prebuild copied `google-services.json`, Gradle succeeded) but EAS failed to upload the 246 MB APK ("Failed to upload application archive"). The rebuild from the same commit, d211bdae, finished. Its APK had no `AD_ID` and the expected Firebase settings, but listed `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` (Privacy Sandbox, from Firebase Analytics) and the Play install referrer. The architect had the first two blocked (D-045) and the install referrer left as a P4-04 question; `TESTING.md` now checks every new build's full permission list.
+  - EAS Android development build **97582938** (commit `50494e6`): the first `eas build` call was refused with "Service Unavailable" (no build created; Expo's status page showed all systems operational), the second created it. Prebuild copied `google-services.json` from `GOOGLE_SERVICES_JSON`; Gradle succeeded.
+  - APK permission check (`TESTING.md`), build 97582938: no permission name contains `AD_ID` or `ADSERVICES`. Full list: `INTERNET`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `VIBRATE`, `SYSTEM_ALERT_WINDOW`, `CHANGE_WIFI_MULTICAST_STATE`, `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` (both up to SDK 32), `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE`, and the app's own `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. Against d211bdae only the two blocked permissions are gone. The manifest's Firebase settings match `firebase.json`. An optional `uses-library android.ext.adservices` (`required=false`) remains; it is a library entry, not a permission.
+  - On-device check, 4 October 2026, build 97582938 on the owner's Redmi Note 12 Pro 5G over USB with `adb reverse` (`TESTING.md`, "Phone checks over USB with adb"), JavaScript from Metro: **all six passed.**
+    1. First launch: `checkout_presentation: sheet (in-app default)`. The app started normally after the permission removals.
+    2. The owner published `checkout_presentation` = `browser`. First cold start: still `sheet`, fetch `success` (the snapshot did not change mid-session); second cold start: `browser (Remote Config)`.
+    3. Wi-Fi and mobile data off, cold start: `browser (Remote Config)` (the last activated value), fetch `failure`.
+    4. App data cleared while offline, cold start: `sheet (in-app default)`, fetch `failure`. The first reopen straight after `pm clear` left Android's starting window on screen with no app process and no crash entry; the next cold start opened normally.
+    5. The owner published the malformed value `Browser`. Second cold start: `sheet (in-app default)`. Sentry received one warning (REACT-NATIVE-2, "Remote Config: malformed value for checkout_presentation; the in-app default is used", 0 users); the owner checked that the raw event does not contain the value. No Remote Config event came from the offline checks.
+    6. Firebase console, Analytics → Realtime: the report area was empty, no users shown. The APK's manifest separately shows analytics collection deactivated.
+  - Afterwards the owner set `checkout_presentation` back to a valid value in the development project. `adb reverse` removed, Metro stopped.
+  - Two adb commands during the check were outside what the owner had approved, both read only: `adb shell dumpsys activity activities` (once, to see which screen was in the foreground), and an `adb logcat -d -b crash,main` search that was not filtered to the app's process (once, while looking for a crash). The second printed an unrelated MIUI system line listing the apps installed on the owner's phone; it was not kept or used. The architect's review of PR #9 then set the adb rule now in `CLAUDE.md` and `TESTING.md`.
+  - Architect's review of PR #9 added two staging release-gate checks (`TESTING.md`): a fresh install must reach Home on its first launch, and the permission list must hold only what the app needs (`SYSTEM_ALERT_WINDOW`, external storage and `CHANGE_WIFI_MULTICAST_STATE` absent or justified).
+
 ## What works
 
 - `npm run lint`, `format:check`, `typecheck`, `test` (86 tests) and `audit:gate` pass on `main` after P3-02. `npx expo-doctor` passes 21 of 21 checks.
@@ -93,9 +117,10 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) is merged. 
 - No prepaid checkout has been tested. Razorpay cannot be installed on the development store (business entity in Bahrain), so early check 1a waits, with 1b, for the launch rehearsal (D-033). Risk 2 is open and high. ACOD and SMART Checkout Rules were installed on the development store by the owner on 3 October 2026 for P3-02. P3-02's test order left the book "Harry potter" at a stock of 0 there; the owner can restock it.
 - Launch rehearsal (early checks 1a and 1b, Phase 19): not scheduled. It needs the Headless channel and published products on the live store (owner's go-ahead, D-008), a build pointing at the live store, the checkout presentation flag, and Apple access for the iPhone half. See `SHOPIFY_INTEGRATION.md`.
 - Early checks 3 to 6 wait for their features: Phase 7 login, Phase 10 backend, Phase 12 deep links, Phase 13 reviews (D-034, D-035).
-- The checkout presentation flag (D-033): not built. Its plumbing is in Phase 4; its use comes with the checkout screens in Phase 9.
+- The checkout presentation flag (D-033): plumbing built and checked on the phone in P4-03; its use comes with the checkout screens in Phase 9, which must also make it act without waiting for two restarts (D-046).
+- Staging and production Firebase projects: not created (D-044). The first staging build needs the staging project.
 - iOS development build: waits for Apple access, requested in Phase 9 (D-036).
-- No store additions on the live store. No Firebase account. No access to the Apple or Google developer accounts yet (D-036: Apple in Phase 9, Google Play in Phase 18).
+- No store additions on the live store. No access to the Apple or Google developer accounts yet (D-036: Apple in Phase 9, Google Play in Phase 18).
 - Sentry, still unproven (release gate in `TESTING.md`, risk 19; no build to any tester other than the owner until it passes): the native-crash report and the source-map upload. Sentry's upload script skips debug variants, and a development build's dev client catches native crashes. Both are checked at the first staging build, which also needs `EXPO_PUBLIC_SENTRY_DSN` as an EAS variable for that environment.
 - Storefront operations are not yet typed through code generation; that comes with the data layer, and the code generator is a dependency that needs a decision.
 
@@ -105,12 +130,18 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) is merged. 
 
 - `npm audit` reports a high advisory, GHSA-vfj7-8cjw-p6xm (CVE-2026-93687, stack exhaustion through deeply nested brace patterns) in `braces` 3.0.3. Every version is affected and no patched release exists; an upstream fix is in progress. GitHub updated the advisory on 2 October 2026, which made `main` fail the gate. `braces` comes in only through `micromatch` 4.0.8, used by Jest, Metro's file map and the Expo CLI: developer and build tooling that matches file paths and is never bundled into the app. It is allowlisted until **2026-11-15** (D-027). Remove the entry in the same commit that picks up a patched `braces`.
 - `npm audit` also reports, as before: `node-forge` (high, allowlisted until 2026-12-31, D-022); `uuid` and `decode-uri-component` (moderate, not gated; the second is risk 17).
+- Since P4-03, `npm audit` reports GHSA-m9gg-hp2v-232j (high) and GHSA-f596-whhp-79r4 (low) in `@grpc/grpc-js` 1.9.16, which Firebase's JS SDK pins through `@firebase/firestore`. The Android bundle does not contain it (source-map check); the high one is allowlisted for the mobile app only until **2026-11-15**, never for the Phase 10 backend (D-047).
+- npm 11 skipped the install scripts of `@firebase/util` and `protobufjs` (web and Node.js side of Firebase's JS SDK, not in the Android bundle; D-045).
 - Icons and splash image are the Expo placeholders. They must be replaced before any store build.
 - Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125, and ₹75 off either from a cart total of ₹200, so free prepaid and ₹50 cash on delivery (D-023, D-031; the ACOD app adds no fee, correcting D-024). The configuration does not yet carry the ₹75 discount amount; that comes with the cart screens. Checkout sets the final amount.
 - `userInterfaceStyle` is fixed to light until a dark theme is designed. Since D-043 it is enforced on Android too, by `expo-system-ui`.
 - npm 11 on this machine skips package install scripts it has not been told to allow, including `@sentry/cli`'s postinstall. `@sentry/cli` 3.x ships its binary as optional platform packages, so it is still installed; `@sentry/bundler-plugins` also brings `@sentry/cli` 2.58.6, which the React Native build does not use.
 
 ## Last passing build
+
+Branch `feat/p4-03-remote-config` (P4-03), 4 October 2026: lint, format check, type check, tests (255), audit gate and `expo-doctor` (21 of 21) pass locally; CI runs on PR #9. Android development build 97582938 runs it on the owner's phone.
+
+`main` at `f783367` (P4-02), 4 October 2026: CI was green on PR #8's latest commit before the merge.
 
 Branch `feat/p4-02-sentry` (P4-02), 4 October 2026: lint, format check, type check, tests (189), audit gate and `expo-doctor` (21 of 21) pass locally, and CI (checks plus secret scan) is green on PR #8. Android development build aa4e95c7 runs it on the owner's phone.
 

@@ -40,6 +40,9 @@
   "dependencies": {
     "@expo-google-fonts/archivo": "0.4.2",
     "@expo-google-fonts/asul": "0.4.1",
+    "@react-native-firebase/analytics": "26.4.0",
+    "@react-native-firebase/app": "26.4.0",
+    "@react-native-firebase/remote-config": "26.4.0",
     "@react-native-vector-icons/ionicons": "13.1.4",
     "@sentry/react-native": "8.29.0",
     "@shopify/checkout-sheet-kit": "3.9.1",

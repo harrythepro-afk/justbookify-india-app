@@ -40,6 +40,50 @@ No build goes to any tester other than the owner until all three checks below ha
 
 Until then the risk stays open (risk 19 in `RISKS.md`). The test controls on Home exist only on development builds; the staging check needs a way to trigger the crash on staging, decided when that build is planned.
 
+### Feature flag checks (P4-03)
+
+- Parsing: `__tests__/config/featureFlags.test.ts`. Empty Remote Config, a missing key, `default` or `static` sources and malformed values (wrong case, spaces, empty, unknown words) all give the compiled default; only an exact allowed value with source `remote` overrides it.
+- Session: `__tests__/featureFlags/session.test.ts` mocks `src/featureFlags/remoteConfig.ts`, so no test loads Firebase or touches a network. With fake timers it shows that start-up does not wait; an early read waits for activation and gets the Remote Config value; the defaults are frozen after 3 seconds and a late activation changes nothing; a failed activation or a missing native module gives the defaults; a background fetch never changes the snapshot. It also checks what reaches Sentry: `remoteConfig/failure` and `remoteConfig/throttled` never do; other errors do, by code or class name only; a malformed value is reported by flag name, never the value. `__tests__/featureFlags/useFeatureFlags.test.tsx` follows the hook from `not ready` to the frozen value.
+- Settings: `__tests__/firebaseJson.test.ts` pins every advertising key in `firebase.json` to false (D-009, permanent for version 1) and analytics collection off; `__tests__/app.config.test.ts` checks the Firebase plugins, the `google-services.json` path and the blocked `AD_ID` permission.
+
+### APK permission check (P4-03, architect's decision)
+
+Run on the APK of **every build that adds or upgrades a native package**, and on every staging and production build as part of the release gate. Native libraries can add permissions to the merged manifest that the app's own config never names: build d211bdae showed Firebase Analytics adding `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` beside `AD_ID`.
+
+1. Download the build's APK (with the owner's permission) into a scratch folder outside the repository.
+2. List the full permission list with `aapt2 dump permissions <apk>` (Android build-tools; 36.1.0 on the development machine) and record it in `CURRENT_STATUS.md`.
+3. **Fail** if any permission name contains `AD_ID` or `ADSERVICES`; such a permission is blocked in `app.config.ts` (`android.blockedPermissions`) and in `__tests__/app.config.test.ts`, and the build is repeated (D-009, D-045).
+4. Any other permission not seen in the previous build's list is reported to the owner before the build is used.
+5. `aapt2 dump xmltree --file AndroidManifest.xml <apk>`: the Firebase settings read as in `firebase.json` (analytics collection off and deactivated, advertising ID and SSAID off, every advertising consent denied).
+6. Delete the APK.
+
+### Phone checks over USB with adb (P4-03, owner's method)
+
+Used when a check needs the phone offline but the development build still needs JavaScript from Metro on this machine.
+
+- Tool: Google's SDK Platform-Tools only (the standard `adb`; on the development machine at `D:\platform-tools`, adb 1.0.41, version 37.0.1). No third-party MCP server, skill or app.
+- The phone is connected by a **data** USB cable with USB debugging on. `adb devices` must list it as `device`; `unauthorized` means the owner taps Allow on the phone. If adb lists nothing, Windows is not seeing the phone as a USB device: a charge-only cable or port, or a loose plug (4 October 2026: fixed by re-seating the cable).
+- `adb reverse tcp:8081 tcp:8081` maps the phone's port 8081 to Metro on this machine over USB. In the development build, connect to `http://localhost:8081`. The phone can then turn off Wi-Fi and mobile data and still load JavaScript, so offline behaviour can be tested.
+- **adb rule** (architect's review of PR #9; the same rule is in `CLAUDE.md`):
+  - Allowed without asking: `adb devices`; `adb reverse tcp:8081 tcp:8081` and its removal (`adb reverse --remove tcp:8081`); and reading logs filtered to this app's own process, filtered that way from the very first command: `adb logcat -d --pid=$(adb shell pidof com.justbookify.india.dev)` (the `pidof` lookup is part of this one allowed read and is never used for anything else).
+  - A screenshot needs the owner's yes each time, with the JustBookify app in the foreground.
+  - Every other adb command needs the owner's yes each time, including read-only ones (for example `dumpsys`, `am`, `monkey`, `pm`, `input`).
+  - Never run an unfiltered log or a package listing: an unfiltered system log can list the phone's installed apps.
+- After the checks, `adb reverse --remove tcp:8081`.
+- First used for P4-03 on 4 October 2026 (build 97582938, all six flag checks passed). For those checks the owner approved cold starts (`am force-stop` and `monkey -p <package> 1`), `pm clear` for the fresh-install check, typing the Metro address into the dev client and tapping Connect (`input text`, `input tap`), and screenshots of the app (`exec-out screencap`). Wi-Fi, mobile data and the Firebase and Sentry consoles stay with the owner. Two commands that day were outside what had been approved; see `CURRENT_STATUS.md`.
+- After `pm clear`, the dev client forgets its server; enter `http://localhost:8081` again. The first reopen straight after `pm clear` once left Android's starting window on screen with no app process; a normal cold start fixed it.
+
+### Release gate: feature flags (P4-03, architect's addition)
+
+Every staging and production build must be shown, before release, to fetch a changed flag value: change a flag in that environment's Firebase project, cold-start the app twice, and see the new value used. Repeat for every build after the Phase 14 restriction of the Android API key (D-044), because a wrong restriction would silently leave every phone on its last values or the defaults. Record the result in `CURRENT_STATUS.md`.
+
+The same release gate includes the APK permission check above: no staging or production build goes to anyone other than the owner while its APK lists a permission whose name contains `AD_ID` or `ADSERVICES`.
+
+Two more release-gate checks on every staging build (architect's review of PR #9):
+
+1. **Fresh install reaches Home.** Installed fresh (or after clearing the app's data), the staging build reaches Home on its first launch. The stuck splash screen seen on development build 97582938, where the first reopen after `pm clear` left Android's starting window on screen with no app process, must not appear.
+2. **Only the permissions the app needs.** The staging build's permission list contains only what the app needs. `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` and `CHANGE_WIFI_MULTICAST_STATE` are expected only in development builds (they come with the dev client and debug tooling) and must be absent from the staging build or justified in `CURRENT_STATUS.md` with where they come from and why they stay.
+
 ## Edge cases
 
 | Case | Expected behaviour |

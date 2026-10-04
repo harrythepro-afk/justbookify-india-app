@@ -40,6 +40,46 @@ describe('buildConfig', () => {
     expect(config.plugins).toContain('expo-system-ui');
   });
 
+  it.each(APP_ENVIRONMENTS)(
+    "reads %s's google-services.json from the gitignored local file by default",
+    (appEnv) => {
+      expect(buildConfig(appEnv).android?.googleServicesFile).toBe('./google-services.json');
+    },
+  );
+
+  it("uses the EAS file variable's path when the build supplies one", () => {
+    const config = buildConfig('development', {}, '/home/expo/workingdir/google-services.json');
+
+    expect(config.android?.googleServicesFile).toBe('/home/expo/workingdir/google-services.json');
+  });
+
+  it.each(APP_ENVIRONMENTS)("adds React Native Firebase's config plugins to %s", (appEnv) => {
+    const { plugins } = buildConfig(appEnv);
+
+    expect(plugins).toContain('@react-native-firebase/app');
+    expect(plugins).toContainEqual([
+      '@react-native-firebase/analytics',
+      { ios: { withoutAdIdSupport: true } },
+    ]);
+  });
+
+  it.each(APP_ENVIRONMENTS)(
+    'blocks the advertising ID and ad attribution permissions on %s (D-009, D-045)',
+    (appEnv) => {
+      expect(buildConfig(appEnv).android?.blockedPermissions).toEqual([
+        'com.google.android.gms.permission.AD_ID',
+        'android.permission.ACCESS_ADSERVICES_AD_ID',
+        'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+      ]);
+    },
+  );
+
+  it.each(APP_ENVIRONMENTS)('never requests an advertising permission itself on %s', (appEnv) => {
+    const requested = buildConfig(appEnv).android?.permissions ?? [];
+
+    expect(requested.filter((name) => /AD_ID|ADSERVICES/.test(name))).toEqual([]);
+  });
+
   it('never puts an auth token in the config', () => {
     const text = JSON.stringify(APP_ENVIRONMENTS.map((appEnv) => buildConfig(appEnv)));
 

@@ -7,9 +7,12 @@ import { StatusBar } from 'expo-status-bar';
 import { EnvironmentBanner } from '@/components/EnvironmentBanner';
 import { getAppEnvironment } from '@/config';
 import { startCrashReporting } from '@/crashReporting/sentry';
+import { startFeatureFlags } from '@/featureFlags/session';
 
 // Once, before the first render, so a crash during start-up is reported too (D-042).
 startCrashReporting();
+// Starts activating the flags fetched last session; the first render does not wait (D-046).
+startFeatureFlags();
 
 export default function RootLayout() {
   // Loaded at runtime, so no new native build is needed (D-041). The keys are the

@@ -25,7 +25,7 @@ The app talks straight to Shopify for everything a shopper does. The backend exi
 | App to Shopify directly | Catalogue, collections, search, filters, cart, Checkout Kit, login, profile, addresses, order history |
 | Through our backend | Push token registration and sending, return requests, back-in-stock alerts, reviews proxy, app attestation checks |
 | Only inside Shopify | Prices, inventory, order creation, payment methods, discounts, checkout rules, customer records, marketing consent |
-| Third-party services | APNs and FCM delivery, crash reporting, analytics, feature switches, WhatsApp, Razorpay, Judge.me |
+| Third-party services | APNs and FCM delivery, crash reporting (Sentry), analytics, feature switches (Firebase Remote Config), WhatsApp, Razorpay, Judge.me |
 
 ## The backend's four jobs
 
@@ -81,9 +81,33 @@ The app never handles card, UPI or bank details.
 | Shopify store | Development store | Second development store | Live store, justbookify.in |
 | App ID | `com.justbookify.india.dev` | `com.justbookify.india.staging` | `com.justbookify.india` |
 | Backend | Local emulators | Staging Firebase project | Production Firebase project |
+| Firebase project (flags, later analytics and push) | `justbookify-india-dev` (created 4 October 2026) | Created when first needed | Created when first needed |
+| `google-services.json` | EAS file variable `GOOGLE_SERVICES_JSON`, environment development | Same, environment preview | Same, environment production |
 | Customers | Invented | Invented | Real |
 
 A production build cannot be pointed at another store. Non-production builds show their environment name.
+
+Firebase (D-044): one project per environment, on the owner's Google account, location `asia-south1` wherever Firebase asks. `google-services.json` is gitignored; a build without its own environment's file fails at prebuild, so no build can reach another environment's project. The first staging build therefore needs the staging Firebase project.
+
+## Feature flags
+
+Typed flags with compiled defaults in `src/config/featureFlags.ts`, read from Firebase Remote Config (D-012, D-045, D-046). The first flag is `checkout_presentation` (`sheet` or `browser`, default `sheet`), the kill switch for D-033 and risk 2.
+
+```
+App start ── render at once (never waits for Remote Config)
+   └─ activate()  local read: promotes values fetched last session
+        ├─ done      → snapshot = last activated values ─┐
+        ├─ failed    → snapshot = defaults (Sentry)      ├─ frozen for the session
+        └─ 3 s pass  → snapshot = defaults (Sentry)    ──┘
+                          └─ fetchConfig() in background, not activated:
+                             new values apply from the next cold start
+Consumers: await loadFeatureFlags(), or useFeatureFlags() ("not ready" until frozen)
+```
+
+- `src/featureFlags/remoteConfig.ts` is the only file that imports Firebase; `src/featureFlags/session.ts` holds the snapshot. `ensureInitialized()` is never called: on Android it also fetches and activates, blocking.
+- Minimum fetch interval: production 1 hour, staging 15 minutes, development 0. A change reaches a production phone at its second cold start after the change, the first of them at least an hour after its previous fetch: typically within a day. An app left running does not switch until it restarts.
+- Only a valid Remote Config value overrides a default; a malformed one gives the default and a Sentry warning naming the flag.
+- **Phase 9 design item:** the checkout flag must take effect without waiting for two restarts, for example by activating fetched values when checkout is opened (D-046).
 
 ## Built for a second country
 

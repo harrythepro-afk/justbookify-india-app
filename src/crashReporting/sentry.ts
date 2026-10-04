@@ -48,6 +48,24 @@ export function isCrashReportingOn(): boolean {
   return started;
 }
 
+/**
+ * An unexpected feature-flag problem (D-046). `problem` is a fixed description plus an error
+ * code, never a native error message or a flag value.
+ */
+export function reportFeatureFlagProblem(problem: string): void {
+  if (!started) return;
+  Sentry.captureException(new Error(`Remote Config: ${problem}`));
+}
+
+/** A flag whose Remote Config value is not allowed. Names the flag, never the value. */
+export function reportMalformedFeatureFlag(name: string): void {
+  if (!started) return;
+  Sentry.captureMessage(
+    `Remote Config: malformed value for ${name}; the in-app default is used`,
+    'warning',
+  );
+}
+
 /** Development builds only: sends one handled error, so the owner can see it arrive. */
 export function sendTestError(): void {
   if (!started) return;

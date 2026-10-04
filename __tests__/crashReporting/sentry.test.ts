@@ -3,10 +3,12 @@ import type { Breadcrumb, ErrorEvent } from '@sentry/react-native';
 const mockInit = jest.fn();
 const mockCaptureException = jest.fn();
 const mockNativeCrash = jest.fn();
+const mockCaptureMessage = jest.fn();
 
 jest.mock('@sentry/react-native', () => ({
   init: (options: unknown) => mockInit(options),
   captureException: (error: unknown) => mockCaptureException(error),
+  captureMessage: (message: string, level: string) => mockCaptureMessage(message, level),
   nativeCrash: () => mockNativeCrash(),
 }));
 
@@ -70,6 +72,17 @@ describe('crash reporting', () => {
       expect(mockCaptureException).not.toHaveBeenCalled();
       expect(mockNativeCrash).not.toHaveBeenCalled();
     });
+
+    it('sends no feature flag reports', () => {
+      const crashReporting = loadModule();
+      crashReporting.startCrashReporting();
+
+      crashReporting.reportFeatureFlagProblem('activation timed out');
+      crashReporting.reportMalformedFeatureFlag('checkout_presentation');
+
+      expect(mockCaptureException).not.toHaveBeenCalled();
+      expect(mockCaptureMessage).not.toHaveBeenCalled();
+    });
   });
 
   describe('with a DSN', () => {
@@ -132,6 +145,29 @@ describe('crash reporting', () => {
       crashReporting.sendTestError();
 
       expect(mockCaptureException).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('reports a feature flag problem as a handled error with a fixed message', () => {
+      const crashReporting = loadModule();
+      crashReporting.startCrashReporting();
+
+      crashReporting.reportFeatureFlagProblem('activation failed (remoteConfig/unknown)');
+
+      expect(mockCaptureException).toHaveBeenCalledTimes(1);
+      const error = mockCaptureException.mock.calls[0]?.[0] as Error;
+      expect(error.message).toBe('Remote Config: activation failed (remoteConfig/unknown)');
+    });
+
+    it('reports a malformed flag as a warning that names the flag only', () => {
+      const crashReporting = loadModule();
+      crashReporting.startCrashReporting();
+
+      crashReporting.reportMalformedFeatureFlag('checkout_presentation');
+
+      expect(mockCaptureMessage).toHaveBeenCalledWith(
+        'Remote Config: malformed value for checkout_presentation; the in-app default is used',
+        'warning',
+      );
     });
 
     it("uses Sentry's own native crash for the native test", () => {

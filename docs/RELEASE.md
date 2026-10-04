@@ -25,7 +25,7 @@
 
 ## Rollback, fastest first
 
-1. Remote feature switch turns the feature off.
+1. Remote feature switch turns the feature off. Not instant (D-046): in production a phone fetches a changed flag at its first cold start at least 1 hour after its previous fetch, and uses it from the cold start after that. A phone whose app is cold-started a few times a day typically switches within a day; an app left running does not switch until it restarts. Phase 9 must make the checkout flag act without waiting for two restarts.
 2. Over-the-air JavaScript update for fixes with no native change.
 3. Halt the Play rollout or pause Apple's phased release.
 4. New build through expedited review.

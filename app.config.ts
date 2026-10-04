@@ -21,6 +21,21 @@ const SENTRY_URL = 'https://de.sentry.io/';
 const SENTRY_ORG = 'justbookify';
 const SENTRY_PROJECT = 'react-native';
 
+// Each environment's google-services.json comes from its own Firebase project (D-044). On EAS
+// it is the file variable GOOGLE_SERVICES_JSON, whose value is the file's path on the build
+// machine. Locally it is the gitignored file in the project root. Only prebuild reads the
+// file, so the config still evaluates where it is absent, as in CI.
+const LOCAL_GOOGLE_SERVICES_FILE = './google-services.json';
+
+// D-009, permanent for version 1 (D-045): no advertising ID and no ad attribution. Firebase
+// Analytics declares these permissions; Expo removes them from the merged manifest. The last
+// two are Android's Privacy Sandbox advertising ID and attribution.
+const BLOCKED_PERMISSIONS = [
+  'com.google.android.gms.permission.AD_ID',
+  'android.permission.ACCESS_ADSERVICES_AD_ID',
+  'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+];
+
 const ENVIRONMENT_VARIANTS: Record<AppEnvironment, { idSuffix: string; nameSuffix: string }> = {
   development: { idSuffix: '.dev', nameSuffix: ' (Dev)' },
   staging: { idSuffix: '.staging', nameSuffix: ' (Staging)' },
@@ -39,7 +54,11 @@ export function resolveAppEnv(value: string | undefined): AppEnvironment {
   return match;
 }
 
-export function buildConfig(appEnv: AppEnvironment, base: Partial<ExpoConfig> = {}): ExpoConfig {
+export function buildConfig(
+  appEnv: AppEnvironment,
+  base: Partial<ExpoConfig> = {},
+  googleServicesFile: string = LOCAL_GOOGLE_SERVICES_FILE,
+): ExpoConfig {
   const { idSuffix, nameSuffix } = ENVIRONMENT_VARIANTS[appEnv];
   const appId = `${PRODUCTION_APP_ID}${idSuffix}`;
 
@@ -63,6 +82,8 @@ export function buildConfig(appEnv: AppEnvironment, base: Partial<ExpoConfig> = 
         monochromeImage: './assets/android-icon-monochrome.png',
       },
       predictiveBackGestureEnabled: false,
+      googleServicesFile,
+      blockedPermissions: BLOCKED_PERMISSIONS,
     },
     web: { favicon: './assets/favicon.png' },
     plugins: [
@@ -75,12 +96,18 @@ export function buildConfig(appEnv: AppEnvironment, base: Partial<ExpoConfig> = 
         '@sentry/react-native/expo',
         { url: SENTRY_URL, organization: SENTRY_ORG, project: SENTRY_PROJECT },
       ],
+      // Copies google-services.json into the native project and applies the Google Services
+      // Gradle plugin (D-045).
+      '@react-native-firebase/app',
+      // iOS only: builds Analytics without advertising ID support (D-009, D-045). Collection
+      // itself is off in firebase.json.
+      ['@react-native-firebase/analytics', { ios: { withoutAdIdSupport: true } }],
     ],
     experiments: { typedRoutes: true },
     extra: { appEnv, eas: { projectId: EAS_PROJECT_ID } },
   };
 }
 
-// APP_ENV is read when the config is evaluated, at build time.
+// APP_ENV and GOOGLE_SERVICES_JSON are read when the config is evaluated, at build time.
 export default ({ config }: ConfigContext): ExpoConfig =>
-  buildConfig(resolveAppEnv(process.env.APP_ENV), config);
+  buildConfig(resolveAppEnv(process.env.APP_ENV), config, process.env.GOOGLE_SERVICES_JSON);

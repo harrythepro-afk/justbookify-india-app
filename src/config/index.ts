@@ -5,6 +5,20 @@ export {
   type CrashReportingConfig,
 } from './crashReporting';
 export { getAppEnvironment, getEnvironmentLabel } from './environment';
+export {
+  defaultFeatureFlags,
+  FEATURE_FLAG_NAMES,
+  FEATURE_FLAGS,
+  FLAG_ACTIVATION_TIMEOUT_MILLIS,
+  parseFeatureFlags,
+  REMOTE_CONFIG_SETTINGS,
+  type FeatureFlagName,
+  type FeatureFlags,
+  type FeatureFlagSnapshot,
+  type FeatureFlagSource,
+  type RawRemoteConfigValue,
+  type RemoteConfigSettings,
+} from './featureFlags';
 export { STOREFRONT_API_VERSION, storefrontEndpoint } from './shopifyApi';
 export {
   getStoreConfig,

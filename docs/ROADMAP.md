@@ -28,4 +28,6 @@ Phase numbers used in every doc, task ID and decision from 3 October 2026 (D-035
 
 Account access follows D-036: Apple developer access in Phase 9 (at the latest before Phase 12, for push notifications); Google Play access in Phase 18.
 
-The checkout presentation flag (D-033) gets its plumbing in Phase 4 and is used by the checkout screens in Phase 9, before the launch rehearsal in Phase 19.
+The checkout presentation flag (D-033) gets its plumbing in Phase 4 (P4-03, D-046) and is used by the checkout screens in Phase 9, before the launch rehearsal in Phase 19. Phase 9 must also make that flag take effect without waiting for two restarts, for example by activating fetched values when checkout is opened (D-046).
+
+Phase 14 restricts the Android API key in `google-services.json` to the app; afterwards every build must again be shown to fetch a changed flag (D-044, `TESTING.md`).
