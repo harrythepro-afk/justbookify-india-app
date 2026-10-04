@@ -27,7 +27,18 @@ Mocks are for unit and component tests only. Anything touching cart, checkout or
 
 - Scrubbing: `__tests__/crashReporting/scrub.test.ts` passes a sample event carrying an email, a phone number, a Shopify secret token, a token-like string, the store domain, the Storefront token, a URL with a query string, headers, cookies, a request body, a user and a device name through `scrubEvent`. The output must hold none of them, with stack frames unchanged apart from their local variables. It also lists strings that must be left alone, such as timestamps, product GIDs and UUIDs, so over-filtering shows up too. A new kind of personal data in the app needs a new case here.
 - Switching on: `__tests__/config/crashReporting.test.ts` shows crash reporting is off with no DSN, with a malformed DSN and always under Jest. `__tests__/crashReporting/sentry.test.ts` checks the `Sentry.init` options: no personal data, tracing, replay or attachments, and the environment tag.
-- Native crashes skip the JavaScript scrubber. They are checked by hand on a development build ("Trigger a native crash (test)" on Home), and Sentry's server-side data scrubbing covers them.
+- Native crashes skip the JavaScript scrubber; Sentry's server-side data scrubbing covers them. They **cannot be proven on a development build**. Sentry's test call, `Sentry.nativeCrash()` ("Trigger a native crash (test)" on Home), throws on React Native's native-modules thread. React Native hands that exception to its host's error handler (`ReactHostImpl.handleHostException`). In a development build that handler belongs to the dev client (`DevLauncherBridgelessDevSupportManager`), which shows "There was a problem loading the project" instead of letting the app crash. The exception therefore never reaches Android's uncaught-exception handler, where Sentry records native crashes, and no report is saved or sent. Seen on the owner's phone with build aa4e95c7 on 4 October 2026. Staging and production builds have no dev client: React Native's default handler rethrows (`DefaultReactHostDelegate`), the app crashes, and Sentry records it.
+- Source maps are not uploaded by development builds either: Sentry's Gradle script skips debug variants, and a development build loads its JavaScript from Metro.
+
+### Release gate: crash reporting (P4-02, architect's review of PR #8)
+
+No build goes to any tester other than the owner until all three checks below have passed on a **staging** build, with the result recorded in `CURRENT_STATUS.md`:
+
+1. A real native crash, triggered with "Trigger a native crash (test)" or an equivalent, arrives in Sentry after the app is reopened, under environment `staging`.
+2. Source maps upload during the EAS build, and that crash's JavaScript stack trace, or a test error's, is readable (original file names and lines, not the minified bundle).
+3. The raw crash event (Sentry's JSON view) shows no IP address, no city, no device ID, no store domain and no token.
+
+Until then the risk stays open (risk 19 in `RISKS.md`). The test controls on Home exist only on development builds; the staging check needs a way to trigger the crash on staging, decided when that build is planned.
 
 ## Edge cases
 
