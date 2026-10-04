@@ -58,3 +58,8 @@ sentry.properties
 firebase-key*.json
 .firebase/
 .runtimeconfig.json
+
+# Firebase app config files: kept out of git, supplied to EAS builds as the file variable
+# GOOGLE_SERVICES_JSON, one per environment (D-044)
+google-services.json
+GoogleService-Info.plist
