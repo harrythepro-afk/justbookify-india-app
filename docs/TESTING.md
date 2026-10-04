@@ -57,6 +57,18 @@ Run on the APK of **every build that adds or upgrades a native package**, and on
 5. `aapt2 dump xmltree --file AndroidManifest.xml <apk>`: the Firebase settings read as in `firebase.json` (analytics collection off and deactivated, advertising ID and SSAID off, every advertising consent denied).
 6. Delete the APK.
 
+### Phone checks over USB with adb (P4-03, owner's method)
+
+Used when a check needs the phone offline but the development build still needs JavaScript from Metro on this machine.
+
+- Tool: Google's SDK Platform-Tools only (the standard `adb`; on the development machine at `D:\platform-tools`, adb 1.0.41, version 37.0.1). No third-party MCP server, skill or app.
+- The phone is connected by a **data** USB cable with USB debugging on. `adb devices` must list it as `device`; `unauthorized` means the owner taps Allow on the phone. If adb lists nothing, Windows is not seeing the phone as a USB device: a charge-only cable or port, or a loose plug (4 October 2026: fixed by re-seating the cable).
+- `adb reverse tcp:8081 tcp:8081` maps the phone's port 8081 to Metro on this machine over USB. In the development build, connect to `http://localhost:8081`. The phone can then turn off Wi-Fi and mobile data and still load JavaScript, so offline behaviour can be tested.
+- Rules (owner, 4 October 2026): no command is sent to the phone without the owner's agreement, except `adb devices` and `adb reverse`, which the owner approved. A screenshot is taken only of the JustBookify app and only when the owner agrees.
+- After the checks, `adb reverse --remove tcp:8081`.
+- First used for P4-03 on 4 October 2026 (build 97582938, all six flag checks passed). The owner then approved, for those checks: cold starts (`am force-stop` and `monkey -p <package> 1`), `pm clear` for the fresh-install check, typing the Metro address into the dev client and tapping Connect (`input text`, `input tap`), read-only `logcat` for the app's process, and screenshots of the app (`exec-out screencap`). Wi-Fi, mobile data and the Firebase and Sentry consoles stay with the owner. Filter `logcat` narrowly to the app's process and tags: an unfiltered system log can list the phone's installed apps.
+- After `pm clear`, the dev client forgets its server; enter `http://localhost:8081` again. The first reopen straight after `pm clear` once left Android's starting window on screen with no app process; a normal cold start fixed it.
+
 ### Release gate: feature flags (P4-03, architect's addition)
 
 Every staging and production build must be shown, before release, to fetch a changed flag value: change a flag in that environment's Firebase project, cold-start the app twice, and see the new value used. Repeat for every build after the Phase 14 restriction of the Android API key (D-044), because a wrong restriction would silently leave every phone on its last values or the defaults. Record the result in `CURRENT_STATUS.md`.

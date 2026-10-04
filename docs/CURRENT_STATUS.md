@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 4 October 2026 (P4-03: feature flags with Firebase Remote Config; code, tests and docs done, development build and on-device check pending).
+Last updated: 4 October 2026 (P4-03: feature flags with Firebase Remote Config; on-device check passed on build 97582938; awaiting review. P4-04 proposed).
 
 ## Phase
 
-Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (`f783367`, PR #8) are merged. P4-03 (this change, branch `feat/p4-03-remote-config`) adds feature flags from Firebase Remote Config; its development build and on-device check remain (`NEXT_TASK.md`). Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (`f783367`, PR #8) are merged. P4-03 (this change, branch `feat/p4-03-remote-config`, PR #9) adds feature flags from Firebase Remote Config; its on-device check passed and it awaits review. `NEXT_TASK.md` proposes P4-04. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -79,7 +79,7 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (
     - Native crash: **not provable on a development build.** `Sentry.nativeCrash()` throws on React Native's native-modules thread. In a development build React Native hands that exception to the dev client (`ReactHostImpl.handleHostException` → `DevLauncherBridgelessDevSupportManager`), which shows "There was a problem loading the project". It never reaches Android's crash handler, where Sentry records native crashes, so no report exists. In staging and production builds React Native rethrows it (`DefaultReactHostDelegate`), and Sentry records it. Owner's decision: verify the native crash, together with the source-map upload, at the first staging build. The full explanation is in `TESTING.md` ("Crash report checks").
   - Release gate (architect's review of PR #8, recorded in `TESTING.md` and as risk 19): no build goes to any tester other than the owner until, on a staging build, a real native crash arrives in Sentry, source maps upload and the stack trace is readable, and the raw crash event shows no IP address, city, device ID, store domain or token.
 
-- P4-03 (in progress, branch `feat/p4-03-remote-config`):
+- P4-03 (awaiting review, branch `feat/p4-03-remote-config`, PR #9):
   - D-044: one Firebase project per environment; `justbookify-india-dev` exists (owner's Google account, Spark plan). `google-services.json` is gitignored and comes from the EAS file variable `GOOGLE_SERVICES_JSON`; restricting its API key is a Phase 14 item.
   - D-045: React Native Firebase 26.4.0 (`app`, `remote-config`, `analytics`). Remote Config requires the Analytics package; Claude stopped and reported, and the architect chose to install it with collection off. D-009 is permanent for version 1: `AD_ID` blocked, Advertising ID and SSAID off, advertising consents denied (`firebase.json`, pinned by a test).
   - D-047: the audit gate's new high advisory in `@grpc/grpc-js` is allowlisted for the mobile app only, until 2026-11-15, after a source-map check showed the Android bundle holds no `@grpc`, `@firebase` or `protobufjs` module.
@@ -87,9 +87,19 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (
   - Sentry gets unexpected flag problems by code only, and malformed values by flag name only; `remoteConfig/failure` and `remoteConfig/throttled` are never sent.
   - Development line on Home: each flag's value and source, and the fetch status.
   - Release gate added to `TESTING.md` (risk 20): every staging and production build is shown to fetch a changed flag before release, and again after the Phase 14 key restriction.
-  - 252 tests (63 new).
+  - 255 tests (66 new).
   - The owner put `google-services.json` in the project folder and added `GOOGLE_SERVICES_JSON` (file, Secret, development only) to EAS; Claude checked both by name, package and project only.
   - EAS build 3dd75f68 compiled (prebuild copied `google-services.json`, Gradle succeeded) but EAS failed to upload the 246 MB APK ("Failed to upload application archive"). The rebuild from the same commit, d211bdae, finished. Its APK had no `AD_ID` and the expected Firebase settings, but listed `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` (Privacy Sandbox, from Firebase Analytics) and the Play install referrer. The architect had the first two blocked (D-045) and the install referrer left as a P4-04 question; `TESTING.md` now checks every new build's full permission list.
+  - EAS Android development build **97582938** (commit `50494e6`): the first `eas build` call was refused with "Service Unavailable" (no build created; Expo's status page showed all systems operational), the second created it. Prebuild copied `google-services.json` from `GOOGLE_SERVICES_JSON`; Gradle succeeded.
+  - APK permission check (`TESTING.md`), build 97582938: no permission name contains `AD_ID` or `ADSERVICES`. Full list: `INTERNET`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `VIBRATE`, `SYSTEM_ALERT_WINDOW`, `CHANGE_WIFI_MULTICAST_STATE`, `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` (both up to SDK 32), `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE`, and the app's own `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. Against d211bdae only the two blocked permissions are gone. The manifest's Firebase settings match `firebase.json`. An optional `uses-library android.ext.adservices` (`required=false`) remains; it is a library entry, not a permission.
+  - On-device check, 4 October 2026, build 97582938 on the owner's Redmi Note 12 Pro 5G over USB with `adb reverse` (`TESTING.md`, "Phone checks over USB with adb"), JavaScript from Metro: **all six passed.**
+    1. First launch: `checkout_presentation: sheet (in-app default)`. The app started normally after the permission removals.
+    2. The owner published `checkout_presentation` = `browser`. First cold start: still `sheet`, fetch `success` (the snapshot did not change mid-session); second cold start: `browser (Remote Config)`.
+    3. Wi-Fi and mobile data off, cold start: `browser (Remote Config)` (the last activated value), fetch `failure`.
+    4. App data cleared while offline, cold start: `sheet (in-app default)`, fetch `failure`. The first reopen straight after `pm clear` left Android's starting window on screen with no app process and no crash entry; the next cold start opened normally.
+    5. The owner published the malformed value `Browser`. Second cold start: `sheet (in-app default)`. Sentry received one warning (REACT-NATIVE-2, "Remote Config: malformed value for checkout_presentation; the in-app default is used", 0 users); the owner checked that the raw event does not contain the value. No Remote Config event came from the offline checks.
+    6. Firebase console, Analytics → Realtime: the report area was empty, no users shown. The APK's manifest separately shows analytics collection deactivated.
+  - Afterwards the owner set `checkout_presentation` back to a valid value in the development project. `adb reverse` removed, Metro stopped.
 
 ## What works
 
@@ -105,8 +115,7 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (
 - No prepaid checkout has been tested. Razorpay cannot be installed on the development store (business entity in Bahrain), so early check 1a waits, with 1b, for the launch rehearsal (D-033). Risk 2 is open and high. ACOD and SMART Checkout Rules were installed on the development store by the owner on 3 October 2026 for P3-02. P3-02's test order left the book "Harry potter" at a stock of 0 there; the owner can restock it.
 - Launch rehearsal (early checks 1a and 1b, Phase 19): not scheduled. It needs the Headless channel and published products on the live store (owner's go-ahead, D-008), a build pointing at the live store, the checkout presentation flag, and Apple access for the iPhone half. See `SHOPIFY_INTEGRATION.md`.
 - Early checks 3 to 6 wait for their features: Phase 7 login, Phase 10 backend, Phase 12 deep links, Phase 13 reviews (D-034, D-035).
-- The checkout presentation flag (D-033): plumbing built in P4-03 (not yet checked on the phone); its use comes with the checkout screens in Phase 9, which must also make it act without waiting for two restarts (D-046).
-- P4-03's EAS development build, the APK permission check and the on-device check (`NEXT_TASK.md`). They need `google-services.json` in place locally and as `GOOGLE_SERVICES_JSON` in EAS (owner).
+- The checkout presentation flag (D-033): plumbing built and checked on the phone in P4-03; its use comes with the checkout screens in Phase 9, which must also make it act without waiting for two restarts (D-046).
 - Staging and production Firebase projects: not created (D-044). The first staging build needs the staging project.
 - iOS development build: waits for Apple access, requested in Phase 9 (D-036).
 - No store additions on the live store. No access to the Apple or Google developer accounts yet (D-036: Apple in Phase 9, Google Play in Phase 18).
@@ -128,7 +137,7 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (
 
 ## Last passing build
 
-Branch `feat/p4-03-remote-config` (P4-03), 4 October 2026: lint, format check, type check, tests (252), audit gate and `expo-doctor` (21 of 21) pass locally. No EAS build yet.
+Branch `feat/p4-03-remote-config` (P4-03), 4 October 2026: lint, format check, type check, tests (255), audit gate and `expo-doctor` (21 of 21) pass locally; CI runs on PR #9. Android development build 97582938 runs it on the owner's phone.
 
 `main` at `f783367` (P4-02), 4 October 2026: CI was green on PR #8's latest commit before the merge.
 

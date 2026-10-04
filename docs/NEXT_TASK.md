@@ -1,6 +1,6 @@
-# Next task: P4-03, feature flags with Firebase Remote Config (in progress)
+# Next task (proposal): P4-04, analytics plumbing with Google Analytics for Firebase
 
-Status: in progress on branch `feat/p4-03-remote-config`. Code, tests and docs are done; the EAS development build and the on-device check remain. Nothing is merged until the owner writes "approved, merge".
+Status: proposal. It starts only after P4-03 (PR #9) is merged and the owner starts it in a new session.
 
 ## Phase 4: mobile foundation
 
@@ -8,68 +8,52 @@ Status: in progress on branch `feat/p4-03-remote-config`. Code, tests and docs a
 | --- | --- | --- |
 | P4-01 (done, `df35fa0`) | Navigation shell, design tokens, environment banner | Done: D-039, D-040, D-041 |
 | P4-02 (done, `f783367`) | Crash reporting with Sentry, personal data scrubbed; Android navigation buttons | Done: D-042, D-043 |
-| **P4-03 (this task)** | Feature-flag plumbing with Firebase Remote Config: typed flags with safe in-app defaults, including the checkout presentation flag (D-033) | D-044 to D-047; a new development build |
-| P4-04 | Analytics plumbing with Google Analytics for Firebase: the event names in `ANALYTICS.md`, no personal data. May switch on analytics collection only: `AD_ID`, `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` stay blocked and the advertising consents stay denied for all of version 1 (D-009, D-045). Open question for the owner: is install-source reporting wanted (the Play install referrer permission, kept for now)? | P4-03's Firebase project, consent rules, the owner's answer on install source |
+| P4-03 (done, awaiting review, PR #9) | Feature flags with Firebase Remote Config; `checkout_presentation` kill switch plumbing | Done: D-044 to D-047; on-device check passed on build 97582938 |
+| **P4-04 (this task)** | Analytics plumbing: a typed event layer for the events in `ANALYTICS.md`, collection switched on under the owner's consent rule, no personal data | The owner's answers below; a new development build |
 
-## Answers from the owner and the architect (4 October 2026)
+## Goal of P4-04
 
-1. One Firebase project per environment, created when needed. `justbookify-india-dev` exists (owner's Google account, Spark plan, Analytics enabled, Android app `com.justbookify.india.dev`). D-044.
-2. `asia-south1` wherever Firebase asks; Remote Config has no region. D-044.
-3. `google-services.json` is gitignored and supplied as an EAS file variable per environment. Restricting the Android API key is a Phase 14 item. D-044.
-4. React Native Firebase 26.4.0, confirmed against Expo SDK 57, React Native 0.86 and the New Architecture. Remote Config requires the Analytics package; Claude stopped and reported, and the architect chose to install it with collection off (D-045). The audit gate then failed on `@grpc/grpc-js`; the exception covers the mobile app only, after proof that the Android bundle does not contain it (D-047).
-5. to 7. Start-up never waits; one snapshot per session; consumers wait up to 3 seconds for local activation; new values apply from the next cold start; ordinary fetch failures are not reported. Production minimum fetch interval 1 hour. D-046.
+The app can record the events listed in `ANALYTICS.md` through one typed module, with no personal data, and Google Analytics for Firebase receives them from the development build. `@react-native-firebase/analytics` 26.4.0 is already in the app, switched off (D-045). P4-04 builds the event layer and switches on **analytics collection only**: the advertising ID, the Privacy Sandbox permissions and the advertising consents stay off for all of version 1 (D-009, D-045). Most events fire from screens built in later phases; P4-04 wires the layer and the events that already have a screen.
 
-## What is done
+## Questions for the owner before starting
 
-- `src/config/featureFlags.ts`: typed flags, `checkout_presentation` = `sheet` | `browser`, default `sheet`; parser; fetch settings per environment.
-- `src/featureFlags/remoteConfig.ts` (the only Firebase import) and `src/featureFlags/session.ts` (`startFeatureFlags`, `loadFeatureFlags`, `useFeatureFlags`).
-- Sentry: `reportFeatureFlagProblem` and `reportMalformedFeatureFlag`, codes and flag names only.
-- A development-only line on Home: each flag's value and source, and the fetch status.
-- `firebase.json` (analytics off, advertising off), `AD_ID` blocked, Firebase config plugins, `google-services.json` path from `GOOGLE_SERVICES_JSON`.
-- 252 tests pass (63 new); lint, format check, type check, audit gate and `expo-doctor` (21 of 21) pass.
+1. **Consent.** `ANALYTICS.md` says analytics starts only after consent "where the law or the store's privacy policy requires it". Does the app ask before collecting analytics (opt-in), collect by default with a way to turn it off (opt-out), or something else? India's Digital Personal Data Protection Act 2023 and the store's privacy policy may decide this; it is a business and legal question, not a technical one.
+2. **Install source.** Firebase Analytics keeps the Play Store install referrer permission (`BIND_GET_INSTALL_REFERRER_SERVICE`) in the app (D-045). Is install-source reporting wanted? If not, P4-04 blocks it, like the advertising permissions.
+3. **Analytics user ID.** `ANALYTICS.md` allows a random ID or a one-way hash, never the email. Login arrives in Phase 7; should P4-04 set no user ID at all until then? (Proposed: none.)
+4. **Data retention** in Google Analytics (2 or 14 months for event-level data). Proposed: the shortest, 2 months.
 
-## Owner steps before the build
+## Steps
 
-1. Firebase console → `justbookify-india-dev` → Project settings → General → Your apps → Android app `com.justbookify.india.dev` → download `google-services.json`.
-2. Save it as `D:\Desktop\justbookify-india-app\google-services.json` (the repository root, next to `app.config.ts`). It is gitignored; `git status` must not list it.
-3. Add it to EAS for the development environment:
-   ```bash
-   npx eas-cli@24.10.0 env:set --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --environment development --visibility secret
-   ```
-   Or on expo.dev: the project → Environment variables → Add, type File, environment development, visibility Secret.
-
-## Remaining steps
-
-1. `npx eas-cli@24.10.0 build --platform android --profile development`, then `eas build:inspect`: `firebase.json` present; `google-services.json`, `.env.local` and keystores absent; no store domain or token.
-2. The APK permission check in `TESTING.md`: the full permission list, failing on any name containing `AD_ID` or `ADSERVICES`, and the Firebase settings in the manifest.
-   - Build d211bdae (commit `bd144a4`, 4 October 2026; the first attempt, 3dd75f68, compiled but EAS failed to upload the APK) passed for `AD_ID` and every Firebase setting, but listed `ACCESS_ADSERVICES_AD_ID`, `ACCESS_ADSERVICES_ATTRIBUTION` and the Play install referrer. The first two are now blocked (D-045); a new build is needed, and all phone checks run on it.
-3. On the phone, JavaScript from `npx expo start --dev-client`:
-   1. First launch: "Feature flags: not ready" briefly, then `checkout_presentation: sheet (in-app default)`.
-   2. The owner creates the parameter `checkout_presentation` = `browser` in the Firebase console and publishes. Cold-start the app twice: `browser (Remote Config)`.
-   3. Wi-Fi and mobile data off, cold start: still `browser` (the last activated values), fetch `failure`. No Sentry issue appears.
-   4. Clear the app's storage while offline, cold start: `sheet (in-app default)`.
-   5. Online, set the value to `Browser` (malformed), cold-start twice: `sheet (in-app default)`, and one Sentry warning naming `checkout_presentation` only.
-   6. Firebase console → Analytics → Realtime: no users from the app.
-4. If the build fails, or the app fails to start or misbehaves on the phone (including after the permission removals), stop and report (answer 4).
-5. Update `CURRENT_STATUS.md`, propose P4-04, open the pull request.
+1. Read the current React Native Firebase Analytics and Google Analytics for Firebase documentation (consent mode, `setAnalyticsCollectionEnabled`, `setConsent`, event and parameter limits), and record versions and dates. If the documentation requires something unexpected, stop and ask.
+2. A decision record for the consent rule and the collection settings: which `firebase.json` keys change (only `analytics_auto_collection_enabled`, `analytics_collection_deactivated`, `google_analytics_automatic_screen_reporting_enabled` and `analytics_default_allow_analytics_storage` may change; the advertising keys and the blocked permissions never do; `__tests__/firebaseJson.test.ts` keeps pinning them).
+3. `src/analytics/`: one typed function per event in `ANALYTICS.md`, with typed parameters; anything that could carry personal data (free text, emails, phone numbers, names, addresses) is impossible to pass by type, and a runtime guard drops it. Analytics is a no-op under Jest and when collection is off.
+4. Screen tracking by Expo Router route name, never with parameters that carry personal data.
+5. The events that already have a screen (for example `app_open`); the rest are wired by the phases that build their screens.
+6. A development-only line on Home showing whether collection is on.
+7. A new Android development build, the APK permission check in `TESTING.md` (no `AD_ID` or `ADSERVICES` permission; any new permission reported), and an on-device check with Firebase DebugView (`adb shell setprop debug.firebase.analytics.app com.justbookify.india.dev`, with the owner's agreement under the adb rules in `TESTING.md`).
+8. Update `ANALYTICS.md`, `SECURITY.md` (store privacy labels), `CURRENT_STATUS.md`, and propose the next task.
 
 ## Acceptance checks
 
-- Unit tests: defaults when Remote Config is empty, unreachable or malformed; a valid value overrides; an early read waits for activation; the 3-second timeout freezes the defaults. Done.
-- Tests run without Firebase (no network in CI). Done.
-- The development build shows the console's value after two cold starts; the last activated value offline; the default on a fresh install offline.
-- `AD_ID` absent from the built APK.
-- No secret in the repository or the build upload.
+- Unit tests: each event's parameters are typed; personal data cannot pass the guard; nothing is sent under Jest or with collection off.
+- `firebase.json` advertising keys and the three blocked permissions unchanged (tests).
+- The APK permission check passes on the new build.
+- DebugView shows the development build's events with only the documented parameters.
 - Lint, format check, type check, tests, audit gate and `expo-doctor` pass, and CI is green.
 
 ## Out of scope
 
-- Using the checkout flag in checkout screens (Phase 9), including making it act without two restarts (D-046).
-- Analytics events (P4-04), push notifications.
+- Events for screens that do not exist yet (they come with their phases).
+- Advertising, attribution or audiences of any kind (D-009, permanent for version 1).
 - iOS builds (Apple access in Phase 9, D-036).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P4-03)
+## Follow-ups (recorded, not part of P4-04)
 
-- **First staging build (from P4-02), a release gate:** no build goes to any tester other than the owner until this passes (`TESTING.md`, risk 19). Check that Sentry receives a native crash and that source maps upload during the build. The raw crash event must show no IP address, city, device ID, store domain or token. Needs `EXPO_PUBLIC_SENTRY_DSN` as an EAS variable for the staging build's environment, an EAS-generated keystore for `com.justbookify.india.staging` (a decision), an installable APK, and a way to trigger the test crash. **Since P4-03 it also needs the staging Firebase project** (`google-services.json` for `com.justbookify.india.staging` as `GOOGLE_SERVICES_JSON` in the EAS preview environment; D-044), and it must pass the feature-flag release gate (`TESTING.md`).
+- **First staging build (from P4-02 and P4-03), a release gate:** no build goes to any tester other than the owner until it passes (`TESTING.md`, risks 19 and 20). It needs:
+  - `EXPO_PUBLIC_SENTRY_DSN` as an EAS variable for the staging build's environment, an EAS-generated keystore for `com.justbookify.india.staging` (a decision), an installable APK, and a way to trigger the test crash. Sentry must receive a native crash, source maps must upload, and the raw crash event must show no IP address, city, device ID, store domain or token.
+  - The staging Firebase project, with `google-services.json` for `com.justbookify.india.staging` as `GOOGLE_SERVICES_JSON` in the EAS preview environment (D-044). The build must be shown to fetch a changed flag (`TESTING.md`, "Release gate: feature flags").
+  - The APK permission check (`TESTING.md`).
 - `npm run audit:gate` exception for `@grpc/grpc-js` (D-047) is reviewed by 2026-11-15, with the `braces` entry; it never applies to the Phase 10 backend.
+- Phase 9: the checkout flag must take effect without waiting for two restarts (D-046).
+- Phase 14: restrict the Android API key in each `google-services.json`, then repeat the flag fetch check on every build (D-044).
