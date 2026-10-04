@@ -88,6 +88,8 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (
   - Development line on Home: each flag's value and source, and the fetch status.
   - Release gate added to `TESTING.md` (risk 20): every staging and production build is shown to fetch a changed flag before release, and again after the Phase 14 key restriction.
   - 252 tests (63 new).
+  - The owner put `google-services.json` in the project folder and added `GOOGLE_SERVICES_JSON` (file, Secret, development only) to EAS; Claude checked both by name, package and project only.
+  - EAS build 3dd75f68 compiled (prebuild copied `google-services.json`, Gradle succeeded) but EAS failed to upload the 246 MB APK ("Failed to upload application archive"). The rebuild from the same commit, d211bdae, finished. Its APK had no `AD_ID` and the expected Firebase settings, but listed `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` (Privacy Sandbox, from Firebase Analytics) and the Play install referrer. The architect had the first two blocked (D-045) and the install referrer left as a P4-04 question; `TESTING.md` now checks every new build's full permission list.
 
 ## What works
 

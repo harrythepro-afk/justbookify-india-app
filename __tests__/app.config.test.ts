@@ -63,10 +63,21 @@ describe('buildConfig', () => {
     ]);
   });
 
-  it.each(APP_ENVIRONMENTS)('blocks the advertising ID permission on %s (D-009)', (appEnv) => {
-    expect(buildConfig(appEnv).android?.blockedPermissions).toEqual([
-      'com.google.android.gms.permission.AD_ID',
-    ]);
+  it.each(APP_ENVIRONMENTS)(
+    'blocks the advertising ID and ad attribution permissions on %s (D-009, D-045)',
+    (appEnv) => {
+      expect(buildConfig(appEnv).android?.blockedPermissions).toEqual([
+        'com.google.android.gms.permission.AD_ID',
+        'android.permission.ACCESS_ADSERVICES_AD_ID',
+        'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+      ]);
+    },
+  );
+
+  it.each(APP_ENVIRONMENTS)('never requests an advertising permission itself on %s', (appEnv) => {
+    const requested = buildConfig(appEnv).android?.permissions ?? [];
+
+    expect(requested.filter((name) => /AD_ID|ADSERVICES/.test(name))).toEqual([]);
   });
 
   it('never puts an auth token in the config', () => {

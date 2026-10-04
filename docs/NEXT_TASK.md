@@ -9,7 +9,7 @@ Status: in progress on branch `feat/p4-03-remote-config`. Code, tests and docs a
 | P4-01 (done, `df35fa0`) | Navigation shell, design tokens, environment banner | Done: D-039, D-040, D-041 |
 | P4-02 (done, `f783367`) | Crash reporting with Sentry, personal data scrubbed; Android navigation buttons | Done: D-042, D-043 |
 | **P4-03 (this task)** | Feature-flag plumbing with Firebase Remote Config: typed flags with safe in-app defaults, including the checkout presentation flag (D-033) | D-044 to D-047; a new development build |
-| P4-04 | Analytics plumbing with Google Analytics for Firebase: the event names in `ANALYTICS.md`, no personal data. May switch on analytics collection only: `AD_ID` stays blocked and the advertising consents stay denied for all of version 1 (D-009, D-045) | P4-03's Firebase project, consent rules |
+| P4-04 | Analytics plumbing with Google Analytics for Firebase: the event names in `ANALYTICS.md`, no personal data. May switch on analytics collection only: `AD_ID`, `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` stay blocked and the advertising consents stay denied for all of version 1 (D-009, D-045). Open question for the owner: is install-source reporting wanted (the Play install referrer permission, kept for now)? | P4-03's Firebase project, consent rules, the owner's answer on install source |
 
 ## Answers from the owner and the architect (4 October 2026)
 
@@ -41,7 +41,8 @@ Status: in progress on branch `feat/p4-03-remote-config`. Code, tests and docs a
 ## Remaining steps
 
 1. `npx eas-cli@24.10.0 build --platform android --profile development`, then `eas build:inspect`: `firebase.json` present; `google-services.json`, `.env.local` and keystores absent; no store domain or token.
-2. The APK itself: with the owner's permission, download the APK into a scratch folder and run `aapt2 dump permissions` and `aapt2 dump xmltree --file AndroidManifest.xml` (build-tools 36.1.0). No `com.google.android.gms.permission.AD_ID`; `firebase_analytics_collection_enabled` and `google_analytics_adid_collection_enabled` are `false`. If the APK cannot be read: on the phone, Settings → Apps → JustBookify (Dev) → Permissions → ⋮ → All permissions shows no advertising ID entry; with USB debugging, `adb shell dumpsys package com.justbookify.india.dev` lists no `AD_ID`.
+2. The APK permission check in `TESTING.md`: the full permission list, failing on any name containing `AD_ID` or `ADSERVICES`, and the Firebase settings in the manifest.
+   - Build d211bdae (commit `bd144a4`, 4 October 2026; the first attempt, 3dd75f68, compiled but EAS failed to upload the APK) passed for `AD_ID` and every Firebase setting, but listed `ACCESS_ADSERVICES_AD_ID`, `ACCESS_ADSERVICES_ATTRIBUTION` and the Play install referrer. The first two are now blocked (D-045); a new build is needed, and all phone checks run on it.
 3. On the phone, JavaScript from `npx expo start --dev-client`:
    1. First launch: "Feature flags: not ready" briefly, then `checkout_presentation: sheet (in-app default)`.
    2. The owner creates the parameter `checkout_presentation` = `browser` in the Firebase console and publishes. Cold-start the app twice: `browser (Remote Config)`.
@@ -49,7 +50,7 @@ Status: in progress on branch `feat/p4-03-remote-config`. Code, tests and docs a
    4. Clear the app's storage while offline, cold start: `sheet (in-app default)`.
    5. Online, set the value to `Browser` (malformed), cold-start twice: `sheet (in-app default)`, and one Sentry warning naming `checkout_presentation` only.
    6. Firebase console → Analytics → Realtime: no users from the app.
-4. If the build fails or the app misbehaves on the phone, stop and report (answer 4).
+4. If the build fails, or the app fails to start or misbehaves on the phone (including after the permission removals), stop and report (answer 4).
 5. Update `CURRENT_STATUS.md`, propose P4-04, open the pull request.
 
 ## Acceptance checks

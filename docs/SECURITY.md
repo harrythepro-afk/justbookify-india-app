@@ -41,7 +41,7 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 ### Data
 - [ ] Collect only what a rental needs; no children's data
 - [ ] No personal data in analytics, logs or push text
-- [x] No advertising identifiers, permanently for version 1 (D-009, D-045): `AD_ID` blocked in the manifest, Advertising ID and SSAID collection off and every advertising consent denied in `firebase.json`, pinned by a unit test. Firebase Analytics is installed (Remote Config requires it) with collection off until P4-04
+- [x] No advertising identifiers, permanently for version 1 (D-009, D-045): `AD_ID`, `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` blocked in the manifest and checked on each new build's APK (`TESTING.md`, "APK permission check"), Advertising ID and SSAID collection off and every advertising consent denied in `firebase.json`, pinned by a unit test. Firebase Analytics is installed (Remote Config requires it) with collection off until P4-04
 - [ ] Remote Config fetches send Firebase's per-install identifier (Firebase Installations). Declare it in the store privacy labels in Phases 17 and 18
 
 ### Payments

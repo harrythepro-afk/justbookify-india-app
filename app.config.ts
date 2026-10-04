@@ -27,9 +27,14 @@ const SENTRY_PROJECT = 'react-native';
 // file, so the config still evaluates where it is absent, as in CI.
 const LOCAL_GOOGLE_SERVICES_FILE = './google-services.json';
 
-// D-009, permanent for version 1 (D-045): no advertising ID. Firebase Analytics declares this
-// permission; Expo removes it from the merged manifest.
-const BLOCKED_PERMISSIONS = ['com.google.android.gms.permission.AD_ID'];
+// D-009, permanent for version 1 (D-045): no advertising ID and no ad attribution. Firebase
+// Analytics declares these permissions; Expo removes them from the merged manifest. The last
+// two are Android's Privacy Sandbox advertising ID and attribution.
+const BLOCKED_PERMISSIONS = [
+  'com.google.android.gms.permission.AD_ID',
+  'android.permission.ACCESS_ADSERVICES_AD_ID',
+  'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+];
 
 const ENVIRONMENT_VARIANTS: Record<AppEnvironment, { idSuffix: string; nameSuffix: string }> = {
   development: { idSuffix: '.dev', nameSuffix: ' (Dev)' },

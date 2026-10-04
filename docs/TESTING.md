@@ -46,9 +46,22 @@ Until then the risk stays open (risk 19 in `RISKS.md`). The test controls on Hom
 - Session: `__tests__/featureFlags/session.test.ts` mocks `src/featureFlags/remoteConfig.ts`, so no test loads Firebase or touches a network. With fake timers it shows that start-up does not wait; an early read waits for activation and gets the Remote Config value; the defaults are frozen after 3 seconds and a late activation changes nothing; a failed activation or a missing native module gives the defaults; a background fetch never changes the snapshot. It also checks what reaches Sentry: `remoteConfig/failure` and `remoteConfig/throttled` never do; other errors do, by code or class name only; a malformed value is reported by flag name, never the value. `__tests__/featureFlags/useFeatureFlags.test.tsx` follows the hook from `not ready` to the frozen value.
 - Settings: `__tests__/firebaseJson.test.ts` pins every advertising key in `firebase.json` to false (D-009, permanent for version 1) and analytics collection off; `__tests__/app.config.test.ts` checks the Firebase plugins, the `google-services.json` path and the blocked `AD_ID` permission.
 
+### APK permission check (P4-03, architect's decision)
+
+Run on the APK of **every build that adds or upgrades a native package**, and on every staging and production build as part of the release gate. Native libraries can add permissions to the merged manifest that the app's own config never names: build d211bdae showed Firebase Analytics adding `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` beside `AD_ID`.
+
+1. Download the build's APK (with the owner's permission) into a scratch folder outside the repository.
+2. List the full permission list with `aapt2 dump permissions <apk>` (Android build-tools; 36.1.0 on the development machine) and record it in `CURRENT_STATUS.md`.
+3. **Fail** if any permission name contains `AD_ID` or `ADSERVICES`; such a permission is blocked in `app.config.ts` (`android.blockedPermissions`) and in `__tests__/app.config.test.ts`, and the build is repeated (D-009, D-045).
+4. Any other permission not seen in the previous build's list is reported to the owner before the build is used.
+5. `aapt2 dump xmltree --file AndroidManifest.xml <apk>`: the Firebase settings read as in `firebase.json` (analytics collection off and deactivated, advertising ID and SSAID off, every advertising consent denied).
+6. Delete the APK.
+
 ### Release gate: feature flags (P4-03, architect's addition)
 
 Every staging and production build must be shown, before release, to fetch a changed flag value: change a flag in that environment's Firebase project, cold-start the app twice, and see the new value used. Repeat for every build after the Phase 14 restriction of the Android API key (D-044), because a wrong restriction would silently leave every phone on its last values or the defaults. Record the result in `CURRENT_STATUS.md`.
+
+The same release gate includes the APK permission check above: no staging or production build goes to anyone other than the owner while its APK lists a permission whose name contains `AD_ID` or `ADSERVICES`.
 
 ## Edge cases
 
