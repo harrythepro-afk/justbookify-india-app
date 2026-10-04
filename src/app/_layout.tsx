@@ -4,6 +4,8 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
+import { useScreenTracking } from '@/analytics/screenTracking';
+import { startAnalytics } from '@/analytics/start';
 import { EnvironmentBanner } from '@/components/EnvironmentBanner';
 import { getAppEnvironment } from '@/config';
 import { startCrashReporting } from '@/crashReporting/sentry';
@@ -13,8 +15,12 @@ import { startFeatureFlags } from '@/featureFlags/session';
 startCrashReporting();
 // Starts activating the flags fetched last session; the first render does not wait (D-046).
 startFeatureFlags();
+// Reads the customer's analytics consent; nothing is sent without it (D-048).
+startAnalytics();
 
 export default function RootLayout() {
+  useScreenTracking();
+
   // Loaded at runtime, so no new native build is needed (D-041). The keys are the
   // family names in src/theme/tokens.ts.
   const [fontsLoaded, fontError] = useFonts({

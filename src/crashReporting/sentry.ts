@@ -66,6 +66,15 @@ export function reportMalformedFeatureFlag(name: string): void {
   );
 }
 
+/**
+ * An analytics problem (D-048, D-053): a dropped event or a consent or Firebase call that
+ * failed. `problem` names the event, parameter or step and an error code, never a value.
+ */
+export function reportAnalyticsProblem(problem: string): void {
+  if (!started) return;
+  Sentry.captureMessage(`Analytics: ${problem}`, 'warning');
+}
+
 /** Development builds only: sends one handled error, so the owner can see it arrive. */
 export function sendTestError(): void {
   if (!started) return;

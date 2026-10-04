@@ -27,13 +27,17 @@ const SENTRY_PROJECT = 'react-native';
 // file, so the config still evaluates where it is absent, as in CI.
 const LOCAL_GOOGLE_SERVICES_FILE = './google-services.json';
 
-// D-009, permanent for version 1 (D-045): no advertising ID and no ad attribution. Firebase
-// Analytics declares these permissions; Expo removes them from the merged manifest. The last
-// two are Android's Privacy Sandbox advertising ID and attribution.
+// D-009, permanent for version 1 (D-045, D-049): no advertising ID and no ad attribution.
+// Firebase Analytics declares these permissions; Expo removes them from the merged manifest.
+// The second and third are Android's Privacy Sandbox advertising ID and attribution. The last
+// two come with expo-secure-store's biometric library; the app never uses biometric unlock
+// (D-052).
 const BLOCKED_PERMISSIONS = [
   'com.google.android.gms.permission.AD_ID',
   'android.permission.ACCESS_ADSERVICES_AD_ID',
   'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+  'android.permission.USE_BIOMETRIC',
+  'android.permission.USE_FINGERPRINT',
 ];
 
 const ENVIRONMENT_VARIANTS: Record<AppEnvironment, { idSuffix: string; nameSuffix: string }> = {
@@ -84,6 +88,9 @@ export function buildConfig(
       predictiveBackGestureEnabled: false,
       googleServicesFile,
       blockedPermissions: BLOCKED_PERMISSIONS,
+      // No backup and no device-to-device transfer, so a restored install never starts with
+      // analytics collection on but no stored consent (D-052; see plugins/withNoAndroidBackup.js).
+      allowBackup: false,
     },
     web: { favicon: './assets/favicon.png' },
     plugins: [
@@ -102,6 +109,10 @@ export function buildConfig(
       // iOS only: builds Analytics without advertising ID support (D-009, D-045). Collection
       // itself is off in firebase.json.
       ['@react-native-firebase/analytics', { ios: { withoutAdIdSupport: true } }],
+      // Stores the analytics consent (D-048, D-052). Its own backup rules are off because they
+      // back up every other SharedPreferences file, including Firebase's collection setting.
+      ['expo-secure-store', { configureAndroidBackup: false }],
+      './plugins/withNoAndroidBackup',
     ],
     experiments: { typedRoutes: true },
     extra: { appEnv, eas: { projectId: EAS_PROJECT_ID } },

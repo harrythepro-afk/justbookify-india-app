@@ -1,6 +1,6 @@
 # Next task (proposal): P4-04, analytics plumbing with Google Analytics for Firebase
 
-Status: proposal. It starts only after P4-03 (PR #9) is merged and the owner starts it in a new session.
+Status: in progress on branch `feat/p4-04-analytics` (started 4 October 2026). P4-03 is merged (`5e8827d`, PR #9). The owner's answers are recorded as D-048 to D-053.
 
 ## Phase 4: mobile foundation
 
@@ -8,7 +8,7 @@ Status: proposal. It starts only after P4-03 (PR #9) is merged and the owner sta
 | --- | --- | --- |
 | P4-01 (done, `df35fa0`) | Navigation shell, design tokens, environment banner | Done: D-039, D-040, D-041 |
 | P4-02 (done, `f783367`) | Crash reporting with Sentry, personal data scrubbed; Android navigation buttons | Done: D-042, D-043 |
-| P4-03 (done, awaiting review, PR #9) | Feature flags with Firebase Remote Config; `checkout_presentation` kill switch plumbing | Done: D-044 to D-047; on-device check passed on build 97582938 |
+| P4-03 (done, `5e8827d`) | Feature flags with Firebase Remote Config; `checkout_presentation` kill switch plumbing | Done: D-044 to D-047 |
 | **P4-04 (this task)** | Analytics plumbing: a typed event layer for the events in `ANALYTICS.md`, collection switched on under the owner's consent rule, no personal data | The owner's answers below; a new development build |
 
 ## Goal of P4-04
@@ -44,7 +44,7 @@ The app can record the events listed in `ANALYTICS.md` through one typed module,
 ## Out of scope
 
 - Events for screens that do not exist yet (they come with their phases).
-- Advertising, attribution or audiences of any kind (D-009, permanent for version 1).
+- Advertising IDs, the Privacy Sandbox advertising permissions, the advertising consents and audiences (D-009 as amended by D-049, permanent for version 1). Install-source reporting through the Play install referrer is allowed, under analytics consent only (D-049).
 - iOS builds (Apple access in Phase 9, D-036).
 - Anything on the live store.
 

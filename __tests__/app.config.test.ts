@@ -66,11 +66,40 @@ describe('buildConfig', () => {
   it.each(APP_ENVIRONMENTS)(
     'blocks the advertising ID and ad attribution permissions on %s (D-009, D-045)',
     (appEnv) => {
+      expect(buildConfig(appEnv).android?.blockedPermissions).toEqual(
+        expect.arrayContaining([
+          'com.google.android.gms.permission.AD_ID',
+          'android.permission.ACCESS_ADSERVICES_AD_ID',
+          'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+        ]),
+      );
+    },
+  );
+
+  it.each(APP_ENVIRONMENTS)(
+    "blocks the biometric permissions from expo-secure-store's library on %s (D-052)",
+    (appEnv) => {
       expect(buildConfig(appEnv).android?.blockedPermissions).toEqual([
         'com.google.android.gms.permission.AD_ID',
         'android.permission.ACCESS_ADSERVICES_AD_ID',
         'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+        'android.permission.USE_BIOMETRIC',
+        'android.permission.USE_FINGERPRINT',
       ]);
+    },
+  );
+
+  it.each(APP_ENVIRONMENTS)(
+    'stores the analytics consent with expo-secure-store and turns Android backup off on %s',
+    (appEnv) => {
+      const config = buildConfig(appEnv);
+
+      expect(config.plugins).toContainEqual([
+        'expo-secure-store',
+        { configureAndroidBackup: false },
+      ]);
+      expect(config.plugins).toContain('./plugins/withNoAndroidBackup');
+      expect(config.android?.allowBackup).toBe(false);
     },
   );
 

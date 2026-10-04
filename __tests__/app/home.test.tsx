@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import type { AnalyticsConsentState } from '@/analytics/consent';
 import HomeScreen from '@/app/(tabs)/index';
 import type { FeatureFlagState } from '@/featureFlags/session';
 
@@ -17,6 +18,11 @@ jest.mock('@/crashReporting/sentry', () => ({
 }));
 
 let mockFlagState: FeatureFlagState = { status: 'not ready' };
+let mockConsent: AnalyticsConsentState = { consent: 'loading', busy: false, saveFailed: false };
+
+jest.mock('@/analytics/consent', () => ({
+  useAnalyticsConsent: () => mockConsent,
+}));
 
 jest.mock('@/featureFlags/session', () => ({
   useFeatureFlags: () => mockFlagState,
@@ -55,6 +61,7 @@ describe('HomeScreen', () => {
     mockAppEnv = 'development';
     mockCrashReportingOn = true;
     mockFlagState = { status: 'not ready' };
+    mockConsent = { consent: 'loading', busy: false, saveFailed: false };
     jest.clearAllMocks();
   });
 
@@ -177,5 +184,25 @@ describe('HomeScreen', () => {
 
     expect(screen.queryByRole('button')).not.toBeOnTheScreen();
     expect(screen.queryByText('Crash reporting is off (no DSN).')).not.toBeOnTheScreen();
+  });
+  it.each([
+    ['loading', 'Analytics: consent loading'],
+    ['not asked', 'Analytics: off (consent: not asked)'],
+    ['denied', 'Analytics: off (consent: denied)'],
+    ['granted', 'Analytics: on (consent: granted)'],
+  ] as const)('shows the analytics state when consent is %s', async (consent, line) => {
+    mockConsent = { consent, busy: false, saveFailed: false };
+
+    await render(<HomeScreen />, { wrapper: SafeArea });
+
+    expect(screen.getByText(line)).toBeOnTheScreen();
+  });
+
+  it.each(['staging', 'production'])('shows no analytics line on a %s build', async (env) => {
+    mockAppEnv = env;
+
+    await render(<HomeScreen />, { wrapper: SafeArea });
+
+    expect(screen.queryByText(/^Analytics:/)).not.toBeOnTheScreen();
   });
 });

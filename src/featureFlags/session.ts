@@ -8,6 +8,7 @@ import {
   REMOTE_CONFIG_SETTINGS,
   type FeatureFlagSnapshot,
 } from '@/config';
+import { safeErrorCode as errorCode } from '@/crashReporting/errorCode';
 import { reportFeatureFlagProblem, reportMalformedFeatureFlag } from '@/crashReporting/sentry';
 
 import { activateLastFetched, fetchForNextLaunch } from './remoteConfig';
@@ -44,18 +45,6 @@ const listeners = new Set<() => void>();
 function setState(next: FeatureFlagState): void {
   state = next;
   for (const listener of listeners) listener();
-}
-
-// React Native Firebase errors carry a code such as `remoteConfig/failure`.
-const FIREBASE_CODE = /^[A-Za-z]+\/[a-z_-]+$/;
-
-/** A code that is safe to report: the Firebase code, or the error's class name. */
-function errorCode(error: unknown): string {
-  if (typeof error === 'object' && error !== null && 'code' in error) {
-    const { code } = error;
-    if (typeof code === 'string' && FIREBASE_CODE.test(code)) return code;
-  }
-  return error instanceof Error ? error.name : 'unknown';
 }
 
 /**

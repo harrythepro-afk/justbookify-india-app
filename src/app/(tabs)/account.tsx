@@ -1,3 +1,4 @@
+import { AnalyticsConsentSwitch } from '@/components/AnalyticsConsentSwitch';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 
 export default function AccountScreen() {
@@ -5,6 +6,8 @@ export default function AccountScreen() {
     <PlaceholderScreen
       message="Your profile, addresses, notification settings and help will appear here."
       title="Account"
-    />
+    >
+      <AnalyticsConsentSwitch />
+    </PlaceholderScreen>
   );
 }

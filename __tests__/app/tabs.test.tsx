@@ -21,6 +21,22 @@ jest.mock('@/featureFlags/remoteConfig', () => ({
   fetchForNextLaunch: () => Promise.resolve(),
 }));
 
+// The root layout starts analytics; Firebase Analytics and the consent store never load in
+// tests, and with no stored consent nothing is sent.
+jest.mock('@/analytics/firebase', () => ({
+  turnCollectionOn: () => Promise.resolve(),
+  turnCollectionOff: () => Promise.resolve(),
+  clearAnalyticsData: () => Promise.resolve(),
+  sendEvent: () => Promise.resolve(),
+  sendScreenView: () => Promise.resolve(),
+}));
+
+jest.mock('@/analytics/consentStorage', () => ({
+  readStoredConsent: () => Promise.resolve(null),
+  writeStoredConsent: () => Promise.resolve(),
+  deleteStoredConsent: () => Promise.resolve(),
+}));
+
 jest.mock('expo-constants', () => ({
   __esModule: true,
   default: {
