@@ -9,6 +9,7 @@ Tool: Google Analytics for Firebase. No advertising SDKs in version 1.
 - Search terms are measured by length, not content.
 - The analytics user ID is a random ID or a one-way hash, never the email.
 - Analytics starts only after consent where the law or the store's privacy policy requires it.
+- Crash reports (Sentry) follow the same rules; the scrubbing is described in `SECURITY.md` and D-042.
 
 ## Events (first version)
 

@@ -6,6 +6,10 @@ import { StatusBar } from 'expo-status-bar';
 
 import { EnvironmentBanner } from '@/components/EnvironmentBanner';
 import { getAppEnvironment } from '@/config';
+import { startCrashReporting } from '@/crashReporting/sentry';
+
+// Once, before the first render, so a crash during start-up is reported too (D-042).
+startCrashReporting();
 
 export default function RootLayout() {
   // Loaded at runtime, so no new native build is needed (D-041). The keys are the

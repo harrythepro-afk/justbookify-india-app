@@ -38,6 +38,8 @@ Values are never written in this repository. Names and locations only.
 | Sentry DSN and Firebase app config | Judge.me private API token |
 | Deep-link hosts | Any database or cloud credential |
 
+The Sentry DSN is `EXPO_PUBLIC_SENTRY_DSN`; it only lets the app send crash reports and is public by design. The Sentry auth token, which uploads source maps during release builds, is `SENTRY_AUTH_TOKEN`. It exists only as an EAS environment variable with Secret visibility, created by the owner, and never in the repository, `.env` files or chat (D-042).
+
 The Storefront token gets the minimum scopes: products, collections, cart and checkout. Nothing customer-related.
 
 In the app the shop domain and the public Storefront token are `EXPO_PUBLIC_STORE_DOMAIN` and `EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN`, read through `src/config/`. For development they sit in `.env.local`, which is never committed. The Headless channel's private token is never used in the app.

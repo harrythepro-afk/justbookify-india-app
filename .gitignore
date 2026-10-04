@@ -47,6 +47,10 @@ coverage/
 *.certSigningRequest
 credentials.json
 
+# Sentry CLI files that can hold an auth token (the token lives only in EAS, D-042)
+.sentryclirc
+sentry.properties
+
 # service-account and cloud credential files
 *service-account*.json
 *serviceAccount*.json

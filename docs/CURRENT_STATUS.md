@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 3 October 2026 (P4-01: app shell, design tokens and environment banner; awaiting review. P4-02 proposed).
+Last updated: 4 October 2026 (P4-02: crash reporting with Sentry and the Android navigation buttons fix; awaiting review. P4-03 proposed).
 
 ## Phase
 
-Phase 4 (mobile foundation) is in progress. P4-01 (this change, branch `feat/p4-01-app-shell`) builds the app shell: five tabs, design tokens and the environment banner. The architect approved it on 4 October 2026; `NEXT_TASK.md` proposes P4-02. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) is merged. P4-02 (this change, branch `feat/p4-02-sentry`, PR #8) adds crash reporting with Sentry and fixes the Android navigation buttons; `NEXT_TASK.md` proposes P4-03. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -49,7 +49,7 @@ Phase 4 (mobile foundation) is in progress. P4-01 (this change, branch `feat/p4-
   - D-038: brand colours and fonts read from justbookify.in's public pages (read only). Every text pair the site uses passes WCAG AA except cream on green; the adjusted green `#3E7916` is proposed for the owner to confirm.
   - `SHOPIFY_INTEGRATION.md`, `RISKS.md`, `TESTING.md`, `PRODUCT_REQUIREMENTS.md` and `NEXT_TASK.md` updated to match.
 
-- P4-01 (awaiting review):
+- P4-01 (merged, `df35fa0`):
   - D-039: the owner confirmed the greens. Text on the brand green `#9DE46D` is dark maroon, never cream; a green that carries light text or stands alone is `#3E7916`.
   - D-040: tab icons from `@react-native-vector-icons/ionicons` 13.1.4. Expo's icon guide (read 3 October 2026) says `@expo/vector-icons` "will be deprecated and is not recommended"; the owner chose Expo's recommended replacement, which is maintained by its community, not by Expo.
   - D-041: Asul and Archivo from `@expo-google-fonts/asul` 0.4.1 and `@expo-google-fonts/archivo` 0.4.2, loaded at runtime with `expo-font` 57.0.4 (already in the app through `expo`, now a direct dependency). No config plugins, so no new native build.
@@ -60,6 +60,24 @@ Phase 4 (mobile foundation) is in progress. P4-01 (this change, branch `feat/p4-
   - The test checkout link stays on Home, development builds only.
   - On-device check with the owner, 3 October 2026, development build bb476119 with JavaScript from Metro (one Android bundle, 1,488 modules, no errors or warnings): the app shows the banner ("Development build", "Store configuration: configured"); all five tabs show icon and label and open their screens, with the active tab filled and in maroon; headings are in Asul and body text in Archivo (owner screenshots). The Home link opens the test checkout screen, styled from the tokens, below the banner; it lists the development store's books and shows "Ready." **No new EAS build was needed.** The expo-dev-client menu button sits over the banner's right edge on development builds; it is not part of the app.
   - 124 tests (38 new).
+
+- P4-02 (awaiting review):
+  - D-042: `@sentry/react-native` **8.29.0**, chosen by the owner over the `~7.11.0` that Expo SDK 57 lists (released before React Native 0.86; the 7.x line has had no release since February). It is listed in `expo.install.exclude`, so `expo-doctor` passes. The config plugin points at the EU region, organisation `justbookify`, project `react-native`; `metro.config.js` uses `getSentryExpoConfig`.
+  - The DSN is `EXPO_PUBLIC_SENTRY_DSN`, read through `src/config/crashReporting.ts`; it is public by design, in `.env.local`, and an empty placeholder is in `.env.example`. Crash reporting is off with no DSN, with a malformed DSN, and always under Jest.
+  - Sentry starts once in the root layout and reports errors only: no personal data, tracing, replay, screenshots, view hierarchy, logs or failed-request capture, and no `Sentry.wrap`.
+  - `src/crashReporting/scrub.ts` runs as `beforeSend` and `beforeBreadcrumb`. It removes the user, server name, request headers, cookies, body and query, the device name, frame variables and console breadcrumbs. In every remaining string it filters emails, phone numbers, Shopify secret tokens, bearer tokens, JWTs, long token-like strings, customer and order GIDs, URL and path query strings, `*.myshopify.com` hosts, and the configured store domain and Storefront token.
+  - Home has two development-only controls: send a handled test error, and trigger Sentry's native test crash.
+  - D-043: `expo-system-ui` 57.0.4 makes `userInterfaceStyle: 'light'` take effect on Android. Without it the app followed the phone's dark theme, and React Native's edge-to-edge setup asked for light navigation buttons over the off-white screens.
+  - The owner created the upload token in Sentry and stored it in EAS as `SENTRY_AUTH_TOKEN` (Secret, development, preview and production). Claude checked it by name only; the value never reached the repository, `.env` files or chat. The owner switched on Sentry's server-side data scrubbing and "Prevent Storing of IP Addresses".
+  - Secret scan: gitleaks first flagged made-up token-shaped fixtures in `scrub.test.ts`. They carry `gitleaks:allow` on their lines, and the scan configuration is unchanged. The feature branch was rewritten so no commit holds an unmarked fixture.
+  - EAS Android development build aa4e95c7 finished on 4 October 2026. `eas build:inspect` showed no `.env.local`, keystore or Sentry credential file in the upload, and neither the store's domain nor its token.
+  - On-device check with the owner, 4 October 2026, build aa4e95c7 with JavaScript from Metro (no errors in the Metro log):
+    - Navigation buttons: **passed.** They are dark on the off-white screens with the phone in dark theme.
+    - Test error: **passed.** Issue REACT-NATIVE-1 arrived with environment `development`, release `1.0.0 (1)` of `com.justbookify.india.dev`, and a readable stack trace with source lines (`sentry.ts:54`, the Home button at `index.tsx:41`). Breadcrumbs held only device and app-lifecycle events; the device ID showed `[Filtered]`; no email, store domain or token was seen. The owner sent the event's raw JSON. It holds no IP address (`infer_ip: never`), user identifier, store domain, token, email or URL. Two fields are added by Sentry's server after the scrubber:
+      - "Name: Redmi Note 12 Pro 5G" is the marketing name Sentry looks up from the model code `22101316I` (Relay's `ANDROID_MODEL_NAMES` table). It is not the phone's own name, which the scrubber would remove (checked against the event's exact device data).
+      - `user.geo` held a city and state, derived from the connecting address; that geo-only user is the one user Sentry counted. The owner added two Advanced Data Scrubbing rules in the Sentry project (Remove `user.geo.city`, Remove `user.geo.subdivision`). A second test error kept only the country (`IN`).
+    - Native crash: **not provable on a development build.** `Sentry.nativeCrash()` throws on React Native's native-modules thread. In a development build React Native hands that exception to the dev client (`ReactHostImpl.handleHostException` → `DevLauncherBridgelessDevSupportManager`), which shows "There was a problem loading the project". It never reaches Android's crash handler, where Sentry records native crashes, so no report exists. In staging and production builds React Native rethrows it (`DefaultReactHostDelegate`), and Sentry records it. Owner's decision: verify the native crash, together with the source-map upload, at the first staging build. The full explanation is in `TESTING.md` ("Crash report checks").
+  - Release gate (architect's review of PR #8, recorded in `TESTING.md` and as risk 19): no build goes to any tester other than the owner until, on a staging build, a real native crash arrives in Sentry, source maps upload and the stack trace is readable, and the raw crash event shows no IP address, city, device ID, store domain or token.
 
 ## What works
 
@@ -77,7 +95,8 @@ Phase 4 (mobile foundation) is in progress. P4-01 (this change, branch `feat/p4-
 - Early checks 3 to 6 wait for their features: Phase 7 login, Phase 10 backend, Phase 12 deep links, Phase 13 reviews (D-034, D-035).
 - The checkout presentation flag (D-033): not built. Its plumbing is in Phase 4; its use comes with the checkout screens in Phase 9.
 - iOS development build: waits for Apple access, requested in Phase 9 (D-036).
-- No store additions on the live store. No Firebase or Sentry accounts. No access to the Apple or Google developer accounts yet (D-036: Apple in Phase 9, Google Play in Phase 18).
+- No store additions on the live store. No Firebase account. No access to the Apple or Google developer accounts yet (D-036: Apple in Phase 9, Google Play in Phase 18).
+- Sentry, still unproven (release gate in `TESTING.md`, risk 19; no build to any tester other than the owner until it passes): the native-crash report and the source-map upload. Sentry's upload script skips debug variants, and a development build's dev client catches native crashes. Both are checked at the first staging build, which also needs `EXPO_PUBLIC_SENTRY_DSN` as an EAS variable for that environment.
 - Storefront operations are not yet typed through code generation; that comes with the data layer, and the code generator is a dependency that needs a decision.
 
 ## Known issues
@@ -88,10 +107,14 @@ Phase 4 (mobile foundation) is in progress. P4-01 (this change, branch `feat/p4-
 - `npm audit` also reports, as before: `node-forge` (high, allowlisted until 2026-12-31, D-022); `uuid` and `decode-uri-component` (moderate, not gated; the second is risk 17).
 - Icons and splash image are the Expo placeholders. They must be replaced before any store build.
 - Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125, and ₹75 off either from a cart total of ₹200, so free prepaid and ₹50 cash on delivery (D-023, D-031; the ACOD app adds no fee, correcting D-024). The configuration does not yet carry the ₹75 discount amount; that comes with the cart screens. Checkout sets the final amount.
-- `userInterfaceStyle` is fixed to light until a dark theme is designed.
-- Android's system navigation buttons are light on the off-white screens and almost invisible (architect's review of PR #7). Light screens need dark buttons; recorded as a follow-up in `NEXT_TASK.md`.
+- `userInterfaceStyle` is fixed to light until a dark theme is designed. Since D-043 it is enforced on Android too, by `expo-system-ui`.
+- npm 11 on this machine skips package install scripts it has not been told to allow, including `@sentry/cli`'s postinstall. `@sentry/cli` 3.x ships its binary as optional platform packages, so it is still installed; `@sentry/bundler-plugins` also brings `@sentry/cli` 2.58.6, which the React Native build does not use.
 
 ## Last passing build
+
+Branch `feat/p4-02-sentry` (P4-02), 4 October 2026: lint, format check, type check, tests (189), audit gate and `expo-doctor` (21 of 21) pass locally, and CI (checks plus secret scan) is green on PR #8. Android development build aa4e95c7 runs it on the owner's phone.
+
+`main` at `df35fa0` (P4-01), 4 October 2026: CI was green on PR #7's latest commit before the merge.
 
 Branch `feat/p4-01-app-shell` (P4-01), 3 October 2026: lint, format check, type check, tests (124), audit gate and `expo-doctor` (21 of 21) pass locally; CI runs on its pull request. Android development build bb476119 runs it on the owner's phone.
 

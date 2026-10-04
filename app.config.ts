@@ -13,6 +13,14 @@ const APP_NAME = 'JustBookify';
 const EAS_OWNER = 'hemant6626';
 const EAS_PROJECT_ID = '33687d66-0fd2-4b7d-8f50-30c1cb920c3c';
 
+// Sentry's EU region, where the owner's organisation lives (D-042). The plugin reads the auth
+// token for source map uploads only from the SENTRY_AUTH_TOKEN variable, an EAS secret; no
+// token ever belongs in this file.
+const SENTRY_URL = 'https://de.sentry.io/';
+// The Sentry organisation and project that receive this app's crash reports. Not secrets.
+const SENTRY_ORG = 'justbookify';
+const SENTRY_PROJECT = 'react-native';
+
 const ENVIRONMENT_VARIANTS: Record<AppEnvironment, { idSuffix: string; nameSuffix: string }> = {
   development: { idSuffix: '.dev', nameSuffix: ' (Dev)' },
   staging: { idSuffix: '.staging', nameSuffix: ' (Staging)' },
@@ -57,7 +65,17 @@ export function buildConfig(appEnv: AppEnvironment, base: Partial<ExpoConfig> = 
       predictiveBackGestureEnabled: false,
     },
     web: { favicon: './assets/favicon.png' },
-    plugins: ['expo-router', 'expo-status-bar'],
+    plugins: [
+      'expo-router',
+      'expo-status-bar',
+      // Makes `userInterfaceStyle` take effect on Android, so the app stays light even when the
+      // phone is in dark theme and Android draws dark navigation buttons (D-043).
+      'expo-system-ui',
+      [
+        '@sentry/react-native/expo',
+        { url: SENTRY_URL, organization: SENTRY_ORG, project: SENTRY_PROJECT },
+      ],
+    ],
     experiments: { typedRoutes: true },
     extra: { appEnv, eas: { projectId: EAS_PROJECT_ID } },
   };
