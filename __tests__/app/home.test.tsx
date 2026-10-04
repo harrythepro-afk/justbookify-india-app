@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import HomeScreen from '@/app/(tabs)/index';
+import type { FeatureFlagState } from '@/featureFlags/session';
 
 let mockAppEnv = 'development';
 let mockCrashReportingOn = true;
@@ -13,6 +14,12 @@ jest.mock('@/crashReporting/sentry', () => ({
   isCrashReportingOn: () => mockCrashReportingOn,
   sendTestError: () => mockSendTestError(),
   triggerTestNativeCrash: () => mockTriggerTestNativeCrash(),
+}));
+
+let mockFlagState: FeatureFlagState = { status: 'not ready' };
+
+jest.mock('@/featureFlags/session', () => ({
+  useFeatureFlags: () => mockFlagState,
 }));
 
 jest.mock('expo-router', () => {
@@ -47,6 +54,7 @@ describe('HomeScreen', () => {
   beforeEach(() => {
     mockAppEnv = 'development';
     mockCrashReportingOn = true;
+    mockFlagState = { status: 'not ready' };
     jest.clearAllMocks();
   });
 
@@ -103,6 +111,63 @@ describe('HomeScreen', () => {
 
     expect(screen.getByText('Crash reporting is off (no DSN).')).toBeOnTheScreen();
     expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+  });
+
+  it('says the feature flags are not ready before local activation', async () => {
+    await render(<HomeScreen />, { wrapper: SafeArea });
+
+    expect(screen.getByText('Feature flags: not ready')).toBeOnTheScreen();
+  });
+
+  it.each([
+    ['sheet', 'default', 'in-app default', 'failure'],
+    ['browser', 'remote', 'Remote Config', 'success'],
+  ] as const)(
+    'shows the checkout flag as %s from the %s source, and the fetch status',
+    async (value, source, label, fetch) => {
+      mockFlagState = {
+        status: 'ready',
+        snapshot: {
+          values: { checkout_presentation: value },
+          sources: { checkout_presentation: source },
+          malformed: [],
+        },
+        fetch,
+      };
+
+      await render(<HomeScreen />, { wrapper: SafeArea });
+
+      expect(screen.getByText(`checkout_presentation: ${value} (${label})`)).toBeOnTheScreen();
+      expect(
+        screen.getByText(`Remote Config fetch for the next launch: ${fetch}`),
+      ).toBeOnTheScreen();
+    },
+  );
+
+  it('says no fetch was started when activation failed', async () => {
+    mockFlagState = {
+      status: 'ready',
+      snapshot: {
+        values: { checkout_presentation: 'sheet' },
+        sources: { checkout_presentation: 'default' },
+        malformed: [],
+      },
+      fetch: undefined,
+    };
+
+    await render(<HomeScreen />, { wrapper: SafeArea });
+
+    expect(
+      screen.getByText('Remote Config fetch for the next launch: not started'),
+    ).toBeOnTheScreen();
+  });
+
+  it.each(['staging', 'production'])('shows no feature flag line on a %s build', async (env) => {
+    mockAppEnv = env;
+
+    await render(<HomeScreen />, { wrapper: SafeArea });
+
+    expect(screen.queryByText(/Feature flags|checkout_presentation/)).not.toBeOnTheScreen();
   });
 
   it.each(['staging', 'production'])('shows no crash test controls on a %s build', async (env) => {

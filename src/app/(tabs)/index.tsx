@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
-import { getAppEnvironment } from '@/config';
+import { FEATURE_FLAG_NAMES, getAppEnvironment, type FeatureFlagSource } from '@/config';
 import { isCrashReportingOn, sendTestError, triggerTestNativeCrash } from '@/crashReporting/sentry';
+import { useFeatureFlags } from '@/featureFlags/session';
 import { colors, fonts, fontSize, spacing } from '@/theme/tokens';
 
 export default function HomeScreen() {
@@ -19,9 +20,38 @@ export default function HomeScreen() {
             Open the test checkout screen
           </Link>
           <CrashReportingTestControls />
+          <FeatureFlagStatus />
         </>
       )}
     </PlaceholderScreen>
+  );
+}
+
+const SOURCE_LABELS: Record<FeatureFlagSource, string> = {
+  remote: 'Remote Config',
+  default: 'in-app default',
+};
+
+/** Development builds only: each flag's value for this session, and where it came from. */
+function FeatureFlagStatus() {
+  const flags = useFeatureFlags();
+
+  if (flags.status === 'not ready') {
+    return <Text style={styles.flags}>Feature flags: not ready</Text>;
+  }
+
+  const { snapshot, fetch } = flags;
+  return (
+    <>
+      {FEATURE_FLAG_NAMES.map((name) => (
+        <Text key={name} style={styles.flags}>
+          {name}: {snapshot.values[name]} ({SOURCE_LABELS[snapshot.sources[name]]})
+        </Text>
+      ))}
+      <Text style={styles.note}>
+        Remote Config fetch for the next launch: {fetch ?? 'not started'}
+      </Text>
+    </>
   );
 }
 
@@ -72,6 +102,12 @@ const styles = StyleSheet.create({
   controlText: linkText,
   note: {
     marginTop: spacing.xs,
+    fontFamily: fonts.body,
+    fontSize: fontSize.small,
+    color: colors.text,
+  },
+  flags: {
+    marginTop: spacing.xl,
     fontFamily: fonts.body,
     fontSize: fontSize.small,
     color: colors.text,
