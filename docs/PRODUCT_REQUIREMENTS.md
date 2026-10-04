@@ -93,6 +93,15 @@ Approved by the owner on 3 October 2026 as the target for later phases (D-037).
 - Marketing notifications are opt-in and off by default. Order updates and reminders are separate.
 - No advertising SDKs.
 - The app collects its own consent for push notifications at a sensible moment, not at first launch.
+- **Analytics is opt-in (D-048).** Nothing is collected until the customer says yes. The choice is not asked, granted or denied, and only granted switches collection on. The Account tab has a "Share app usage" switch, off by default; turning it off stops collection at once and clears the analytics data on the phone. The switch's wording is a draft, to be reviewed by the owner's adviser with the privacy policy (risk 21).
+- **Analytics consent request (requirement, Phase 7).** It is never shown at first launch, offers Allow and Don't allow (closing it leaves the choice not asked), and says that usage is linked to the customer's account. The owner decides its placement in Phase 7:
+  - (a) right after the first login or sign-up, which never measures customers who browse without logging in; or
+  - (b) at a natural pause before login, such as adding the first book to the cart, with the account-linking line shown after login.
+
+  **Release gate:** no build goes to an outside tester without a working consent request (`TESTING.md`).
+- **Analytics user ID (requirement, Phase 7, D-050).** After login, and only for customers who granted consent, the app sets a stable per-customer ID. It is random or a salted one-way value, never an email, a phone number or the raw Shopify customer ID. Logging out or withdrawing consent clears it.
+- Install-source reporting through the Play install referrer is allowed, under analytics consent only (D-049). Advertising IDs, advertising consents and audiences stay off.
+- Google Analytics keeps event data for 14 months (D-051).
 
 ## Constraints from the owner
 

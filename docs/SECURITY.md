@@ -40,9 +40,18 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 
 ### Data
 - [ ] Collect only what a rental needs; no children's data
-- [ ] No personal data in analytics, logs or push text
-- [x] No advertising identifiers, permanently for version 1 (D-009, D-045): `AD_ID`, `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` blocked in the manifest and checked on each new build's APK (`TESTING.md`, "APK permission check"), Advertising ID and SSAID collection off and every advertising consent denied in `firebase.json`, pinned by a unit test. Firebase Analytics is installed (Remote Config requires it) with collection off until P4-04
-- [ ] Remote Config fetches send Firebase's per-install identifier (Firebase Installations). Declare it in the store privacy labels in Phases 17 and 18
+- [ ] No personal data in analytics, logs or push text. Analytics part done in P4-04 (D-053): typed events and a runtime guard; screens by route name only; no user ID until Phase 7 (D-050). Logs and push text remain
+- [x] Analytics is opt-in (D-048): collection off until the customer's consent, withdrawal stops it at once and resets the phone's analytics data. Android backup and device transfer are off, so a restored phone never starts with collection on and no consent record (D-052)
+- [ ] Before any outside tester: a working consent request and the privacy policy's app section (`TESTING.md`, "Release gate: analytics consent"; risk 21)
+- [x] No advertising identifiers, permanently for version 1 (D-009, D-045): `AD_ID`, `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` blocked in the manifest and checked on each new build's APK (`TESTING.md`, "APK permission check"), Advertising ID and SSAID collection off and every advertising consent denied in `firebase.json`, pinned by a unit test. From P4-04, analytics collection is on only with the customer's consent (D-048); the advertising keys are unchanged (D-049). `USE_BIOMETRIC` and `USE_FINGERPRINT` (from `expo-secure-store`'s biometric library) are blocked as well (D-052)
+- [ ] Store privacy labels (Apple) and the Data safety form (Google), in Phases 17 and 18. Declare:
+  - Firebase's per-install identifier (Firebase Installations), sent by Remote Config fetches whatever the consent;
+  - with analytics consent only: app interactions (screens viewed, events in `ANALYTICS.md`), the analytics app instance ID, and the install source from the Play install referrer (D-049);
+  - after Phase 7, for consenting customers: the per-customer analytics ID linked to the account (D-050);
+  - crash reports (Sentry, D-042);
+  - analytics data retained 14 months (D-051).
+
+  None of it is used for advertising or tracking across other companies' apps.
 
 ### Payments
 - [ ] Payment stays inside the store's checkout or at the door

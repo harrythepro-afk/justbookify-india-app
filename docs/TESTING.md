@@ -52,9 +52,14 @@ Run on the APK of **every build that adds or upgrades a native package**, and on
 
 1. Download the build's APK (with the owner's permission) into a scratch folder outside the repository.
 2. List the full permission list with `aapt2 dump permissions <apk>` (Android build-tools; 36.1.0 on the development machine) and record it in `CURRENT_STATUS.md`.
-3. **Fail** if any permission name contains `AD_ID` or `ADSERVICES`; such a permission is blocked in `app.config.ts` (`android.blockedPermissions`) and in `__tests__/app.config.test.ts`, and the build is repeated (D-009, D-045).
+3. **Fail** if any permission name contains `AD_ID` or `ADSERVICES`, or is `USE_BIOMETRIC` or `USE_FINGERPRINT` (D-052). Such a permission is blocked in `app.config.ts` (`android.blockedPermissions`) and in `__tests__/app.config.test.ts`, and the build is repeated (D-009, D-045). `BIND_GET_INSTALL_REFERRER_SERVICE` is expected (D-049).
 4. Any other permission not seen in the previous build's list is reported to the owner before the build is used.
-5. `aapt2 dump xmltree --file AndroidManifest.xml <apk>`: the Firebase settings read as in `firebase.json` (analytics collection off and deactivated, advertising ID and SSAID off, every advertising consent denied).
+5. `aapt2 dump xmltree --file AndroidManifest.xml <apk>`: the Firebase settings read as in `firebase.json`. From P4-04 (D-053) that means:
+   - automatic collection off, and collection **not** deactivated (`firebase_analytics_collection_deactivated` false), so consent can switch it on;
+   - default analytics storage denied;
+   - advertising ID and SSAID off, and every advertising consent denied.
+
+   The application tag has `android:allowBackup` false and points `android:dataExtractionRules` and `android:fullBackupContent` at the no-backup rules (D-052). `aapt2 dump xmltree --file res/xml/no_backup_data_extraction_rules.xml <apk>` shows every domain excluded from both cloud backup and device transfer.
 6. Delete the APK.
 
 ### Phone checks over USB with adb (P4-03, owner's method)
@@ -83,6 +88,35 @@ Two more release-gate checks on every staging build (architect's review of PR #9
 
 1. **Fresh install reaches Home.** Installed fresh (or after clearing the app's data), the staging build reaches Home on its first launch. The stuck splash screen seen on development build 97582938, where the first reopen after `pm clear` left Android's starting window on screen with no app process, must not appear.
 2. **Only the permissions the app needs.** The staging build's permission list contains only what the app needs. `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` and `CHANGE_WIFI_MULTICAST_STATE` are expected only in development builds (they come with the dev client and debug tooling) and must be absent from the staging build or justified in `CURRENT_STATUS.md` with where they come from and why they stay.
+
+### Analytics checks (P4-04)
+
+Unit tests cover:
+- every event's typed parameters (personal data does not type-check);
+- the guard (emails, phone numbers, free text, unknown or missing parameters and screen names carrying values are dropped, and only the event and parameter are reported);
+- the consent states, and the order of grant and withdrawal (including failed saves);
+- that nothing is sent under Jest, while consent loads, or without consent;
+- that no user ID function exists;
+- the Account switch;
+- the no-backup rules.
+
+**On-device check with Firebase DebugView** (development build, owner's phone, over USB):
+- **The owner's yes is needed for each adb command outside the allowed list** (`CLAUDE.md`), including `adb shell setprop debug.firebase.analytics.app com.justbookify.india.dev` and, at the end, `adb shell setprop debug.firebase.analytics.app .none.`. The owner watches DebugView in the development Firebase project.
+1. Switch off (consent `not asked`): DebugView shows nothing from the phone. The Home development line says "Analytics: off (consent: not asked)".
+2. Turn the Account switch on: `screen_view` for `account` arrives, then `screen_view` for each tab opened (`index`, `browse`, `cart`, `my-books`), with no parameter beyond Firebase's own. A return from the background sends `app_open` with `source` `foreground`.
+3. Cold start: the switch is still on, and `app_open` arrives with `source` `cold_start`.
+4. Turn the switch off: nothing more arrives, and after a cold start the switch is still off.
+5. The app's own log (`adb logcat -d --pid=...`) shows no crash.
+
+### Release gate: analytics consent (P4-04, D-048)
+
+No build goes to any tester other than the owner until:
+1. **The consent request works.** It is built in Phase 7 at the placement the owner chose. It is never shown at first launch, says that usage is linked to the customer's account, and stores Allow as `granted` and Don't allow as `denied`; closing it stores nothing.
+2. **The Account switch withdraws consent at once.** Events stop in DebugView and stay stopped after a cold start.
+3. **No consent, no events.** A fresh install that has not said yes sends nothing to DebugView.
+4. **The privacy policy's app section is published** (risk 21).
+
+Record the result in `CURRENT_STATUS.md`.
 
 ## Edge cases
 

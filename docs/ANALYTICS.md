@@ -2,19 +2,58 @@
 
 Tool: Google Analytics for Firebase. No advertising SDKs in version 1.
 
-State since P4-03 (D-045): `@react-native-firebase/analytics` 26.4.0 is in the app only because Remote Config requires it. Collection is off (`firebase.json`: auto collection off, collection deactivated, screen reporting off) and no code calls it. P4-04 may switch on analytics collection, and nothing else.
+State since P4-04 (D-048 to D-053): the app records the events below through one typed module, `src/analytics/`, and **only after the customer's consent**. Collection is opt-in and off by default. The customer turns it on with the "Share app usage" switch on the Account tab. The consent request comes in Phase 7 (below). `firebase.json` keeps collection off at install (`analytics_auto_collection_enabled` false, `analytics_default_allow_analytics_storage` false). `analytics_collection_deactivated` is false, so that the app can switch collection on at runtime when the customer agrees (D-053). Automatic screen reporting stays off; screens are logged by route name.
 
-**Permanent for all of version 1 (D-009, D-045):** the `AD_ID`, `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` permissions stay blocked, Advertising ID and SSAID collection stay off, and the advertising consents (`ad_storage`, `ad_user_data`, `ad_personalization`) stay denied, including after P4-04.
+**Permanent for all of version 1 (D-009 as amended by D-049, D-045):** these stay off:
+- the `AD_ID`, `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` permissions (blocked)
+- Advertising ID and SSAID collection
+- the advertising consents (`ad_storage`, `ad_user_data`, `ad_personalization`, denied in every `setConsent` call)
+- audiences and Google signals
 
-**Open question for the owner in P4-04:** is install-source reporting wanted? Firebase Analytics keeps the Play Store install referrer permission (`BIND_GET_INSTALL_REFERRER_SERVICE`) in the app; it is not an advertising ID and is unused while collection is off (D-045). If the answer is no, P4-04 blocks it too.
+**Allowed (D-049):** install-source reporting through the Play install referrer (`BIND_GET_INSTALL_REFERRER_SERVICE`). It reports only under consent, because collection is off otherwise.
+
+## Consent (D-048)
+
+- **Three states:** `not asked` (nothing stored), `granted` and `denied`, stored with `expo-secure-store` (D-052). Only `granted` switches collection on. A value that cannot be read counts as `not asked`.
+- **Every launch:** Firebase's own setting, which persists across launches, is synced to the stored choice before anything is sent. Nothing is sent while the choice is still being read.
+- **Granting:** the choice is saved first, then collection is switched on.
+- **Withdrawing:** sending stops at once. Collection is switched off, the analytics data on the phone is reset (`resetAnalyticsData`, which also starts a new app instance ID), then `denied` is saved.
+- **Android backup is off** (D-052), so a restored phone never starts with collection on and no consent record.
+- **Account switch wording (a draft, to be reviewed by the owner's adviser with the privacy policy, risk 21):** "Share app usage. Helps us improve the app. We record which screens you open, what you do in the app and the link you installed it from. We never record your name, email, phone number or address, and the app never asks for or records a child's name or date of birth. Turning this off stops it at once and clears the usage data on this phone."
+- **Consent request: a requirement, not yet built.** It is never shown at first launch. It says that usage is linked to the customer's account (D-050). The owner chooses its placement in Phase 7:
+  - (a) right after the first login or sign-up, which never measures customers who browse without logging in; or
+  - (b) at a natural pause before login, such as adding the first book to the cart, with the account-linking line shown after login.
+- **Release gate:** no build goes to an outside tester without a working consent request (`TESTING.md`, "Release gate: analytics consent").
+
+## Analytics user ID (D-050)
+
+- **None in P4-04.** The Firebase wrapper has no user ID function.
+- **Phase 7:** after login, and only for customers who granted consent, set a stable per-customer ID. It is random or a salted one-way value, never an email, a phone number or the raw Shopify customer ID. How it is issued is designed in Phase 7.
+- Logging out or withdrawing consent clears it.
+
+## Data retention (D-051)
+
+Event data is kept for 14 months in each Google Analytics property, with "Reset user data on new activity" off. The owner sets this in Admin → Data collection and modification → Data retention:
+- the development property in P4-04;
+- the staging and production properties when they are created.
+
+## How events are sent (D-053)
+
+- One typed function per event in `src/analytics/events.ts`, for example `trackViewBook({ product_id, available })`.
+- **IDs** come from `analyticsProductId()`, `analyticsCollectionId()` and `analyticsOrderId()`. Each takes a Shopify GID and keeps the numeric part.
+- **Fixed codes** (filter types, stages, error codes, channels) come from `analyticsToken()`: lowercase snake case, starting with a letter. Free text does not type-check.
+- **The guard** (`src/analytics/guard.ts`) checks every event again and drops the whole event if any parameter fails. Sentry is told which event and parameter, never the value.
+- **Screens** are named by their file route with groups removed: `index`, `browse`, `cart`, `my-books`, `account`, `dev-checkout`, and later `book/[id]`. Never the address or its parameters.
+- `app_open` fires with `source` `cold_start` or `foreground`. The phases that build the other screens wire their events.
+- Nothing is sent under Jest, or before or without consent.
 
 ## Rules
 
 - Snake case event names. IDs, never titles or free text.
-- No names, emails, phone numbers, addresses or anything about a child.
+- No names, emails, phone numbers or addresses. The app never asks for or records a child's name or date of birth. Age-group filters and the books viewed are recorded as IDs and codes.
 - Search terms are measured by length, not content.
-- The analytics user ID is a random ID or a one-way hash, never the email.
-- Analytics starts only after consent where the law or the store's privacy policy requires it.
+- The analytics user ID is random or a salted one-way value, never the email, a phone number or the raw Shopify customer ID (D-050).
+- Analytics starts only after the customer's consent (opt-in, D-048).
 - Crash reports (Sentry) follow the same rules; the scrubbing is described in `SECURITY.md` and D-042.
 
 ## Events (first version)
