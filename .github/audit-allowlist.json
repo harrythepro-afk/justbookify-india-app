@@ -10,5 +10,11 @@
     "package": "braces",
     "reason": "Reaches the project only through micromatch 4.0.8 in Jest, Metro's file map and the Expo CLI: developer and build tooling that matches file paths, never bundled into the app. No patched braces exists (3.0.3 is the latest and is affected); an upstream fix is in progress. Approved in DECISIONS.md D-027. Remove this entry in the same commit that picks up a patched braces.",
     "reviewBy": "2026-11-15"
+  },
+  {
+    "id": "GHSA-m9gg-hp2v-232j",
+    "package": "@grpc/grpc-js",
+    "reason": "Mobile app only. Reaches the project only through @react-native-firebase/app 26.4.0 -> firebase 12.17.1 -> @firebase/firestore 4.17.0, whose Node.js build uses gRPC; its React Native build does not. The exported Android bundle holds no @grpc, @firebase or protobufjs module (source-map check, 4 October 2026). The fix (1.13.6) is outside @firebase/firestore's ~1.9.0 range, even in 4.17.2. Approved in DECISIONS.md D-047; the Phase 10 backend (Node.js) must not inherit this entry. Re-check whenever firebase or React Native Firebase is upgraded; remove this entry in the same commit that picks up a fixed @grpc/grpc-js.",
+    "reviewBy": "2026-11-15"
   }
 ]
