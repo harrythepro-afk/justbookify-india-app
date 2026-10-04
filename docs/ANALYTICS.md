@@ -2,6 +2,10 @@
 
 Tool: Google Analytics for Firebase. No advertising SDKs in version 1.
 
+State since P4-03 (D-045): `@react-native-firebase/analytics` 26.4.0 is in the app only because Remote Config requires it. Collection is off (`firebase.json`: auto collection off, collection deactivated, screen reporting off) and no code calls it. P4-04 may switch on analytics collection, and nothing else.
+
+**Permanent for all of version 1 (D-009, D-045):** the `AD_ID` permission stays blocked, Advertising ID and SSAID collection stay off, and the advertising consents (`ad_storage`, `ad_user_data`, `ad_personalization`) stay denied, including after P4-04.
+
 ## Rules
 
 - Snake case event names. IDs, never titles or free text.
