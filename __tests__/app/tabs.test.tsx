@@ -31,6 +31,14 @@ jest.mock('@/analytics/firebase', () => ({
   sendScreenView: () => Promise.resolve(),
 }));
 
+// The root layout's query provider follows the network state (D-064). jest-expo's automatic mock
+// of expo-network returns no subscription, so the phone is shown as online here.
+jest.mock('expo-network', () => ({
+  NetworkStateType: { NONE: 'NONE', UNKNOWN: 'UNKNOWN', WIFI: 'WIFI' },
+  addNetworkStateListener: () => ({ remove: () => undefined }),
+  getNetworkStateAsync: () => Promise.resolve({ isConnected: true, type: 'WIFI' }),
+}));
+
 jest.mock('@/analytics/consentStorage', () => ({
   readStoredConsent: () => Promise.resolve(null),
   writeStoredConsent: () => Promise.resolve(),

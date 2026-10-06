@@ -3,6 +3,8 @@
  * Customer Account API and the backend later. In memory only, with no persister (D-059).
  * TanStack's own retry is off: the Storefront client retries safe reads itself (D-057), and a
  * mutation is never retried. Errors are reported here, in one place, by `reportQueryError`.
+ * Offline, queries pause and resume on reconnect (D-064); a mutation is never paused or queued:
+ * it always runs, so offline it fails at once with the client's `no-network` error (D-065).
  *
  * Each data source keeps its own key root and its own clear function; `clearAllCaches` empties
  * everything, for logout.
@@ -32,7 +34,7 @@ export function createAppQueryClient(): QueryClient {
     }),
     defaultOptions: {
       queries: { retry: false, ...freshness.catalogue },
-      mutations: { retry: false },
+      mutations: { retry: false, networkMode: 'always' },
     },
   });
 }

@@ -88,9 +88,9 @@ Used when a check needs the phone offline but the development build still needs 
       adb shell 'dumpsys window | grep -q "mCurrentFocus=.* com.justbookify.india.dev/" && input tap X Y || echo "JustBookify is not in front: no input sent"'
       ```
 
-      The same form wraps `input text`. The check reads the focused window only: a notification banner over the app does not take focus, which is one reason for Do Not Disturb. A screenshot showing anything else still stops the check.
+      The same form wraps `input text`. The check reads the focused window only: a notification banner over the app does not take focus. Do Not Disturb and the screenshot rule cover banners (owner, P5-03): a screenshot showing anything else still stops the check.
     - If anything else is in front, Claude sends **no input at all**, stops the check and tells the owner. Claude does not try to return to the app (no Back, no Home, no relaunch).
-    - **Text entry** by adb (`adb shell input text`) is limited to the development server address, `http://localhost:8081`, and still needs the owner's yes. Nothing else is ever typed.
+    - **Text entry** by adb (`adb shell input text`) is limited to the development server address, `http://localhost:8081`. Typing that fixed address is covered by the owner's permission for one whole phone check and needs no separate yes (owner, P5-03); outside such a check it needs the owner's yes. It still runs only behind the focus check above. Nothing else is ever typed.
 - After the checks, `adb reverse --remove tcp:8081`. Stopping Metro's background task can leave the Expo CLI's `node` process listening on port 8081; check the port and stop that process.
 - The `adb reverse` mapping can drop during a check (P5-02: the dev client showed "Failed to connect to localhost/127.0.0.1:8081"). Set it again before tapping Connect.
 - First used for P4-03 on 4 October 2026 (build 97582938, all six flag checks passed). For those checks the owner approved cold starts (`am force-stop` and `monkey -p <package> 1`), `pm clear` for the fresh-install check, typing the Metro address into the dev client and tapping Connect (`input text`, `input tap`), and screenshots of the app (`exec-out screencap`). Wi-Fi, mobile data and the Firebase and Sentry consoles stay with the owner. Two commands that day were outside what had been approved; see `CURRENT_STATUS.md`.
@@ -105,7 +105,7 @@ The same release gate includes the APK permission check above: no staging or pro
 Two more release-gate checks on every staging build (architect's review of PR #9):
 
 1. **Fresh install reaches Home.** Installed fresh (or after clearing the app's data), the staging build reaches Home on its first launch. The stuck splash screen seen on development build 97582938, where the first reopen after `pm clear` left Android's starting window on screen with no app process, must not appear.
-2. **Only the permissions the app needs.** The staging build's permission list contains only what the app needs. `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` and `CHANGE_WIFI_MULTICAST_STATE` are expected only in development builds (they come with the dev client and debug tooling) and must be absent from the staging build or justified in `CURRENT_STATUS.md` with where they come from and why they stay.
+2. **Only the permissions the app needs.** The staging build's permission list contains only what the app needs. `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` and `CHANGE_WIFI_MULTICAST_STATE` are expected only in development builds (they come with the dev client and debug tooling) and must be absent from the staging build or justified in `CURRENT_STATUS.md` with where they come from and why they stay. `ACCESS_WIFI_STATE` (from expo-network, D-064; a normal permission, no Wi-Fi details read) is justified at the same review.
 
 ### Analytics checks (P4-04)
 
@@ -160,6 +160,14 @@ Unit tests; the Storefront client is mocked and nothing reaches a store:
 - `__tests__/shopify/hooks/devCheckout.test.tsx`: the cache's cancel signal reaches `storefrontQuery` and aborts on unmount; the `liveStock` preset; a refetch each time a screen opens; no retry of the query or the cart mutation.
 - `__tests__/shopify/operations.test.ts`: every Storefront operation selects no personal field.
 - `__tests__/app/dev-checkout.test.tsx`: unchanged assertions, now with a query provider around the screen.
+
+### Network awareness checks (P5-03)
+
+Unit tests; `expo-network` is mocked and nothing reaches a store:
+- `__tests__/query/online.test.ts`: the offline mapping (offline only when `isConnected` is false and the type is not `UNKNOWN`; an empty state counts as online); the first read, a change event winning over a slower first read, a failed first read counting as online, and the stop function removing the listener (D-064). A query started offline is paused without being called and runs once on reconnect; cached data stays offline; stale data refetches on reconnect and fresh data does not. Offline, a mutation on the app's client calls `fetch` once, fails with `no-network`, is not paused, is not reported, and nothing runs after reconnect (D-065). Shown on 6 October 2026: with the mutations' `networkMode: 'always'` removed, the mutation test fails.
+- `__tests__/easJson.test.ts`: only the development profile limits the processor types (D-066); every profile keeps its `APP_ENV`.
+
+On the phone (P5-03 check, development build): the owner switches airplane mode, never Claude. Airplane mode on, the dev checkout screen stays loading with no error; off, the books appear with no tap; on again, the books stay and creating a checkout fails at once with the no-network message; off again, nothing fires by itself.
 
 Test helper: `__tests__/helpers/queryClient.tsx` (not run as a test) gives each test the app's client settings. Unmount before emptying the cache, and give mutations no garbage-collection timer: otherwise TanStack's timers hold Jest open after the tests.
 

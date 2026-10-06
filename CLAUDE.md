@@ -58,7 +58,8 @@ Standard `adb` from Google's SDK Platform-Tools only; no third-party MCP server,
   - Before the check starts, ask the owner to switch on Do Not Disturb and to leave the phone untouched until Claude says the check is over.
   - Immediately before every tap or text entry, check that JustBookify is the focused app, in the same command where possible. Reading the focused app's package name is allowed for this purpose only. The command form is in `docs/TESTING.md`.
   - If anything else is in front, send no input at all, stop the check and tell the owner. Do not try to return to the app.
-  - Text entry by adb (`adb shell input text`) is limited to the development server address, `http://localhost:8081`, and still needs the owner's yes. Nothing else is ever typed.
+  - Text entry by adb (`adb shell input text`) is limited to the development server address, `http://localhost:8081`. Under the owner's permission for one whole phone check, typing that fixed address needs no separate yes; outside such a check it needs the owner's yes. It still runs only behind the focus check. Nothing else is ever typed.
+  - A notification banner does not take focus, so the focus check cannot see it. Do Not Disturb and the screenshot rule cover banners.
 
 ## Stop and ask the owner when
 
