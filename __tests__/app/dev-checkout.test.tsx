@@ -10,6 +10,7 @@ import {
   type DevCheckoutLine,
   type DevCheckoutVariant,
 } from '@/shopify/devCheckout';
+import { StorefrontError } from '@/shopify/errors';
 
 let mockAppEnv = 'development';
 let mockStoreStatus: StoreConfigStatus = 'configured';
@@ -210,12 +211,28 @@ describe('DevCheckoutScreen', () => {
   });
 
   it('shows a cart error and does not present checkout', async () => {
-    mockCreateDevCheckout.mockRejectedValueOnce(new DevCheckoutError('cart-rejected', 'INVALID'));
+    mockCreateDevCheckout.mockRejectedValueOnce(new DevCheckoutError('cart-rejected'));
 
     await openWithTwoBooks();
 
     expect(mockPresent).not.toHaveBeenCalled();
-    expect(screen.getByText('The store did not create the cart. (INVALID)')).toBeOnTheScreen();
+    expect(screen.getByText('The store did not create the cart.')).toBeOnTheScreen();
+  });
+
+  it("shows a Storefront error's own wording and codes", async () => {
+    mockCreateDevCheckout.mockRejectedValueOnce(
+      new StorefrontError('user-errors', {
+        operationName: 'DevCheckoutCartCreate',
+        codes: ['INVALID'],
+      }),
+    );
+
+    await openWithTwoBooks();
+
+    expect(mockPresent).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('The store did not accept the request. (DevCheckoutCartCreate; INVALID)'),
+    ).toBeOnTheScreen();
   });
 
   it('hides the text of an unexpected error', async () => {

@@ -74,6 +74,12 @@ Used when a check needs the phone offline but the development build still needs 
   - A screenshot needs the owner's yes each time, with the JustBookify app in the foreground.
   - Every other adb command needs the owner's yes each time, including read-only ones (for example `dumpsys`, `am`, `monkey`, `pm`, `input`).
   - Never run an unfiltered log or a package listing: an unfiltered system log can list the phone's installed apps.
+  - **Permission for one whole phone check** (architect's review of PR #11). The owner may give permission for one whole phone check at a time. Under it, and only until that check ends, Claude may:
+    - launch JustBookify (`adb shell monkey -p com.justbookify.india.dev -c android.intent.category.LAUNCHER 1`);
+    - tap inside JustBookify (`adb shell input tap`);
+    - take screenshots of JustBookify only (`adb exec-out screencap -p`), deleting them afterwards.
+
+    Under that permission Claude never enters a password or payment detail (the development store's password page in Checkout Kit is closed, not filled in), never places an order, and never opens or reads anything outside JustBookify. A screenshot that shows anything other than JustBookify is deleted at once, and Claude stops and tells the owner. Every command is recorded in `CURRENT_STATUS.md`. Any other command still needs its own yes. Without that permission, the rules above apply.
 - After the checks, `adb reverse --remove tcp:8081`.
 - First used for P4-03 on 4 October 2026 (build 97582938, all six flag checks passed). For those checks the owner approved cold starts (`am force-stop` and `monkey -p <package> 1`), `pm clear` for the fresh-install check, typing the Metro address into the dev client and tapping Connect (`input text`, `input tap`), and screenshots of the app (`exec-out screencap`). Wi-Fi, mobile data and the Firebase and Sentry consoles stay with the owner. Two commands that day were outside what had been approved; see `CURRENT_STATUS.md`.
 - After `pm clear`, the dev client forgets its server; enter `http://localhost:8081` again. The first reopen straight after `pm clear` once left Android's starting window on screen with no app process; a normal cold start fixed it.
@@ -117,6 +123,18 @@ No build goes to any tester other than the owner until:
 4. **The privacy policy's app section is published** (risk 21).
 
 Record the result in `CURRENT_STATUS.md`.
+
+### Storefront client checks (P5-01)
+
+Unit tests, with `fetch` mocked and fake timers; nothing reaches a store:
+- `__tests__/shopify/client.test.ts`: the request (endpoint, token header, buyer context that callers cannot replace); every error kind; retries for queries only, with backoff bounds checked through a fixed `Math.random`; Retry-After honoured up to 10 seconds; cancel during a request and during a wait; the 30-second limit, including a shortened last attempt and no retry with less than 2 seconds left; and, for every error, no domain, token, variable value or Shopify text in the message or in `JSON.stringify`.
+- `__tests__/shopify/errors.test.ts`: retryable kinds, enum-code filtering, user errors, and the Sentry rule (configuration faults at most once per session for each status).
+- `__tests__/shopify/operations.test.ts`: every `#graphql` operation in `src/shopify/` validates against the saved schema, is one named operation without `${}`, and declares `@inContext(country: $country, language: $language)`.
+- `__tests__/shopify/devCheckout.test.ts`: the dev checkout on the client, the cart's `buyerIdentity`, and no retry of the cart mutation.
+
+CI step `npm run codegen:check`: regenerates the types from the saved schema and fails if an operation does not validate or if the committed types are out of date. Shown on 6 October 2026: a misspelled field fails both `codegen` and the operations test; an operation without `@inContext` fails the operations test; an operation changed without `npm run codegen` fails `codegen:check`.
+
+`npm run check:dev-store` (development store only) also checks that Shopify resolves the configured buyer context to the configured country, language and currency.
 
 ## Edge cases
 

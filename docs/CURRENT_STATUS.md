@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 6 October 2026 (P4-04: analytics with opt-in consent; APK check and on-device DebugView check passed on build e571370c; awaiting review. P5-01 proposed).
+Last updated: 6 October 2026 (P5-01: typed Storefront API client on branch `feat/p5-01-storefront-client`; local checks, the development store check and the on-device check pass; awaiting review. P5-02 proposed).
 
 ## Phase
 
-Phase 4 (mobile foundation) is complete once P4-04 merges. P4-01 (`df35fa0`, PR #7), P4-02 (`f783367`, PR #8) and P4-03 (`5e8827d`, PR #9) are merged. P4-04 (this change, branch `feat/p4-04-analytics`) adds analytics with opt-in consent; its APK check and on-device check passed and it awaits review. `NEXT_TASK.md` proposes P5-01. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f783367`, PR #8), P4-03 (`5e8827d`, PR #9) and P4-04 (`08f2273`, PR #10, analytics with opt-in consent) are merged. Phase 5 (Shopify data layer) has started: P5-01 (typed Storefront API client, this change) awaits review, and `NEXT_TASK.md` proposes P5-02 (caching with TanStack Query). Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -103,7 +103,7 @@ Phase 4 (mobile foundation) is complete once P4-04 merges. P4-01 (`df35fa0`, PR 
   - Two adb commands during the check were outside what the owner had approved, both read only: `adb shell dumpsys activity activities` (once, to see which screen was in the foreground), and an `adb logcat -d -b crash,main` search that was not filtered to the app's process (once, while looking for a crash). The second printed an unrelated MIUI system line listing the apps installed on the owner's phone; it was not kept or used. The architect's review of PR #9 then set the adb rule now in `CLAUDE.md` and `TESTING.md`.
   - Architect's review of PR #9 added two staging release-gate checks (`TESTING.md`): a fresh install must reach Home on its first launch, and the permission list must hold only what the app needs (`SYSTEM_ALERT_WINDOW`, external storage and `CHANGE_WIFI_MULTICAST_STATE` absent or justified).
 
-- P4-04 (awaiting review, branch `feat/p4-04-analytics`):
+- P4-04 (merged, `08f2273`, PR #10):
   - The owner's answers are recorded as decisions:
     - D-048: opt-in consent with three states, stored with `expo-secure-store`. Withdrawing stops collection at once and resets the analytics data on the phone. The customer-facing consent request is a Phase 7 requirement with a release gate; the owner chooses between two placements in Phase 7.
     - D-049: amends D-009. Advertising IDs, Privacy Sandbox permissions, advertising consents, audiences and Google signals stay off. The Play install referrer is allowed, under consent only.
@@ -148,6 +148,30 @@ Phase 4 (mobile foundation) is complete once P4-04 merges. P4-01 (`df35fa0`, PR 
     Metro was stopped afterwards.
   - Follow-up recorded in `NEXT_TASK.md` (owner): the development APK's size, after two upload failures in four builds.
 
+- P5-01 (awaiting review, branch `feat/p5-01-storefront-client`):
+  - The architect's answers and conditions are recorded as decisions:
+    - D-054: GraphQL Code Generator with Shopify's preset, development dependencies only (`@shopify/api-codegen-preset` 3.0.0, `@graphql-codegen/cli` 6.3.1, `graphql` 16.14.2). The preset supports `2026-10` (checked against its source and Shopify's schema address).
+    - D-055: the `2026-10` schema is saved in the repository; CI needs no store and no token; `npm run schema:update` is the deliberate step at a version change.
+    - D-056: a thin `fetch` wrapper, not `@shopify/storefront-api-client` 2.0.0, so no new runtime package.
+    - D-057: typed errors; 15 seconds per attempt and 30 seconds per call; retries for queries only; the Sentry rule for callers, with configuration faults at most once per session for each status.
+    - D-058: buyer context `IN`, `EN` from configuration on every operation, and `buyerIdentity.countryCode` on the cart.
+    - D-059: TanStack Query, in memory only, in P5-02.
+    - D-060: two high advisories in the generator's tree (`@graphql-tools/utils`, `lodash`) allowlisted for development tooling only until 2026-11-15, after a source-map check of the Android bundle (1,848 modules, none from the generator); no npm override.
+  - `src/shopify/client.ts` is the only module that calls the Storefront API; `src/shopify/errors.ts` holds `StorefrontError`, `throwIfUserErrors` and `reportStorefrontError`. ESLint stops `fetch` outside `client.ts` and operation strings outside `src/shopify/`.
+  - The dev checkout's two operations run on the client with generated types. Transport errors and user errors are now `StorefrontError`s, whose own wording the test screen shows; the cart is created with `buyerIdentity.countryCode`.
+  - `.env.example` and `.env.local` gained `EXPO_PUBLIC_STORE_COUNTRY=IN` and `EXPO_PUBLIC_STORE_LANGUAGE=EN` (`.env.local` was appended without being printed).
+  - CI gained the step "Generated GraphQL types are current" (`npm run codegen:check`).
+  - 482 tests (92 new). Negative checks: a misspelled field fails `codegen` and the operations test; an operation without `@inContext` fails the operations test; an operation changed without regenerating fails `codegen:check`.
+  - `npm run check:dev-store`, 6 October 2026: passed; the development store resolves `IN`, `EN` to INR and 3 products were read.
+  - No native change and no new build: the generator's packages are development only, and the app's new code is JavaScript.
+  - On-device check, 6 October 2026, build e571370c on the owner's phone over USB, with JavaScript from Metro (commit `b4cf3e9`, 2,046 modules bundled): **passed.**
+    1. The test checkout screen listed the development store's two available books at INR 49.00 each, read through `storefrontQuery` with the buyer context.
+    2. One copy added: estimated subtotal INR 49.00.
+    3. "Open test checkout" created the cart through `storefrontMutation` and Checkout Kit opened, showing the development store's password page (expected, as in P3-01). The password was not entered and no order was placed.
+    4. Closing the sheet showed "Checkout closed without an order." and "Cart subtotal from Shopify: INR 49.00."
+    5. The app's own log (filtered to its process, 722 lines) shows no crash and no JavaScript error. Its one error-level entry is React Native's `ReactNoCrashSoftException` for a window-focus event at launch, 13 seconds before JavaScript started, unrelated to this change.
+  - adb commands that day, with the owner's go-ahead ("do it yourself"): `devices`; `reverse tcp:8081` (set, then removed); `monkey` to launch the app; `dumpsys window` filtered to the focused-window line; `input tap` (four taps); `exec-out screencap` with the app in front (five screenshots, deleted afterwards); `shell pidof` and `logcat -d --pid`. Metro was stopped afterwards.
+
 ## What works
 
 - `npm run lint`, `format:check`, `typecheck`, `test` (86 tests) and `audit:gate` pass on `main` after P3-02. `npx expo-doctor` passes 21 of 21 checks.
@@ -170,13 +194,18 @@ Phase 4 (mobile foundation) is complete once P4-04 merges. P4-01 (`df35fa0`, PR 
 - iOS development build: waits for Apple access, requested in Phase 9 (D-036).
 - No store additions on the live store. No access to the Apple or Google developer accounts yet (D-036: Apple in Phase 9, Google Play in Phase 18).
 - Sentry, still unproven (release gate in `TESTING.md`, risk 19; no build to any tester other than the owner until it passes): the native-crash report and the source-map upload. Sentry's upload script skips debug variants, and a development build's dev client catches native crashes. Both are checked at the first staging build, which also needs `EXPO_PUBLIC_SENTRY_DSN` as an EAS variable for that environment.
-- Storefront operations are not yet typed through code generation; that comes with the data layer, and the code generator is a dependency that needs a decision.
+- Caching of Storefront data (P5-02, D-059). Screens that use the client come from Phase 6.
+- The two new store variables are not yet EAS environment variables; they are needed when the staging build is set up (follow-up in `NEXT_TASK.md`).
 
 ## Known issues
+
+- **Codex note (owner, 6 October 2026).** On 5 October 2026 the Codex Desktop app on this computer created an `AGENTS.md` file from `CLAUDE.md` and imported Claude Code session history. No project file was changed. The untracked file was deleted on the owner's instruction, and `AGENTS.md` is now in `.gitignore`. This project is worked on with Claude Code only.
 
 - Checkout Kit 3.9.1 ships its TypeScript source as its types, so the type check reads it. `src/types/error-capture-stack-trace.d.ts` declares `Error.captureStackTrace` (present in Hermes), which that source uses. Remove the file if a later release ships compiled types.
 
 - `npm audit` reports a high advisory, GHSA-vfj7-8cjw-p6xm (CVE-2026-93687, stack exhaustion through deeply nested brace patterns) in `braces` 3.0.3. Every version is affected and no patched release exists; an upstream fix is in progress. GitHub updated the advisory on 2 October 2026, which made `main` fail the gate. `braces` comes in only through `micromatch` 4.0.8, used by Jest, Metro's file map and the Expo CLI: developer and build tooling that matches file paths and is never bundled into the app. It is allowlisted until **2026-11-15** (D-027). Remove the entry in the same commit that picks up a patched `braces`.
+- Since P5-01, `npm audit` reports two high advisories in the code generator's development-only tree: GHSA-7mx3-vvmw-hjmv in `@graphql-tools/utils` (11.2.2 and 10.11.0) and GHSA-r5fr-rjxr-66jc in `lodash` 4.17.23 (under `@shopify/graphql-codegen`). No compatible fix exists; both are allowlisted until **2026-11-15** (D-060). The generator is run only on this repository's own config, saved schema and operations.
+- npm 11 skipped `@parcel/watcher`'s install script (a development dependency of the code generator, used only for its watch mode, which this project does not use).
 - `npm audit` also reports, as before: `node-forge` (high, allowlisted until 2026-12-31, D-022); `uuid` and `decode-uri-component` (moderate, not gated; the second is risk 17).
 - Since P4-03, `npm audit` reports GHSA-m9gg-hp2v-232j (high) and GHSA-f596-whhp-79r4 (low) in `@grpc/grpc-js` 1.9.16, which Firebase's JS SDK pins through `@firebase/firestore`. The Android bundle does not contain it (source-map check); the high one is allowlisted for the mobile app only until **2026-11-15**, never for the Phase 10 backend (D-047).
 - npm 11 skipped the install scripts of `@firebase/util` and `protobufjs` (web and Node.js side of Firebase's JS SDK, not in the Android bundle; D-045).
@@ -186,6 +215,8 @@ Phase 4 (mobile foundation) is complete once P4-04 merges. P4-01 (`df35fa0`, PR 
 - npm 11 on this machine skips package install scripts it has not been told to allow, including `@sentry/cli`'s postinstall. `@sentry/cli` 3.x ships its binary as optional platform packages, so it is still installed; `@sentry/bundler-plugins` also brings `@sentry/cli` 2.58.6, which the React Native build does not use.
 
 ## Last passing build
+
+Branch `feat/p5-01-storefront-client` (P5-01), 6 October 2026: lint, format check, type check, `codegen:check`, tests (482), audit gate and `expo-doctor` (21 of 21) pass locally; `check:dev-store` and the on-device check pass. CI runs on PR #11.
 
 Branch `feat/p4-04-analytics` (P4-04), 6 October 2026: lint, format check, type check, tests (390), audit gate and `expo-doctor` (21 of 21) pass locally; CI runs on the pull request. Android development build e571370c runs it on the owner's phone.
 

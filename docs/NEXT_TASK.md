@@ -1,46 +1,44 @@
-# Next task (proposal): P5-01, typed Storefront API client
+# Next task (proposal): P5-02, caching with TanStack Query
 
-Status: proposal. It starts only after P4-04 is merged and the owner starts it in a new session.
+Status: proposal. It starts after P5-01 is merged and the owner starts it.
 
-## Phase 4: mobile foundation (complete when P4-04 merges)
+## Phase 5: Shopify data layer
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P4-01 (done, `df35fa0`) | Navigation shell, design tokens, environment banner | D-039, D-040, D-041 |
-| P4-02 (done, `f783367`) | Crash reporting with Sentry, personal data scrubbed; Android navigation buttons | D-042, D-043 |
-| P4-03 (done, `5e8827d`) | Feature flags with Firebase Remote Config; `checkout_presentation` kill switch plumbing | D-044 to D-047 |
-| P4-04 (done, awaiting review) | Analytics with opt-in consent, typed events, no personal data; Android backup off | D-048 to D-053 |
+| P5-01 (done, awaiting review) | Typed Storefront API client: code generation from the saved `2026-10` schema, buyer context, typed errors, retries for queries only, 30-second limit | D-054 to D-060 |
+| P5-02 (proposed) | Caching with TanStack Query, in memory only | D-059 |
 
-## Goal of P5-01
+## Goal of P5-02
 
-Phase 5 starts the Shopify data layer (`ARCHITECTURE.md`: "Typed GraphQL operations, caching, retry and error mapping"). P5-01 builds its first piece: one Storefront API client through which every named GraphQL operation passes.
-- Every operation is typed by code generation (`CLAUDE.md`: "Every operation is named and typed through code generation").
-- Errors map to a small set of app errors (no network, timeout, throttled, Shopify error, unexpected). They reach Sentry by code only, never with the store domain or token.
-- P5-01 moves the development checkout screen's two operations (`src/shopify/devCheckout.ts`) onto the client, with the same behaviour.
-
-Caching and the catalogue queries follow in later Phase 5 tasks.
+Add the cache that the catalogue screens (Phase 6) will read through. TanStack Query was chosen in D-059: in memory only, with its own retry off, because `src/shopify/client.ts` already retries safe reads (D-057).
+- Install `@tanstack/react-query` at the exact version current on the day (5.104.1 on 6 October 2026), with `npx expo install` if Expo lists it, otherwise `npm install`, pinned exactly, with a decision record. It is JavaScript only: no native change, no new build.
+- One `QueryClient` at the root layout, created once, with `retry: false` and no persister.
+- Query keys and query functions live in `src/shopify/`, next to the operations; screens call hooks, never the client directly. TanStack's cancel signal is passed to `storefrontQuery`.
+- Mutations go through `useMutation`, never retried (D-057).
+- `reportStorefrontError` is called in one place (the query cache's error handler), so callers do not repeat the Sentry rule.
+- The dev checkout's variant list moves to a query, behaviour unchanged.
 
 ## Questions for the owner before starting
 
-1. **Code generator.** The convention needs one. GraphQL Code Generator (`@graphql-codegen/cli` with the client preset), or the lighter `gql.tada`, which types operations from the schema at compile time without a build step. Both are new dependencies and need a decision. Claude will compare them against the current documentation and recommend one.
-2. **Schema source.** Generate from Shopify's published Storefront API schema for `2026-10` (D-025), saved in the repository, or introspect the development store each time? Proposed: the saved schema file, refreshed when the API version changes, so CI never needs a store connection.
-3. **Caching library** (a later Phase 5 task, asked now so the client is shaped for it): TanStack Query, Apollo Client, or a small hand-written cache? It also needs a decision.
+1. **Freshness.** How long may catalogue data be shown before it is refetched (`staleTime`), and how long is unused data kept (`gcTime`)? A proposal: 5 minutes fresh, 30 minutes kept. Prices and availability always come fresh from Shopify at checkout.
+2. **Online and focus awareness.** Refetching when the app returns to the foreground needs only React Native's AppState. Knowing when the phone comes back online needs a network package (`expo-network` or NetInfo), which is native and so needs a new development build. Include it in P5-02, or leave it to Phase 6?
+3. **Clearing the cache.** `SECURITY.md` requires logout to delete caches. P5-02 can add a `clearStorefrontCache()` now for Phase 7 to call. Agreed?
 
 ## Steps
 
-1. Read the current Shopify Storefront API (2026-10), code generator and React Native documentation, and record versions and dates.
-2. A decision for the generator and the schema source.
-3. `src/shopify/client.ts`: one `storefrontRequest(operation, variables)`. It uses the store configuration (`src/config/`), the version pin and a timeout, and maps errors.
-4. Move the development checkout's operations onto it, behaviour unchanged.
-5. Tests: typed operations, error mapping, no domain or token in any reported error, timeout.
-6. Lint, format check, type check, tests, audit gate and `expo-doctor`; CI green. No new development build is needed unless a native package is added.
+1. Read the current TanStack Query documentation for React Native and record the version and date.
+2. A decision record for the package and the settings above.
+3. The `QueryClient` and provider; hooks for the dev checkout; the cache's error handler applying D-057.
+4. Tests: no retry inside TanStack, cancel reaches the client, errors reported once by the rule, cache cleared on request.
+5. Lint, format check, type check, `codegen:check`, tests, audit gate and `expo-doctor`; CI green; the on-device dev checkout check.
 
 ## Out of scope
 
-- Screens (Phase 6 onwards), caching (a later Phase 5 task), the Customer Account API (Phase 7), the backend (Phase 10).
+- Saving the cache to disk (a later decision, D-059), catalogue screens (Phase 6), the Customer Account API (Phase 7), the backend (Phase 10).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P5-01)
+## Follow-ups (recorded, not part of P5-02)
 
 - **Release gate: analytics consent (from P4-04):** no build goes to any tester other than the owner until all of these hold (`TESTING.md`; D-048):
   - the consent request is built (Phase 7, at the placement the owner chooses between the two in D-048) and works;
@@ -66,3 +64,6 @@ Caching and the catalogue queries follow in later Phase 5 tasks.
 - `npm run audit:gate` exception for `@grpc/grpc-js` (D-047) is reviewed by 2026-11-15, with the `braces` entry; it never applies to the Phase 10 backend.
 - Phase 9: the checkout flag must take effect without waiting for two restarts (D-046).
 - Phase 14: restrict the Android API key in each `google-services.json`, then repeat the flag fetch check on every build (D-044).
+- **Store variables for EAS (from P5-01):** add `EXPO_PUBLIC_STORE_COUNTRY` and `EXPO_PUBLIC_STORE_LANGUAGE` to the EAS environment when the staging build is set up (D-058).
+- **Storefront domain for staging and production (architect, P5-01):** when the staging and production configurations are set up, confirm from Shopify's documentation which store domain the Storefront API calls should use, so that requests are not redirected.
+- **Code generator audit entries (D-060):** reviewed by 2026-11-15 with the `braces` and `@grpc/grpc-js` entries; re-checked whenever the preset or the codegen CLI is upgraded; each removed in the commit that picks up a compatible fix.

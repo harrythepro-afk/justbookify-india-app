@@ -16,5 +16,17 @@
     "package": "@grpc/grpc-js",
     "reason": "Mobile app only. Reaches the project only through @react-native-firebase/app 26.4.0 -> firebase 12.17.1 -> @firebase/firestore 4.17.0, whose Node.js build uses gRPC; its React Native build does not. The exported Android bundle holds no @grpc, @firebase or protobufjs module (source-map check, 4 October 2026). The fix (1.13.6) is outside @firebase/firestore's ~1.9.0 range, even in 4.17.2. Approved in DECISIONS.md D-047; the Phase 10 backend (Node.js) must not inherit this entry. Re-check whenever firebase or React Native Firebase is upgraded; remove this entry in the same commit that picks up a fixed @grpc/grpc-js.",
     "reviewBy": "2026-11-15"
+  },
+  {
+    "id": "GHSA-7mx3-vvmw-hjmv",
+    "package": "@graphql-tools/utils",
+    "reason": "Development only. Reaches the project only through the code generator (devDependencies @graphql-codegen/cli 6.3.1 and @shopify/api-codegen-preset 3.0.0): @graphql-tools/utils 11.2.2, and 10.11.0 under @shopify/graphql-codegen 0.1.0. The fix (12.0.1) is outside every generator release's range, including @graphql-codegen/cli 7.4.4. The exported Android bundle holds no @graphql-tools, @graphql-codegen, graphql or preset module (source-map check, 6 October 2026), and npm ls --omit=dev is empty. The generator runs only on this repository's own config, saved schema and operations; the one outside input is the schema that npm run schema:update fetches from Shopify's documentation endpoint, a deliberate step reviewed in a pull request. Never run the generator on any other input. Approved in DECISIONS.md D-060. Re-check whenever the preset or the codegen CLI is upgraded; remove this entry in the same commit that picks up a compatible fix.",
+    "reviewBy": "2026-11-15"
+  },
+  {
+    "id": "GHSA-r5fr-rjxr-66jc",
+    "package": "lodash",
+    "reason": "Development only. lodash 4.17.23 reaches the project only through @shopify/api-codegen-preset 3.0.0 -> @shopify/graphql-codegen 0.1.0 -> @graphql-codegen/add 5.0.3 -> @graphql-codegen/plugin-helpers 5.1.1, which requires ~4.17.0; the fix (4.18.1) is outside that range, and no npm override is used (D-060). No code on that path calls lodash's template. The exported Android bundle holds no lodash module from any path (source-map check, 6 October 2026). The generator runs only on this repository's own config, saved schema and operations. Approved in DECISIONS.md D-060. Re-check whenever the preset or the codegen CLI is upgraded; remove this entry in the same commit that picks up a compatible fix.",
+    "reviewBy": "2026-11-15"
   }
 ]
