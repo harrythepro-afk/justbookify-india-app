@@ -48,6 +48,12 @@ Standard `adb` from Google's SDK Platform-Tools only; no third-party MCP server,
 - A screenshot needs the owner's yes each time, with the JustBookify app in the foreground.
 - Every other adb command needs the owner's yes each time, including read-only ones.
 - Never run an unfiltered log or a package listing.
+- **Permission for one whole phone check.** The owner may give permission for one whole phone check at a time. Under it, and only until that check ends, Claude may:
+  - launch JustBookify (`adb shell monkey -p com.justbookify.india.dev -c android.intent.category.LAUNCHER 1`);
+  - tap inside JustBookify (`adb shell input tap`);
+  - take screenshots of JustBookify only (`adb exec-out screencap -p`), and delete them afterwards.
+
+  Under that permission Claude never enters a password or payment detail, never places an order, and never opens or reads anything outside JustBookify. If a screenshot shows anything other than JustBookify, Claude deletes it at once, stops and tells the owner. Every command is recorded in `docs/CURRENT_STATUS.md`. Any other command still needs its own yes. Without that permission, the rules above apply.
 
 ## Stop and ask the owner when
 
