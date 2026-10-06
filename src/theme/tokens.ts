@@ -39,6 +39,11 @@ export const colors = {
 
   banner: palette.darkMaroon,
   onBanner: palette.yellow,
+
+  // A switch's state shows by the thumb's side as well as the track's colour.
+  switchTrackOn: palette.greenDark,
+  switchTrackOff: palette.darkMaroon,
+  switchThumb: palette.offWhite,
 } as const;
 
 export type ColorRole = keyof typeof colors;

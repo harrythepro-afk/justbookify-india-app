@@ -2,6 +2,7 @@ import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
+import { useAnalyticsConsent } from '@/analytics/consent';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { FEATURE_FLAG_NAMES, getAppEnvironment, type FeatureFlagSource } from '@/config';
 import { isCrashReportingOn, sendTestError, triggerTestNativeCrash } from '@/crashReporting/sentry';
@@ -21,6 +22,7 @@ export default function HomeScreen() {
           </Link>
           <CrashReportingTestControls />
           <FeatureFlagStatus />
+          <AnalyticsStatus />
         </>
       )}
     </PlaceholderScreen>
@@ -52,6 +54,17 @@ function FeatureFlagStatus() {
         Remote Config fetch for the next launch: {fetch ?? 'not started'}
       </Text>
     </>
+  );
+}
+
+/** Development builds only: whether analytics collection is on, and the stored consent. */
+function AnalyticsStatus() {
+  const { consent } = useAnalyticsConsent();
+  if (consent === 'loading') return <Text style={styles.note}>Analytics: consent loading</Text>;
+  return (
+    <Text style={styles.note}>
+      Analytics: {consent === 'granted' ? 'on' : 'off'} (consent: {consent})
+    </Text>
   );
 }
 
