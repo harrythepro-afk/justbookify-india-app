@@ -146,14 +146,16 @@ Screen (src/app/, src/components/)
              StorefrontError → reportStorefrontError (D-057); cancel → never reported;
              anything else → "unexpected", by safeErrorCode() only
    AppQueryProvider (src/query/QueryProvider.tsx) at the root layout; AppState drives
-        focusManager, so stale queries refetch when the app returns to the foreground (D-063)
+        focusManager, so stale queries refetch when the app returns to the foreground (D-063);
+        expo-network drives onlineManager (src/query/online.ts, D-064): offline, queries pause
+        and keep their data, and resume or refetch on reconnect; mutations always run (D-065)
 ```
 
 - **Freshness presets** (`src/query/freshness.ts`, D-062): `catalogue` (default) 5 min fresh, 30 min kept; `liveStock` 30 s fresh, 5 min kept, refetched whenever a screen using it opens; `staticContent` 6 h fresh, 24 h kept; `checkout` never cached.
 - **Clearing:** `clearStorefrontCache()` (`src/shopify/cache.ts`) cancels and removes only `['storefront', …]` queries and mutations. `clearAllCaches()` (`src/query/queryClient.ts`) cancels every query in flight and empties the cache; Phase 7's logout calls it.
 - **Personal data:** each data source has its own key root and its own rule. Storefront operations select no personal field (a test enforces it); customer data (Phase 7) will be cached in memory only and cleared on logout.
 - **Boundary** (ESLint, D-063): TanStack only in `src/query/` and data-source `hooks/` folders; the Storefront client only from `src/shopify/`; screens and components import values only from hooks, `src/shopify/errors.ts` and the provider, and types from anywhere.
-- **Not yet:** network awareness (`onlineManager` keeps its default, always online) comes in P5-03 with a network-status package and a new build.
+- **Network awareness** (D-064, D-065): offline only when expo-network reports `isConnected` false with a known type; an unknown state counts as online. Queries pause offline; a mutation is never paused or queued, so offline it fails at once with `no-network`, which is never reported.
 
 ## Built for a second country
 

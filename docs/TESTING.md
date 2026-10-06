@@ -105,7 +105,7 @@ The same release gate includes the APK permission check above: no staging or pro
 Two more release-gate checks on every staging build (architect's review of PR #9):
 
 1. **Fresh install reaches Home.** Installed fresh (or after clearing the app's data), the staging build reaches Home on its first launch. The stuck splash screen seen on development build 97582938, where the first reopen after `pm clear` left Android's starting window on screen with no app process, must not appear.
-2. **Only the permissions the app needs.** The staging build's permission list contains only what the app needs. `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` and `CHANGE_WIFI_MULTICAST_STATE` are expected only in development builds (they come with the dev client and debug tooling) and must be absent from the staging build or justified in `CURRENT_STATUS.md` with where they come from and why they stay.
+2. **Only the permissions the app needs.** The staging build's permission list contains only what the app needs. `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` and `CHANGE_WIFI_MULTICAST_STATE` are expected only in development builds (they come with the dev client and debug tooling) and must be absent from the staging build or justified in `CURRENT_STATUS.md` with where they come from and why they stay. `ACCESS_WIFI_STATE` (from expo-network, D-064; a normal permission, no Wi-Fi details read) is justified at the same review.
 
 ### Analytics checks (P4-04)
 
@@ -160,6 +160,14 @@ Unit tests; the Storefront client is mocked and nothing reaches a store:
 - `__tests__/shopify/hooks/devCheckout.test.tsx`: the cache's cancel signal reaches `storefrontQuery` and aborts on unmount; the `liveStock` preset; a refetch each time a screen opens; no retry of the query or the cart mutation.
 - `__tests__/shopify/operations.test.ts`: every Storefront operation selects no personal field.
 - `__tests__/app/dev-checkout.test.tsx`: unchanged assertions, now with a query provider around the screen.
+
+### Network awareness checks (P5-03)
+
+Unit tests; `expo-network` is mocked and nothing reaches a store:
+- `__tests__/query/online.test.ts`: the offline mapping (offline only when `isConnected` is false and the type is not `UNKNOWN`; an empty state counts as online); the first read, a change event winning over a slower first read, a failed first read counting as online, and the stop function removing the listener (D-064). A query started offline is paused without being called and runs once on reconnect; cached data stays offline; stale data refetches on reconnect and fresh data does not. Offline, a mutation on the app's client calls `fetch` once, fails with `no-network`, is not paused, is not reported, and nothing runs after reconnect (D-065). Shown on 6 October 2026: with the mutations' `networkMode: 'always'` removed, the mutation test fails.
+- `__tests__/easJson.test.ts`: only the development profile limits the processor types (D-066); every profile keeps its `APP_ENV`.
+
+On the phone (P5-03 check, development build): the owner switches airplane mode, never Claude. Airplane mode on, the dev checkout screen stays loading with no error; off, the books appear with no tap; on again, the books stay and creating a checkout fails at once with the no-network message; off again, nothing fires by itself.
 
 Test helper: `__tests__/helpers/queryClient.tsx` (not run as a test) gives each test the app's client settings. Unmount before emptying the cache, and give mutations no garbage-collection timer: otherwise TanStack's timers hold Jest open after the tests.
 
