@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 
+# Another coding tool's instruction file. This project uses Claude Code only (CURRENT_STATUS.md)
+AGENTS.md
+
 # Expo
 .expo/
 dist/

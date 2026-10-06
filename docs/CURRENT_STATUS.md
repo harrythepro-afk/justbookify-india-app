@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 6 October 2026 (P4-04: analytics with opt-in consent; APK check and on-device DebugView check passed on build e571370c; awaiting review. P5-01 proposed).
+Last updated: 6 October 2026 (P4-04 merged as `08f2273`; P5-01 started on branch `feat/p5-01-storefront-client`).
 
 ## Phase
 
-Phase 4 (mobile foundation) is complete once P4-04 merges. P4-01 (`df35fa0`, PR #7), P4-02 (`f783367`, PR #8) and P4-03 (`5e8827d`, PR #9) are merged. P4-04 (this change, branch `feat/p4-04-analytics`) adds analytics with opt-in consent; its APK check and on-device check passed and it awaits review. `NEXT_TASK.md` proposes P5-01. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f783367`, PR #8), P4-03 (`5e8827d`, PR #9) and P4-04 (`08f2273`, PR #10, analytics with opt-in consent) are merged. Phase 5 has started: P5-01 (typed Storefront API client) is in progress. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -103,7 +103,7 @@ Phase 4 (mobile foundation) is complete once P4-04 merges. P4-01 (`df35fa0`, PR 
   - Two adb commands during the check were outside what the owner had approved, both read only: `adb shell dumpsys activity activities` (once, to see which screen was in the foreground), and an `adb logcat -d -b crash,main` search that was not filtered to the app's process (once, while looking for a crash). The second printed an unrelated MIUI system line listing the apps installed on the owner's phone; it was not kept or used. The architect's review of PR #9 then set the adb rule now in `CLAUDE.md` and `TESTING.md`.
   - Architect's review of PR #9 added two staging release-gate checks (`TESTING.md`): a fresh install must reach Home on its first launch, and the permission list must hold only what the app needs (`SYSTEM_ALERT_WINDOW`, external storage and `CHANGE_WIFI_MULTICAST_STATE` absent or justified).
 
-- P4-04 (awaiting review, branch `feat/p4-04-analytics`):
+- P4-04 (merged, `08f2273`, PR #10):
   - The owner's answers are recorded as decisions:
     - D-048: opt-in consent with three states, stored with `expo-secure-store`. Withdrawing stops collection at once and resets the analytics data on the phone. The customer-facing consent request is a Phase 7 requirement with a release gate; the owner chooses between two placements in Phase 7.
     - D-049: amends D-009. Advertising IDs, Privacy Sandbox permissions, advertising consents, audiences and Google signals stay off. The Play install referrer is allowed, under consent only.
@@ -173,6 +173,8 @@ Phase 4 (mobile foundation) is complete once P4-04 merges. P4-01 (`df35fa0`, PR 
 - Storefront operations are not yet typed through code generation; that comes with the data layer, and the code generator is a dependency that needs a decision.
 
 ## Known issues
+
+- **Codex note (owner, 6 October 2026).** On 5 October 2026 the Codex Desktop app on this computer created an `AGENTS.md` file from `CLAUDE.md` and imported Claude Code session history. No project file was changed. The untracked file was deleted on the owner's instruction, and `AGENTS.md` is now in `.gitignore`. This project is worked on with Claude Code only.
 
 - Checkout Kit 3.9.1 ships its TypeScript source as its types, so the type check reads it. `src/types/error-capture-stack-trace.d.ts` declares `Error.captureStackTrace` (present in Hermes), which that source uses. Remove the file if a later release ships compiled types.
 

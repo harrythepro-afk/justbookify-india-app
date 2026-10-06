@@ -1,15 +1,15 @@
-# Next task (proposal): P5-01, typed Storefront API client
+# Next task: P5-01, typed Storefront API client
 
-Status: proposal. It starts only after P4-04 is merged and the owner starts it in a new session.
+Status: in progress on branch `feat/p5-01-storefront-client` (started 6 October 2026). The owner's answers to the three questions below are recorded as decisions in this task.
 
-## Phase 4: mobile foundation (complete when P4-04 merges)
+## Phase 4: mobile foundation (complete)
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P4-01 (done, `df35fa0`) | Navigation shell, design tokens, environment banner | D-039, D-040, D-041 |
 | P4-02 (done, `f783367`) | Crash reporting with Sentry, personal data scrubbed; Android navigation buttons | D-042, D-043 |
 | P4-03 (done, `5e8827d`) | Feature flags with Firebase Remote Config; `checkout_presentation` kill switch plumbing | D-044 to D-047 |
-| P4-04 (done, awaiting review) | Analytics with opt-in consent, typed events, no personal data; Android backup off | D-048 to D-053 |
+| P4-04 (done, `08f2273`) | Analytics with opt-in consent, typed events, no personal data; Android backup off | D-048 to D-053 |
 
 ## Goal of P5-01
 
