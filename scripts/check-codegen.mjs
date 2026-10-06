@@ -4,11 +4,17 @@
 // It reads only the saved schema; it needs neither the store nor a token.
 
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 
 const GENERATED = 'src/shopify/generated';
-const shell = process.platform === 'win32';
 
-execFileSync('npx', ['graphql-codegen', '--config', 'codegen.ts'], { stdio: 'inherit', shell });
+// Runs the code generator's own CLI with this Node.js, without a shell.
+const require = createRequire(import.meta.url);
+const cliPackage = require.resolve('@graphql-codegen/cli/package.json');
+const codegenBin = join(dirname(cliPackage), require(cliPackage).bin['graphql-codegen']);
+
+execFileSync(process.execPath, [codegenBin, '--config', 'codegen.ts'], { stdio: 'inherit' });
 
 const changed = execFileSync('git', ['status', '--porcelain', '--', GENERATED], {
   encoding: 'utf8',

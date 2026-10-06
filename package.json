@@ -19,7 +19,7 @@
     "audit:gate": "node scripts/audit-gate.mjs",
     "codegen": "graphql-codegen --config codegen.ts",
     "codegen:check": "node scripts/check-codegen.mjs",
-    "schema:update": "node scripts/update-storefront-schema.mjs",
+    "schema:update": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/update-storefront-schema.mjs",
     "check:dev-store": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-dev-store.mjs"
   },
   "expo": {
