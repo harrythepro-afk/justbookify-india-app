@@ -84,6 +84,15 @@ export function reportStorefrontProblem(code: string, operationName: string): vo
   Sentry.captureMessage(`Storefront API: ${code} in ${operationName}`, 'error');
 }
 
+/**
+ * A data-layer error that is not a Storefront error (D-061). Carries a code from
+ * `safeErrorCode()` only: never the error's message.
+ */
+export function reportUnexpectedDataError(code: string): void {
+  if (!started) return;
+  Sentry.captureMessage(`Data layer: unexpected ${code}`, 'error');
+}
+
 /** Development builds only: sends one handled error, so the owner can see it arrive. */
 export function sendTestError(): void {
   if (!started) return;

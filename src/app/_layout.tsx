@@ -10,6 +10,7 @@ import { EnvironmentBanner } from '@/components/EnvironmentBanner';
 import { getAppEnvironment } from '@/config';
 import { startCrashReporting } from '@/crashReporting/sentry';
 import { startFeatureFlags } from '@/featureFlags/session';
+import { AppQueryProvider } from '@/query/QueryProvider';
 
 // Once, before the first render, so a crash during start-up is reported too (D-042).
 startCrashReporting();
@@ -33,12 +34,12 @@ export default function RootLayout() {
   if (!fontsLoaded && fontError === null) return null;
 
   return (
-    <>
+    <AppQueryProvider>
       <EnvironmentBanner>
         <Stack screenOptions={{ headerShown: false }} />
       </EnvironmentBanner>
       {/* Light text over the dark banner; dark text over the light screens on production. */}
       <StatusBar style={getAppEnvironment() === 'production' ? 'dark' : 'light'} />
-    </>
+    </AppQueryProvider>
   );
 }

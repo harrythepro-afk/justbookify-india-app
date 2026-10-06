@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { ScrollView } from 'react-native';
@@ -11,6 +12,12 @@ import {
   type DevCheckoutVariant,
 } from '@/shopify/devCheckout';
 import { StorefrontError } from '@/shopify/errors';
+
+import {
+  createTestQueryClient,
+  tearDownQueryClient,
+  withQueryClient,
+} from '../helpers/queryClient';
 
 let mockAppEnv = 'development';
 let mockStoreStatus: StoreConfigStatus = 'configured';
@@ -86,8 +93,16 @@ async function press(name: string, times = 1) {
   }
 }
 
+let queryClient: QueryClient;
+
+// The screen reads through the app's query cache (D-061); each test gets a fresh one.
+function renderScreen() {
+  queryClient = createTestQueryClient();
+  return render(<DevCheckoutScreen />, { wrapper: withQueryClient(queryClient) });
+}
+
 async function renderLoaded() {
-  await render(<DevCheckoutScreen />);
+  await renderScreen();
   await screen.findByText('Picture Book, INR 99.00');
 }
 
@@ -116,10 +131,14 @@ describe('DevCheckoutScreen', () => {
     mockListeners.clear();
   });
 
+  afterEach(async () => {
+    await tearDownQueryClient(queryClient);
+  });
+
   it.each(['staging', 'production'])('sends a %s build back to the start screen', async (env) => {
     mockAppEnv = env;
 
-    await render(<DevCheckoutScreen />);
+    await renderScreen();
 
     expect(screen.getByText('Redirect to /')).toBeOnTheScreen();
     expect(screen.queryByText('Test checkout')).not.toBeOnTheScreen();
@@ -247,7 +266,7 @@ describe('DevCheckoutScreen', () => {
   it('shows why the books could not be listed', async () => {
     mockListVariants.mockRejectedValueOnce(new DevCheckoutError('no-available-variant'));
 
-    await render(<DevCheckoutScreen />);
+    await renderScreen();
 
     expect(
       await screen.findByText('No product variant on the store is available for sale.'),
@@ -258,7 +277,7 @@ describe('DevCheckoutScreen', () => {
   it('hides the text of an unexpected listing error', async () => {
     mockListVariants.mockRejectedValueOnce(new Error(`failed at ${CHECKOUT_URL}`));
 
-    await render(<DevCheckoutScreen />);
+    await renderScreen();
 
     expect(await screen.findByText('Unexpected error.')).toBeOnTheScreen();
     expect(screen.queryByText(/myshopify/)).not.toBeOnTheScreen();
@@ -267,7 +286,7 @@ describe('DevCheckoutScreen', () => {
   it('offers no button and reads nothing when the store is not configured', async () => {
     mockStoreStatus = 'not configured';
 
-    await render(<DevCheckoutScreen />);
+    await renderScreen();
 
     expect(screen.queryByRole('button', { name: 'Open test checkout' })).not.toBeOnTheScreen();
     expect(screen.getByText('Store configuration: not configured')).toBeOnTheScreen();
@@ -275,7 +294,7 @@ describe('DevCheckoutScreen', () => {
   });
 
   it('removes its checkout listeners when it unmounts', async () => {
-    const { unmount } = await render(<DevCheckoutScreen />);
+    const { unmount } = await renderScreen();
 
     await act(async () => unmount());
 

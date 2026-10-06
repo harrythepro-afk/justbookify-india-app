@@ -4,15 +4,15 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { getAppEnvironment, getStoreConfigStatus } from '@/config';
+import { StorefrontError } from '@/shopify/errors';
 import {
-  createDevCheckout,
   DevCheckoutError,
-  listDevCheckoutVariants,
   MAX_DEV_CHECKOUT_QUANTITY,
+  useCreateDevCheckout,
+  useDevCheckoutVariants,
   type DevCheckoutCart,
   type DevCheckoutVariant,
-} from '@/shopify/devCheckout';
-import { StorefrontError } from '@/shopify/errors';
+} from '@/shopify/hooks/devCheckout';
 import { colors, fonts, fontSize, radius, spacing } from '@/theme/tokens';
 
 type Status =
@@ -76,10 +76,18 @@ export default function DevCheckoutScreen() {
 function DevCheckout() {
   const checkout = useShopifyCheckoutSheet();
   const [status, setStatus] = useState<Status>({ state: 'idle' });
-  const [variants, setVariants] = useState<Variants>({ state: 'loading' });
   const [quantities, setQuantities] = useState<Readonly<Record<string, number>>>({});
   const [cart, setCart] = useState<DevCheckoutCart | undefined>(undefined);
   const configured = getStoreConfigStatus() === 'configured';
+  const variantsQuery = useDevCheckoutVariants(configured);
+  const createCart = useCreateDevCheckout();
+  // Books already on screen stay there if a later refetch fails.
+  const variants: Variants =
+    variantsQuery.data !== undefined
+      ? { state: 'loaded', variants: variantsQuery.data }
+      : variantsQuery.isError
+        ? { state: 'failed', message: errorMessage(variantsQuery.error, 'Unexpected error.') }
+        : { state: 'loading' };
 
   useEffect(() => {
     const subscriptions = [
@@ -95,24 +103,6 @@ function DevCheckout() {
     ];
     return () => subscriptions.forEach((subscription) => subscription?.remove());
   }, [checkout]);
-
-  useEffect(() => {
-    if (!configured) return;
-    let active = true;
-    listDevCheckoutVariants().then(
-      (loaded) => {
-        if (active) setVariants({ state: 'loaded', variants: loaded });
-      },
-      (error: unknown) => {
-        if (active) {
-          setVariants({ state: 'failed', message: errorMessage(error, 'Unexpected error.') });
-        }
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [configured]);
 
   const loaded = variants.state === 'loaded' ? variants.variants : [];
   const lines = loaded
@@ -134,7 +124,7 @@ function DevCheckout() {
     setStatus({ state: 'creating-cart' });
     setCart(undefined);
     try {
-      const created = await createDevCheckout(lines);
+      const created = await createCart.mutateAsync(lines);
       setCart(created);
       checkout.present(created.checkoutUrl);
       setStatus({ state: 'presented' });
