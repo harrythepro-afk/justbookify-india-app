@@ -23,10 +23,54 @@ Read-only audit completed on 2 October 2026, through the Shopify connection, the
 
 - One variant per book. SKU is empty. Inventory is tracked.
 - The vendor field holds the author. The product type holds age groups. Series are tags.
-- Product metafields include genre, service city, publisher, pages, ISBN, language and Judge.me ratings. They are readable by the storefront.
+- Product metafields include genre, service city, publisher, pages, ISBN, language and Judge.me ratings. They are readable by the storefront. Exact keys are below.
 - 169 products hold more than one copy. Some titles exist twice as separate products.
 - Some best-sellers are set to keep selling at zero stock and show negative inventory. This is deliberate.
 - Some ISBN-13 values and barcodes are stored as `9.78E+12` (spreadsheet damage). Do not rely on barcodes.
+
+### Product fields in detail (architect, 7 October 2026)
+
+Read by the architect from the live store on 7 October 2026 through a read-only connection. Claude did not read the live store.
+
+- **Author:** `vendor`.
+- **Age group:** `productType`, with inconsistent values. There are 16 variants, for example `early-readers`, `emerging-readers; junior-readers`, `Junior readers; Pre-teen readers` and `Teenage Readers`: several groups joined with `"; "`, mixing hyphens, spaces and capitals. **The app does not parse `productType`.**
+- **Series:** tags, in mixed formats, for example `HarryPotter`, `WimpyKids`, `GeronimoStilton`, `My Hero Academia`, `a-z-mysteries`, `Storey Treehouse`.
+- **New arrivals:** the tag `new-arrival`.
+
+### Collections (architect, 7 October 2026)
+
+The store's own groupings. All are smart collections; there are more than 50. A sample, by handle:
+
+- **Age groups**, by `productType`: `early-readers`, `emerging-readers`, `junior-readers`, `pre-teen-readers`, `teenage-readers`.
+- **Series**, by tag: for example `harry-potter-series` (tag `HarryPotter`), `wimpy-kid-series` (`WimpyKids`), `geronimo-stilton` (`GeronimoStilton` or `Geronimo`), `tintin-series`, `famous-five-series`, `dog-man-series`, `magic-tree-house-series`, `goosebumps-series`.
+- **Authors**, by `vendor`: for example `roald-dahl`, `ruskin-bond`, `enid-blyton`, `jeff-kinney`, `rick-riordan`, `sudha-murthy`.
+- **Others:** `manga-collections`, `flip-flap-books`, `touch-feel-books`, `read-it-yourself`.
+
+### Product metafields (architect, 7 October 2026)
+
+All are readable by the Storefront API. Listed as `namespace.key`, type, and the number of products using it:
+
+| Metafield | Type | Products |
+| --- | --- | --- |
+| `shopify.genre` | list of metaobject references | 2,297 |
+| `shopify.language-version` | list of metaobject references | 2,160 |
+| `shopify.book-cover-type` | list of metaobject references | 2,021 |
+| `shopify.target-audience` | list of metaobject references | 212 |
+| `reviews.rating` | rating | 75 |
+| `reviews.rating_count` | integer | 59 |
+| `custom.service_city` | list of text | 2,107 |
+| `custom.publisher` | list of text | 1,941 |
+| `custom.language` | text | 2,023 |
+| `custom.net_quantity` | text | 1,893 |
+| `custom.pages` | text | 1,308 |
+| `custom.isbn_10`, `custom.isbn_13` | text | not recorded |
+| `custom.item_weight` | text | 1,386 |
+
+- The `shopify.*` metafields are Shopify's standard category metafields for the "Books in Media" category.
+- `custom.net_quantity` is displayed as **"Book Type"** (paperback or hardcover); its key is misleading.
+- Some `custom.isbn_10` and `custom.isbn_13` values are damaged. Do not rely on them.
+
+**Design consequence for Phase 6 (proposed, not yet a decision):** browse by age group, series and author through **collections by handle**, not by parsing `productType` or tags. See `NEXT_TASK.md`.
 
 ## Orders and rentals
 
