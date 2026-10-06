@@ -21,6 +21,18 @@ Rules:
 
 Storefront API `2026-10`, pinned on 3 October 2026 in `src/config/shopifyApi.ts` (D-025). Source: the API versions page on shopify.dev, which that day listed `2026-10` as latest stable (released 1 October 2026, accessible until 16 October 2027) and `2027-01` as a release candidate. Next quarterly review: January 2027, when `2027-01` becomes stable.
 
+## Code generation and the saved schema (P5-01)
+
+- **Generator** (D-054), development dependencies only: `@shopify/api-codegen-preset` 3.0.0, `@graphql-codegen/cli` 6.3.1 and `graphql` 16.14.2, checked on 6 October 2026. The preset takes the API version as a free string and reads the Storefront schema from `https://shopify.dev/storefront-graphql-direct-proxy/<version>`. That address served `2026-10` (429 types, with `@inContext`) and refused an unknown version (HTTP 400).
+- **Saved schema** (D-055): `src/shopify/generated/storefront-2026-10.schema.json` (about 0.8 MB, minified), committed with `storefront.types.d.ts` and `storefront.generated.d.ts`. With the file present the generator makes no network call, so CI needs neither the store nor a token.
+- **Commands:** `npm run codegen` after changing an operation; `npm run codegen:check` (also a CI step) fails when an operation does not validate or the committed types are out of date.
+- **Changing the API version:** change `STOREFRONT_API_VERSION` in `src/config/shopifyApi.ts`, run `npm run schema:update`, review the schema and type diff, fix any operation that no longer validates, and commit it all in one pull request with the version change. A failed update puts the old schema back. The generator is never run on any input other than this repository's own (D-060).
+- **Audit:** the generator brings two high advisories that are allowlisted for development tooling only, until 2026-11-15 (D-060).
+
+## Buyer context (P5-01)
+
+Every operation declares `$country: CountryCode` and `$language: LanguageCode` with `@inContext(country: $country, language: $language)`. The client fills them from `EXPO_PUBLIC_STORE_COUNTRY` and `EXPO_PUBLIC_STORE_LANGUAGE` (`IN`, `EN` for India; D-058). A cart is also created with `buyerIdentity: { countryCode: $country }`: Shopify's international pricing guide says queries take their market from `@inContext`, while a cart's market comes from `buyerIdentity` and is saved with the cart. `npm run check:dev-store` confirmed on 6 October 2026 that the development store resolves `IN`, `EN` to INR. Shopify falls back to the primary market for a country it does not sell to, which is why that check compares the resolved country, currency and language with the configuration.
+
 ## Checkout Kit version
 
 `@shopify/checkout-sheet-kit` 3.9.1, pinned on 3 October 2026 (D-030). 4.0.x, named in D-017, was not published that day. Sources: npm registry, the package's GitHub releases and README, and shopify.dev's Checkout Kit page for React Native. Recheck when 4.0.0 is published, and at each quarterly API review.

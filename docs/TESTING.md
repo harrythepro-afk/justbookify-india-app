@@ -118,6 +118,18 @@ No build goes to any tester other than the owner until:
 
 Record the result in `CURRENT_STATUS.md`.
 
+### Storefront client checks (P5-01)
+
+Unit tests, with `fetch` mocked and fake timers; nothing reaches a store:
+- `__tests__/shopify/client.test.ts`: the request (endpoint, token header, buyer context that callers cannot replace); every error kind; retries for queries only, with backoff bounds checked through a fixed `Math.random`; Retry-After honoured up to 10 seconds; cancel during a request and during a wait; the 30-second limit, including a shortened last attempt and no retry with less than 2 seconds left; and, for every error, no domain, token, variable value or Shopify text in the message or in `JSON.stringify`.
+- `__tests__/shopify/errors.test.ts`: retryable kinds, enum-code filtering, user errors, and the Sentry rule (configuration faults at most once per session for each status).
+- `__tests__/shopify/operations.test.ts`: every `#graphql` operation in `src/shopify/` validates against the saved schema, is one named operation without `${}`, and declares `@inContext(country: $country, language: $language)`.
+- `__tests__/shopify/devCheckout.test.ts`: the dev checkout on the client, the cart's `buyerIdentity`, and no retry of the cart mutation.
+
+CI step `npm run codegen:check`: regenerates the types from the saved schema and fails if an operation does not validate or if the committed types are out of date. Shown on 6 October 2026: a misspelled field fails both `codegen` and the operations test; an operation without `@inContext` fails the operations test; an operation changed without `npm run codegen` fails `codegen:check`.
+
+`npm run check:dev-store` (development store only) also checks that Shopify resolves the configured buyer context to the configured country, language and currency.
+
 ## Edge cases
 
 | Case | Expected behaviour |

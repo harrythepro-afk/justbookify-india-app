@@ -21,8 +21,8 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 
 ### Network
 - [ ] TLS everywhere; no cleartext exceptions
-- [ ] Request timeouts; retries only for safe reads, with backoff and jitter
-- [ ] Checkout and writes are never retried automatically
+- [x] Request timeouts; retries only for safe reads, with backoff and jitter. Storefront API (D-057): 15 seconds per attempt, 30 seconds per call; queries only, at most 2 retries with random backoff; unit tests prove it
+- [ ] Checkout and writes are never retried automatically. Storefront mutations are never retried (D-057, tested); still open for Checkout Kit (Phase 9) and the backend (Phase 10)
 
 ### Secrets
 - [ ] No secret in the app bundle or the repository

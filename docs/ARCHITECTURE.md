@@ -109,6 +109,28 @@ Consumers: await loadFeatureFlags(), or useFeatureFlags() ("not ready" until fro
 - Only a valid Remote Config value overrides a default; a malformed one gives the default and a Sentry warning naming the flag.
 - **Phase 9 design item:** the checkout flag must take effect without waiting for two restarts, for example by activating fetched values when checkout is opened (D-046).
 
+## Data layer: Storefront API (P5-01)
+
+One module, `src/shopify/client.ts`, calls the Storefront API (D-056). Operations are `#graphql` strings in `src/shopify/`, typed by code generation from the saved schema (D-054, D-055).
+
+```
+Screen / feature code
+   └─ a function in src/shopify/ (for example listDevCheckoutVariants)
+        └─ storefrontQuery(OPERATION, { variables, signal })   or   storefrontMutation(...)
+             ├─ adds country and language from src/config/ (D-058)
+             ├─ POST https://<store>/api/2026-10/graphql.json, public token header
+             ├─ each attempt ≤ 15 s; the whole call ≤ 30 s (D-057)
+             ├─ query only: retry after no network, timeout, throttling or 500/502/503/504,
+             │    at most 2 retries, random backoff, Retry-After up to 10 s honoured
+             └─ result: typed data, or a StorefrontError (kind, code, operation name, status,
+                  Shopify enum codes; never Shopify's text, variables, domain or token)
+   Caller: reportStorefrontError(error, handledCodes) applies the Sentry rule (D-057)
+```
+
+- ESLint stops `fetch` anywhere in `src/` except `client.ts`, and GraphQL operation strings anywhere outside `src/shopify/`.
+- Generated files live in `src/shopify/generated/`: the saved schema and `.d.ts` types only. Nothing generated reaches the app bundle.
+- Caching comes in P5-02 with TanStack Query, in memory only, with its own retry off (D-059).
+
 ## Built for a second country
 
 Everything specific to the India store sits in configuration: store domain, currency, fees, order cap, pincode rule. A Bahrain app can be produced from the same code with its own configuration and its own app ID.
