@@ -7,3 +7,4 @@ assets
 # Owner-written documentation and project rules: not reformatted by tooling
 docs
 CLAUDE.md
+src/shopify/generated

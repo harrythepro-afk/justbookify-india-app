@@ -17,6 +17,9 @@
     "test": "jest",
     "test:ci": "jest --ci --coverage=false",
     "audit:gate": "node scripts/audit-gate.mjs",
+    "codegen": "graphql-codegen --config codegen.ts",
+    "codegen:check": "node scripts/check-codegen.mjs",
+    "schema:update": "node scripts/update-storefront-schema.mjs",
     "check:dev-store": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-dev-store.mjs"
   },
   "expo": {
@@ -65,7 +68,9 @@
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
+    "@graphql-codegen/cli": "6.3.1",
     "@react-native/jest-preset": "0.86.3",
+    "@shopify/api-codegen-preset": "3.0.0",
     "@testing-library/react-native": "14.0.1",
     "@types/jest": "29.5.14",
     "@types/react": "19.2.18",
@@ -73,6 +78,7 @@
     "eslint-config-expo": "57.0.2",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.6",
+    "graphql": "16.14.2",
     "jest": "29.7.0",
     "jest-expo": "57.0.5",
     "prettier": "3.9.9",

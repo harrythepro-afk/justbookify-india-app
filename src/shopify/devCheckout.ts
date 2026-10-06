@@ -4,16 +4,15 @@
  * opens the cart's checkout URL in Checkout Kit and shows the subtotal Shopify reports, so the
  * tester can reach each cart bracket of early check 2.
  *
- * The two operations are typed by hand. Code generation arrives with the data layer and needs
- * its own decision, so these types cover only the fields read here.
- *
- * Errors carry a fixed kind and our own wording only. Shopify's raw messages, the store's
- * domain, the token and the checkout URL are never put into an error, a log or the screen.
+ * Both operations go through the Storefront client (src/shopify/client.ts) and are typed by
+ * code generation (D-054). Transport failures and Shopify's user errors arrive as a
+ * StorefrontError; this file's own checks throw a DevCheckoutError. Both carry our own wording
+ * only: Shopify's raw messages, the store's domain, the token and the checkout URL are never put
+ * into an error, a log or the screen.
  */
 
-import { getStoreConfig, storefrontEndpoint } from '@/config';
-
-const REQUEST_TIMEOUT_MS = 15_000;
+import { storefrontMutation, storefrontQuery } from './client';
+import { throwIfUserErrors } from './errors';
 
 /** Highest quantity of one variant the test screen puts in a cart. */
 export const MAX_DEV_CHECKOUT_QUANTITY = 10;
@@ -21,7 +20,9 @@ export const MAX_DEV_CHECKOUT_QUANTITY = 10;
 // Shopify names a variant "Default Title" when its product has no options.
 const DEFAULT_VARIANT_TITLE = 'Default Title';
 
-export const DEV_CHECKOUT_PRODUCT_QUERY = `query DevCheckoutProduct {
+export const DEV_CHECKOUT_PRODUCT_QUERY = `#graphql
+query DevCheckoutProduct($country: CountryCode, $language: LanguageCode)
+@inContext(country: $country, language: $language) {
   products(first: 10) {
     nodes {
       title
@@ -38,10 +39,16 @@ export const DEV_CHECKOUT_PRODUCT_QUERY = `query DevCheckoutProduct {
       }
     }
   }
-}`;
+}` as const;
 
-export const DEV_CHECKOUT_CART_CREATE_MUTATION = `mutation DevCheckoutCartCreate($lines: [CartLineInput!]!) {
-  cartCreate(input: { lines: $lines }) {
+// The cart's market comes from buyerIdentity, which Shopify saves with the cart (D-058).
+export const DEV_CHECKOUT_CART_CREATE_MUTATION = `#graphql
+mutation DevCheckoutCartCreate(
+  $lines: [CartLineInput!]!
+  $country: CountryCode
+  $language: LanguageCode
+) @inContext(country: $country, language: $language) {
+  cartCreate(input: { lines: $lines, buyerIdentity: { countryCode: $country } }) {
     cart {
       checkoutUrl
       cost {
@@ -58,26 +65,7 @@ export const DEV_CHECKOUT_CART_CREATE_MUTATION = `mutation DevCheckoutCartCreate
       code
     }
   }
-}`;
-
-type Money = { amount: string; currencyCode: string };
-
-type DevCheckoutProductData = {
-  products: {
-    nodes: {
-      title: string;
-      variants: { nodes: { id: string; title: string; availableForSale: boolean; price: Money }[] };
-    }[];
-  };
-};
-
-type DevCheckoutCartCreateData = {
-  cartCreate: {
-    cart: { checkoutUrl: string; cost: { subtotalAmount: Money } } | null;
-    userErrors: { code: string | null }[];
-    warnings: { code: string }[];
-  } | null;
-};
+}` as const;
 
 export type DevCheckoutVariant = {
   readonly id: string;
@@ -99,18 +87,9 @@ export type DevCheckoutCart = {
   readonly warningCodes: readonly string[];
 };
 
-export type DevCheckoutErrorKind =
-  | 'request-failed'
-  | 'http-error'
-  | 'graphql-error'
-  | 'no-available-variant'
-  | 'invalid-lines'
-  | 'cart-rejected';
+export type DevCheckoutErrorKind = 'no-available-variant' | 'invalid-lines' | 'cart-rejected';
 
 const MESSAGES: Record<DevCheckoutErrorKind, string> = {
-  'request-failed': 'The Storefront API request did not complete.',
-  'http-error': 'The Storefront API answered with an HTTP error.',
-  'graphql-error': 'The Storefront API returned GraphQL errors.',
   'no-available-variant': 'No product variant on the store is available for sale.',
   'invalid-lines': `The test cart needs at least one book, each with a quantity from 1 to ${MAX_DEV_CHECKOUT_QUANTITY}.`,
   'cart-rejected': 'The store did not create the cart.',
@@ -118,57 +97,17 @@ const MESSAGES: Record<DevCheckoutErrorKind, string> = {
 
 export class DevCheckoutError extends Error {
   readonly kind: DevCheckoutErrorKind;
-  /** HTTP status or Shopify's user-error codes. Codes are enum values, never free text. */
-  readonly detail: string | undefined;
 
-  constructor(kind: DevCheckoutErrorKind, detail?: string) {
-    super(detail === undefined ? MESSAGES[kind] : `${MESSAGES[kind]} (${detail})`);
+  constructor(kind: DevCheckoutErrorKind) {
+    super(MESSAGES[kind]);
     this.name = 'DevCheckoutError';
     this.kind = kind;
-    this.detail = detail;
   }
-}
-
-async function storefrontRequest<T>(
-  query: string,
-  variables?: Record<string, unknown>,
-): Promise<T> {
-  const { storeDomain, storefrontAccessToken } = getStoreConfig();
-
-  // AbortController rather than AbortSignal.timeout, which React Native does not provide.
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  let response: Response;
-  try {
-    response = await fetch(storefrontEndpoint(storeDomain), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Storefront-Access-Token': storefrontAccessToken,
-      },
-      body: JSON.stringify({ query, variables }),
-      signal: controller.signal,
-    });
-  } catch {
-    // The underlying error can name the host, so it is not passed on.
-    throw new DevCheckoutError('request-failed');
-  } finally {
-    clearTimeout(timer);
-  }
-
-  if (!response.ok) throw new DevCheckoutError('http-error', `HTTP ${response.status}`);
-
-  const body = (await response.json()) as { data?: T; errors?: unknown[] };
-  if ((Array.isArray(body.errors) && body.errors.length > 0) || body.data === undefined) {
-    throw new DevCheckoutError('graphql-error');
-  }
-  return body.data;
 }
 
 /** Lists the store's variants that are available for sale, in the store's product order. */
 export async function listDevCheckoutVariants(): Promise<DevCheckoutVariant[]> {
-  const data = await storefrontRequest<DevCheckoutProductData>(DEV_CHECKOUT_PRODUCT_QUERY);
+  const data = await storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY);
   const variants = data.products.nodes.flatMap((product) =>
     product.variants.nodes
       .filter((variant) => variant.availableForSale)
@@ -198,18 +137,11 @@ export async function createDevCheckout(
     throw new DevCheckoutError('invalid-lines');
   }
 
-  const data = await storefrontRequest<DevCheckoutCartCreateData>(
-    DEV_CHECKOUT_CART_CREATE_MUTATION,
-    { lines: lines.map(({ merchandiseId, quantity }) => ({ merchandiseId, quantity })) },
-  );
+  const data = await storefrontMutation(DEV_CHECKOUT_CART_CREATE_MUTATION, {
+    variables: { lines: lines.map(({ merchandiseId, quantity }) => ({ merchandiseId, quantity })) },
+  });
   const result = data.cartCreate;
-  const userErrors = result?.userErrors ?? [];
-  if (userErrors.length > 0) {
-    throw new DevCheckoutError(
-      'cart-rejected',
-      userErrors.map((error) => error.code ?? 'UNKNOWN').join(', '),
-    );
-  }
+  throwIfUserErrors('DevCheckoutCartCreate', result?.userErrors);
   const cart = result?.cart;
   if (cart === null || cart === undefined) throw new DevCheckoutError('cart-rejected');
   return {

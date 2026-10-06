@@ -12,6 +12,7 @@ import {
   type DevCheckoutCart,
   type DevCheckoutVariant,
 } from '@/shopify/devCheckout';
+import { StorefrontError } from '@/shopify/errors';
 import { colors, fonts, fontSize, radius, spacing } from '@/theme/tokens';
 
 type Status =
@@ -35,9 +36,12 @@ const STATUS_TEXT: Record<Exclude<Status['state'], 'error'>, string> = {
   closed: 'Checkout closed without an order.',
 };
 
-// A DevCheckoutError's text is ours; any other error's text could carry the store's URL.
+// The text of a DevCheckoutError or a StorefrontError is ours; any other error's text could carry
+// the store's URL.
 function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof DevCheckoutError ? error.message : fallback;
+  return error instanceof DevCheckoutError || error instanceof StorefrontError
+    ? error.message
+    : fallback;
 }
 
 function formatAmount(amount: number, currencyCode: string): string {

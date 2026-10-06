@@ -40,6 +40,11 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      # Regenerates the Storefront API types from the saved schema (no store, no token) and
+      # fails if an operation does not validate or the committed types are out of date (D-055).
+      - name: Generated GraphQL types are current
+        run: npm run codegen:check
+
       - name: Tests
         run: npm run test:ci
 

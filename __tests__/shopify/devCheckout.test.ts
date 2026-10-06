@@ -7,6 +7,7 @@ import {
   listDevCheckoutVariants,
   type DevCheckoutLine,
 } from '@/shopify/devCheckout';
+import { StorefrontError } from '@/shopify/errors';
 
 // Fake values only. The test checks they never reach an error message.
 const STORE_DOMAIN = 'example-dev-store.myshopify.com';
@@ -17,6 +18,8 @@ const mockConfig: StoreConfig = {
   storeDomain: STORE_DOMAIN,
   storefrontAccessToken: TOKEN,
   currencyCode: 'INR',
+  country: 'IN',
+  language: 'EN',
   shippingFeePrepaid: 75,
   shippingFeeCod: 125,
   freeDeliveryThreshold: 200,
@@ -87,7 +90,12 @@ const CART_CREATE = {
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
-  return { ok: status >= 200 && status < 300, status, json: async () => body } as Response;
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers(),
+    text: async () => JSON.stringify(body),
+  } as Response;
 }
 
 let fetchMock: jest.SpyInstance;
@@ -97,7 +105,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  fetchMock.mockRestore();
+  jest.restoreAllMocks();
 });
 
 function requestBody(call: number): { query: string; variables?: Record<string, unknown> } {
@@ -115,6 +123,22 @@ async function expectDevCheckoutError(
   expect(devError.message).not.toContain(STORE_DOMAIN);
   expect(devError.message).not.toContain(TOKEN);
   return devError;
+}
+
+async function expectStorefrontError(
+  promise: Promise<unknown>,
+  kind: StorefrontError['kind'],
+): Promise<StorefrontError> {
+  const error: unknown = await promise.catch((caught: unknown) => caught);
+  expect(error).toBeInstanceOf(StorefrontError);
+  const storefrontError = error as StorefrontError;
+  expect(storefrontError.kind).toBe(kind);
+  for (const text of [storefrontError.message, JSON.stringify(storefrontError)]) {
+    expect(text).not.toContain(STORE_DOMAIN);
+    expect(text).not.toContain(TOKEN);
+    expect(text).not.toContain(CHECKOUT_URL);
+  }
+  return storefrontError;
 }
 
 describe('listDevCheckoutVariants', () => {
@@ -152,17 +176,28 @@ describe('listDevCheckoutVariants', () => {
     await expectDevCheckoutError(listDevCheckoutVariants(), 'no-available-variant');
   });
 
-  it('fails without the host when the request does not complete', async () => {
-    fetchMock.mockRejectedValueOnce(new TypeError(`Network request to ${STORE_DOMAIN} failed`));
+  it('sends the buyer context from the store configuration', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(PRODUCTS));
 
-    await expectDevCheckoutError(listDevCheckoutVariants(), 'request-failed');
+    await listDevCheckoutVariants();
+
+    expect(requestBody(0).variables).toEqual({ country: 'IN', language: 'EN' });
+  });
+
+  it('fails without the host when the request does not complete, after retrying', async () => {
+    // No wait between retries.
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+    fetchMock.mockRejectedValue(new TypeError(`Network request to ${STORE_DOMAIN} failed`));
+
+    await expectStorefrontError(listDevCheckoutVariants(), 'no-network');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('reports the HTTP status of a failed response', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({}, 401));
 
-    const error = await expectDevCheckoutError(listDevCheckoutVariants(), 'http-error');
-    expect(error.detail).toBe('HTTP 401');
+    const error = await expectStorefrontError(listDevCheckoutVariants(), 'http-error');
+    expect(error.status).toBe(401);
   });
 
   it('fails on GraphQL errors without passing on their text', async () => {
@@ -170,7 +205,7 @@ describe('listDevCheckoutVariants', () => {
       jsonResponse({ errors: [{ message: `Access denied for ${STORE_DOMAIN}` }] }),
     );
 
-    await expectDevCheckoutError(listDevCheckoutVariants(), 'graphql-error');
+    await expectStorefrontError(listDevCheckoutVariants(), 'graphql-error');
   });
 });
 
@@ -188,7 +223,7 @@ describe('createDevCheckout', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(requestBody(0)).toEqual({
       query: DEV_CHECKOUT_CART_CREATE_MUTATION,
-      variables: { lines: LINES },
+      variables: { lines: LINES, country: 'IN', language: 'EN' },
     });
   });
 
@@ -206,8 +241,21 @@ describe('createDevCheckout', () => {
   });
 
   it('uses named operations only', () => {
-    expect(DEV_CHECKOUT_PRODUCT_QUERY).toMatch(/^query DevCheckoutProduct /);
-    expect(DEV_CHECKOUT_CART_CREATE_MUTATION).toMatch(/^mutation DevCheckoutCartCreate\(/);
+    expect(DEV_CHECKOUT_PRODUCT_QUERY).toMatch(/^#graphql\nquery DevCheckoutProduct\(/);
+    expect(DEV_CHECKOUT_CART_CREATE_MUTATION).toMatch(
+      /^#graphql\nmutation DevCheckoutCartCreate\(/,
+    );
+  });
+
+  it("creates the cart in the configured country's market", () => {
+    expect(DEV_CHECKOUT_CART_CREATE_MUTATION).toContain('buyerIdentity: { countryCode: $country }');
+  });
+
+  it('never retries the cart mutation', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({}, 503));
+
+    await expectStorefrontError(createDevCheckout(LINES), 'http-error');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it.each<[string, DevCheckoutLine[]]>([
@@ -233,8 +281,8 @@ describe('createDevCheckout', () => {
       }),
     );
 
-    const error = await expectDevCheckoutError(createDevCheckout(LINES), 'cart-rejected');
-    expect(error.detail).toBe('INVALID_MERCHANDISE_LINE');
+    const error = await expectStorefrontError(createDevCheckout(LINES), 'user-errors');
+    expect(error.codes).toEqual(['INVALID_MERCHANDISE_LINE']);
   });
 
   it('fails when the store returns no cart and no user errors', async () => {
@@ -248,7 +296,6 @@ describe('createDevCheckout', () => {
       jsonResponse({ errors: [{ message: `Cart failed for ${CHECKOUT_URL}` }] }),
     );
 
-    const error = await expectDevCheckoutError(createDevCheckout(LINES), 'graphql-error');
-    expect(error.message).not.toContain(CHECKOUT_URL);
+    await expectStorefrontError(createDevCheckout(LINES), 'graphql-error');
   });
 });

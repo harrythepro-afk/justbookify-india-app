@@ -75,6 +75,15 @@ export function reportAnalyticsProblem(problem: string): void {
   Sentry.captureMessage(`Analytics: ${problem}`, 'warning');
 }
 
+/**
+ * A Storefront API failure worth seeing (D-057). Carries the error code and the operation's
+ * name only: never Shopify's message, the variables, the store's domain or the token.
+ */
+export function reportStorefrontProblem(code: string, operationName: string): void {
+  if (!started) return;
+  Sentry.captureMessage(`Storefront API: ${code} in ${operationName}`, 'error');
+}
+
 /** Development builds only: sends one handled error, so the owner can see it arrive. */
 export function sendTestError(): void {
   if (!started) return;
