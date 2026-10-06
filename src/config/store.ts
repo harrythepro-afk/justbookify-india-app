@@ -16,6 +16,13 @@ export type StoreConfig = {
   readonly storefrontAccessToken: string;
   /** ISO 4217 code, for example "INR". */
   readonly currencyCode: string;
+  /**
+   * Buyer's country, ISO 3166-1 two-letter code such as "IN". Sent with every Storefront API
+   * operation, so prices and availability are for this market (D-058).
+   */
+  readonly country: string;
+  /** Shopify language code such as "EN", sent with every Storefront API operation (D-058). */
+  readonly language: string;
   /** Flat shipping fee for prepaid orders, in major currency units. */
   readonly shippingFeePrepaid: number;
   /**
@@ -35,6 +42,8 @@ export const STORE_ENV_NAMES = [
   'EXPO_PUBLIC_STORE_DOMAIN',
   'EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN',
   'EXPO_PUBLIC_STORE_CURRENCY',
+  'EXPO_PUBLIC_STORE_COUNTRY',
+  'EXPO_PUBLIC_STORE_LANGUAGE',
   'EXPO_PUBLIC_SHIPPING_FEE_PREPAID',
   'EXPO_PUBLIC_SHIPPING_FEE_COD',
   'EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD',
@@ -59,6 +68,9 @@ export class StoreConfigError extends Error {
 
 const DOMAIN_PATTERN = /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
+const COUNTRY_PATTERN = /^[A-Z]{2}$/;
+// Shopify's LanguageCode values: two or three letters, sometimes with a region, such as PT_BR.
+const LANGUAGE_PATTERN = /^[A-Z]{2,3}(_[A-Z]{2,4})?$/;
 const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
 const RANGE_PATTERN = /^(\d{2})(?:-(\d{2}))?$/;
 const TOKEN_PATTERN = /^\S+$/;
@@ -97,6 +109,8 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
   const storeDomain = env.EXPO_PUBLIC_STORE_DOMAIN?.trim().toLowerCase();
   const storefrontAccessToken = parseToken(env.EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN);
   const currencyCode = env.EXPO_PUBLIC_STORE_CURRENCY?.trim();
+  const country = env.EXPO_PUBLIC_STORE_COUNTRY?.trim();
+  const language = env.EXPO_PUBLIC_STORE_LANGUAGE?.trim();
   const shippingFeePrepaid = parseAmount(env.EXPO_PUBLIC_SHIPPING_FEE_PREPAID);
   const shippingFeeCod = parseAmount(env.EXPO_PUBLIC_SHIPPING_FEE_COD);
   const freeDeliveryThreshold = parseAmount(env.EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD);
@@ -111,6 +125,12 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
   if (currencyCode === undefined || !CURRENCY_PATTERN.test(currencyCode)) {
     invalid.push('EXPO_PUBLIC_STORE_CURRENCY');
   }
+  if (country === undefined || !COUNTRY_PATTERN.test(country)) {
+    invalid.push('EXPO_PUBLIC_STORE_COUNTRY');
+  }
+  if (language === undefined || !LANGUAGE_PATTERN.test(language)) {
+    invalid.push('EXPO_PUBLIC_STORE_LANGUAGE');
+  }
   if (shippingFeePrepaid === undefined) invalid.push('EXPO_PUBLIC_SHIPPING_FEE_PREPAID');
   if (shippingFeeCod === undefined) invalid.push('EXPO_PUBLIC_SHIPPING_FEE_COD');
   if (freeDeliveryThreshold === undefined) invalid.push('EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD');
@@ -122,6 +142,8 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
     storeDomain === undefined ||
     storefrontAccessToken === undefined ||
     currencyCode === undefined ||
+    country === undefined ||
+    language === undefined ||
     shippingFeePrepaid === undefined ||
     shippingFeeCod === undefined ||
     freeDeliveryThreshold === undefined ||
@@ -135,6 +157,8 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
     storeDomain,
     storefrontAccessToken,
     currencyCode,
+    country,
+    language,
     shippingFeePrepaid,
     shippingFeeCod,
     freeDeliveryThreshold,
@@ -151,6 +175,8 @@ export function getStoreConfig(): StoreConfig {
     EXPO_PUBLIC_STORE_DOMAIN: process.env.EXPO_PUBLIC_STORE_DOMAIN,
     EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN: process.env.EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN,
     EXPO_PUBLIC_STORE_CURRENCY: process.env.EXPO_PUBLIC_STORE_CURRENCY,
+    EXPO_PUBLIC_STORE_COUNTRY: process.env.EXPO_PUBLIC_STORE_COUNTRY,
+    EXPO_PUBLIC_STORE_LANGUAGE: process.env.EXPO_PUBLIC_STORE_LANGUAGE,
     EXPO_PUBLIC_SHIPPING_FEE_PREPAID: process.env.EXPO_PUBLIC_SHIPPING_FEE_PREPAID,
     EXPO_PUBLIC_SHIPPING_FEE_COD: process.env.EXPO_PUBLIC_SHIPPING_FEE_COD,
     EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD: process.env.EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD,

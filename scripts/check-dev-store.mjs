@@ -1,6 +1,8 @@
 // Checks .env.local against the development store: the store configuration parses through the
-// app's own getStoreConfig(), the store's currency matches EXPO_PUBLIC_STORE_CURRENCY, and the
-// public Storefront token can read products published to the Headless channel.
+// app's own getStoreConfig(), the store's currency matches EXPO_PUBLIC_STORE_CURRENCY, Shopify
+// resolves the buyer context (EXPO_PUBLIC_STORE_COUNTRY and _LANGUAGE, D-058) to that country,
+// language and currency, and the public Storefront token can read products published to the
+// Headless channel.
 //
 // Run with `npm run check:dev-store`. Read-only: one named query, no mutations. Never prints
 // the token or the domain. Not run in CI, which has no .env.local. Point it at a development
@@ -11,7 +13,19 @@
 import { STOREFRONT_API_VERSION, storefrontEndpoint } from '../src/config/shopifyApi.ts';
 import { getStoreConfig, StoreConfigError } from '../src/config/store.ts';
 
-const QUERY = `query DevStoreCheck {
+const QUERY = `query DevStoreCheck($country: CountryCode, $language: LanguageCode)
+@inContext(country: $country, language: $language) {
+  localization {
+    country {
+      isoCode
+      currency {
+        isoCode
+      }
+    }
+    language {
+      isoCode
+    }
+  }
   shop {
     paymentSettings {
       currencyCode
@@ -52,7 +66,10 @@ async function check() {
         'Content-Type': 'application/json',
         'X-Shopify-Storefront-Access-Token': config.storefrontAccessToken,
       },
-      body: JSON.stringify({ query: QUERY }),
+      body: JSON.stringify({
+        query: QUERY,
+        variables: { country: config.country, language: config.language },
+      }),
       signal: AbortSignal.timeout(15_000),
     });
   } catch (error) {
@@ -82,13 +99,34 @@ async function check() {
     );
   }
 
+  // Shopify falls back to the store's primary market for a country it does not sell to, so the
+  // resolved context is compared with the configuration.
+  const localization = body.data?.localization;
+  const resolved = {
+    country: localization?.country?.isoCode,
+    currency: localization?.country?.currency?.isoCode,
+    language: localization?.language?.isoCode,
+  };
+  if (
+    resolved.country !== config.country ||
+    resolved.currency !== config.currencyCode ||
+    resolved.language !== config.language
+  ) {
+    fail(
+      `buyer context mismatch: Shopify resolved ${resolved.country ?? 'unknown'}, ` +
+        `${resolved.currency ?? 'unknown'}, ${resolved.language ?? 'unknown'}; the configuration ` +
+        `asks for ${config.country}, ${config.currencyCode}, ${config.language}.`,
+    );
+  }
+
   const productCount = body.data?.products?.nodes?.length ?? 0;
   if (productCount === 0) {
     fail('no products found. Publish some sample products to the Headless channel.');
   }
 
   console.log(
-    `Storefront API ${STOREFRONT_API_VERSION}: currency ${storeCurrency} matches; ` +
+    `Storefront API ${STOREFRONT_API_VERSION}: currency ${storeCurrency} matches; buyer ` +
+      `context ${resolved.country}, ${resolved.language} resolves to ${resolved.currency}; ` +
       `read ${productCount} product${productCount === 1 ? '' : 's'}.`,
   );
 }
