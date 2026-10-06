@@ -52,7 +52,7 @@ Values are never written in this repository. Names and locations only.
 
 The Sentry DSN is `EXPO_PUBLIC_SENTRY_DSN`; it only lets the app send crash reports and is public by design. The Sentry auth token, which uploads source maps during release builds, is `SENTRY_AUTH_TOKEN`. It exists only as an EAS environment variable with Secret visibility, created by the owner, and never in the repository, `.env` files or chat (D-042).
 
-The Storefront token gets the minimum scopes: products, collections, cart and checkout. Nothing customer-related.
+The Storefront token gets the minimum scopes: products, collections, cart and checkout. Nothing customer-related. On the development store it also resolves metaobject references, which the category metafields (`shopify.genre` and the others) need; `npm run check:dev-store` fails if it stops doing so (P6-01). If the live store's token cannot, the owner grants metaobject read on the Headless channel; the app never works around it.
 
 In the app the shop domain and the public Storefront token are `EXPO_PUBLIC_STORE_DOMAIN` and `EXPO_PUBLIC_STOREFRONT_ACCESS_TOKEN`, read through `src/config/`. For development they sit in `.env.local`, which is never committed. The Headless channel's private token is never used in the app.
 
@@ -69,6 +69,8 @@ Nothing else on the live store is changed. See D-008.
 ## Development store
 
 Created by the owner on 3 October 2026. For P3-01 the owner set up delivery rates and a manual cash-on-delivery payment method on it. For P3-02 the owner installed ACOD and SMART Checkout Rules on it on 3 October 2026 and copied the live store's settings by hand (`SHOPIFY_AUDIT.md`, D-031): all three SMART Checkout Rules rules ("Shipping discount", "Shipping Price Restriction", "Shipping Restriction") and both ACOD features are active. ACOD showed a plan screen that Shopify marked as a test charge, which is never billed on a development store; no payment method was added (D-032). The shipping rates are named "Prepaid" (₹75) and "Cash on Delivery" (₹125). Its India shipping zone covers the whole country, unlike the live store's five states, so a pincode outside R3 still gets rates and only the SMART rule can block it. Two sample products have a stock of 10 and a third has 1. Razorpay is not installed there and will not be: Razorpay is offered only to stores with an Indian business entity, and the development store's entity is in Bahrain (D-033). So the development store has no prepaid payment method. Test orders are allowed on the development store only, never on the live store. It is a development store with Basic-plan features (corrected on 3 October 2026; earlier noted as "on the Basic plan"). Like every development store it is always password protected, and Shopify does not allow the password to be removed. Its currency is INR (it was created in BHD and the owner changed it). `npm run check:dev-store` confirmed on 3 October 2026 that the store's currency matches the configuration and that the public token reads products published to the Headless channel. The plan cannot be read with the public Storefront token; confirm it through the Admin API's `shop.plan` once the backend custom app exists, or in the store's admin.
+
+Sample catalogue (P6-01, D-069): on 7 October 2026 the architect loaded 40 real books copied from the live store; the owner imported two CSV files and the architect created the fields, collections, category values and ratings. The Headless channel sees **42 products**: the 3 older test products and 39 sample books. The 40th, `the-giraffe-and-the-pelly-and-me`, is a draft and must never appear. 23 smart collections are published to the Headless channel. The full fixture, with the expected counts, is in `TESTING.md` ("Sample catalogue (P6-01)"); `npm run check:dev-store` asserts it.
 
 Storefront password: on the development store, the Checkout Kit sheet first shows the store's password page. The tester types the storefront password there; this is the normal way to reach checkout on a development store (architect, 3 October 2026). The live store has no password page, so customers never see it. The app never fills in, stores or logs the password, and no code may be added to do so. The password is not a repository value and never goes into `.env.local`.
 
@@ -89,7 +91,39 @@ Order created, order cancelled, fulfilment created and updated, return requested
 
 ## Product data the app reads
 
-Title, handle, cover image, vendor (author), product type (age groups), tags (series, new arrival), price, compare-at price, availability, and the product metafields for genre, service city and ratings. Record each metafield's exact namespace and key here when the data layer is built.
+Recorded in P6-01 (7 October 2026) from the development store's sample catalogue (D-069), read over Storefront API `2026-10` with the public token. The field names match the live store (`SHOPIFY_AUDIT.md`).
+
+**Grouping (D-068).** Age group, series and author come from collections, read by handle. The app never parses `productType` or tags.
+
+**Product fields.**
+- Title, handle, featured image (the cover; may be missing), price and compare-at price.
+- Author: `vendor`. Casing is not consistent across products: the older test products use "J.k. Rowling", the sample books "J.K. Rowling". The author collection (`j-k-rowling`) groups them; the app shows `vendor` as stored.
+- Availability, from the one variant each book has:
+  - in stock: `availableForSale` true and `currentlyNotInStock` false (this includes a book with stock and "continue selling" on);
+  - rented out: `availableForSale` false (stock 0, "deny");
+  - orderable at zero stock: `availableForSale` true and `currentlyNotInStock` true (stock 0, "continue selling").
+  `quantityAvailable` is not read: it needs an inventory scope the public token does not have.
+
+**Product metafields.** All are readable through the Storefront API.
+
+| Namespace and key | Type | Notes |
+| --- | --- | --- |
+| `shopify.genre` | `list.metaobject_reference` | Metaobject type `shopify--genre`. Handles: `action-adventure`, `fantasy`, `humor-comedy`, `crime-mystery`, `comics-graphic-novels`, `biography`, `manga`, `realistic-fiction`, `picture-book`, `fairy-tale`, `non-fiction`. The last five are custom values on the live store; in the development store their labels were retyped from the handles and their base genre is "Other" |
+| `shopify.language-version` | `list.metaobject_reference` | Type `shopify--language-version`. `eng-english` (label "ENG- English") on all 40 books |
+| `shopify.book-cover-type` | `list.metaobject_reference` | Type `shopify--book-cover-type`. `paperback` on 37 books, `hardcover` on 3. Use this for the book's binding |
+| `shopify.target-audience` | `list.metaobject_reference` | Type `shopify--target-audience`. No sample book uses it |
+| `custom.publisher` | `list.single_line_text_field` | |
+| `custom.language` | `single_line_text_field` | |
+| `custom.net_quantity` | `single_line_text_field` | Shown on the store as "Book Type". Casing is inconsistent; prefer `shopify.book-cover-type` |
+| `custom.pages` | `single_line_text_field` | Missing on 5 books |
+| `custom.service_city` | `list.single_line_text_field` | `bengaluru` in the sample data |
+| `custom.isbn_13` | `single_line_text_field` | Missing on 5 books, and damaged on the live store (for example `9.78E+12`). **The app must not show ISBN** |
+| `reviews.rating` | `rating` | JSON: `{"scale_min":"1.0","scale_max":"5.0","value":"5.0"}`. Five sample books have one, all 5.0 |
+| `reviews.rating_count` | `number_integer` | **May be missing when a rating exists** (`harry-potter-and-the-philosophers-stone-by-j-k-rowling`); the app must handle that |
+
+Each `shopify--*` metaobject has the fields `label` and `taxonomy_reference`. The app reads `label`. The public token resolves these references (checked in P6-01), so it can read metaobjects.
+
+**Storefront filters (probe, P6-01, report only).** `filters` on the products of `junior-readers` returns two filters only: Availability (`filter.v.availability`, type `LIST`: "In stock" 21, "Out of stock" 5; Shopify's "in stock" here means `availableForSale`, so it includes books orderable at zero stock) and Price (`filter.v.price`, type `PRICE_RANGE`, 0 to 99). There is no Genre, author or product-type filter: the development store has no filters configured beyond Shopify's defaults. How the Genre filter works is decided in a later task.
 
 ## Checkout behaviour to respect
 
