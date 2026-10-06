@@ -59,7 +59,7 @@ Run on the APK of **every build that adds or upgrades a native package**, and on
    - default analytics storage denied;
    - advertising ID and SSAID off, and every advertising consent denied.
 
-   The application tag has `android:allowBackup` false and points `android:dataExtractionRules` and `android:fullBackupContent` at the no-backup rules (D-052). `aapt2 dump xmltree --file res/xml/no_backup_data_extraction_rules.xml <apk>` shows every domain excluded from both cloud backup and device transfer.
+   **From the built APK, not only from the config** (owner's addition, P4-04): the application tag has `android:allowBackup` false and points `android:dataExtractionRules` and `android:fullBackupContent` at the no-backup rules (D-052), and both rules files are present in the APK. `aapt2 dump xmltree --file res/xml/no_backup_data_extraction_rules.xml <apk>` shows every domain excluded from both cloud backup and device transfer.
 6. Delete the APK.
 
 ### Phone checks over USB with adb (P4-03, owner's method)

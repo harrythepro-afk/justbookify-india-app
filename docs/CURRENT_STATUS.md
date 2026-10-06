@@ -1,10 +1,10 @@
 # Current status
 
-Last updated: 4 October 2026 (P4-03: feature flags with Firebase Remote Config; on-device check passed on build 97582938; awaiting review. P4-04 proposed).
+Last updated: 6 October 2026 (P4-04: analytics with opt-in consent; APK check and on-device DebugView check passed on build e571370c; awaiting review. P5-01 proposed).
 
 ## Phase
 
-Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (`f783367`, PR #8) are merged. P4-03 (this change, branch `feat/p4-03-remote-config`, PR #9) adds feature flags from Firebase Remote Config; its on-device check passed and it awaits review. `NEXT_TASK.md` proposes P4-04. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
+Phase 4 (mobile foundation) is complete once P4-04 merges. P4-01 (`df35fa0`, PR #7), P4-02 (`f783367`, PR #8) and P4-03 (`5e8827d`, PR #9) are merged. P4-04 (this change, branch `feat/p4-04-analytics`) adds analytics with opt-in consent; its APK check and on-device check passed and it awaits review. `NEXT_TASK.md` proposes P5-01. Phase 3 is complete on Android. P3-01 (`874b4c2`), P3-02 (`79d5466`) and P3-03 (`9d561d9`, PR #6) are merged. P3-03 re-planned the remaining early checks and recorded the roadmap and design direction: early checks 1a and 1b move to an owner-approved launch rehearsal on the live store in Phase 19 (D-033), checks 3 to 6 move to the phases that build their features (D-034), and phases are numbered 0 to 20 in `ROADMAP.md` (D-035). Phase 2 is complete: P2-01 (`de4701f`), P2-02 (`e676f66`) and P2-03 (`762ddef`) are merged.
 
 ## Done
 
@@ -79,7 +79,7 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (
     - Native crash: **not provable on a development build.** `Sentry.nativeCrash()` throws on React Native's native-modules thread. In a development build React Native hands that exception to the dev client (`ReactHostImpl.handleHostException` → `DevLauncherBridgelessDevSupportManager`), which shows "There was a problem loading the project". It never reaches Android's crash handler, where Sentry records native crashes, so no report exists. In staging and production builds React Native rethrows it (`DefaultReactHostDelegate`), and Sentry records it. Owner's decision: verify the native crash, together with the source-map upload, at the first staging build. The full explanation is in `TESTING.md` ("Crash report checks").
   - Release gate (architect's review of PR #8, recorded in `TESTING.md` and as risk 19): no build goes to any tester other than the owner until, on a staging build, a real native crash arrives in Sentry, source maps upload and the stack trace is readable, and the raw crash event shows no IP address, city, device ID, store domain or token.
 
-- P4-03 (awaiting review, branch `feat/p4-03-remote-config`, PR #9):
+- P4-03 (merged, `5e8827d`, PR #9):
   - D-044: one Firebase project per environment; `justbookify-india-dev` exists (owner's Google account, Spark plan). `google-services.json` is gitignored and comes from the EAS file variable `GOOGLE_SERVICES_JSON`; restricting its API key is a Phase 14 item.
   - D-045: React Native Firebase 26.4.0 (`app`, `remote-config`, `analytics`). Remote Config requires the Analytics package; Claude stopped and reported, and the architect chose to install it with collection off. D-009 is permanent for version 1: `AD_ID` blocked, Advertising ID and SSAID off, advertising consents denied (`firebase.json`, pinned by a test).
   - D-047: the audit gate's new high advisory in `@grpc/grpc-js` is allowlisted for the mobile app only, until 2026-11-15, after a source-map check showed the Android bundle holds no `@grpc`, `@firebase` or `protobufjs` module.
@@ -103,6 +103,51 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (
   - Two adb commands during the check were outside what the owner had approved, both read only: `adb shell dumpsys activity activities` (once, to see which screen was in the foreground), and an `adb logcat -d -b crash,main` search that was not filtered to the app's process (once, while looking for a crash). The second printed an unrelated MIUI system line listing the apps installed on the owner's phone; it was not kept or used. The architect's review of PR #9 then set the adb rule now in `CLAUDE.md` and `TESTING.md`.
   - Architect's review of PR #9 added two staging release-gate checks (`TESTING.md`): a fresh install must reach Home on its first launch, and the permission list must hold only what the app needs (`SYSTEM_ALERT_WINDOW`, external storage and `CHANGE_WIFI_MULTICAST_STATE` absent or justified).
 
+- P4-04 (awaiting review, branch `feat/p4-04-analytics`):
+  - The owner's answers are recorded as decisions:
+    - D-048: opt-in consent with three states, stored with `expo-secure-store`. Withdrawing stops collection at once and resets the analytics data on the phone. The customer-facing consent request is a Phase 7 requirement with a release gate; the owner chooses between two placements in Phase 7.
+    - D-049: amends D-009. Advertising IDs, Privacy Sandbox permissions, advertising consents, audiences and Google signals stay off. The Play install referrer is allowed, under consent only.
+    - D-050: no analytics user ID until Phase 7, then a random or salted one-way per-customer ID for consenting customers only.
+    - D-051: 14-month retention, with "Reset user data on new activity" off.
+    - D-052: `expo-secure-store` 57.0.4; `USE_BIOMETRIC` and `USE_FINGERPRINT` blocked; Android backup and device transfer off.
+    - D-053: the event layer and collection settings.
+  - **Backup finding (architect's addition 3):** `expo-secure-store`'s own backup rules include every SharedPreferences file except its own, and that includes the file where Firebase keeps its persisted "collection enabled" setting. A restore or phone-to-phone transfer could therefore start a new install with collection on and no consent record. On Android 12 and later, `allowBackup="false"` alone does not stop device transfer on some phones. A local config plugin (`plugins/withNoAndroidBackup.js`) sets `allowBackup` false and points both backup attributes at rules that exclude every domain.
+  - `src/analytics/`:
+    - a typed function for each of the 25 events in `ANALYTICS.md`, with branded IDs and tokens, so free text does not type-check;
+    - a runtime guard that drops a bad event whole and reports only the event and parameter names to Sentry;
+    - the consent state;
+    - screen tracking by Expo Router file route;
+    - `app_open` on cold start and on return from the background.
+  - The "Share app usage" switch on the Account tab, off by default. Its wording is a draft for the owner's adviser (risk 21). A development line on Home shows the analytics state.
+  - `firebase.json`: only `analytics_collection_deactivated` changed, to false.
+  - 390 tests (135 new). `src/crashReporting/errorCode.ts` is shared with the feature-flag session.
+  - EAS build ed13883d (commit `f39b224`): Gradle succeeded (`BUILD SUCCESSFUL in 11m 45s`), then EAS failed to upload the 246 MB APK ("Upload to upload session failed"), as with 3dd75f68 in P4-03. Claude stopped and reported. On the owner's go-ahead, the same commit was rebuilt unchanged. The first request failed with a network error before reaching EAS (the build list showed no build), and the second created **e571370c**, which finished.
+  - APK permission check, build e571370c, 6 October 2026: **passed.**
+    - The permission list is identical to build 97582938's: nothing containing `AD_ID` or `ADSERVICES`, no `USE_BIOMETRIC` or `USE_FINGERPRINT`, and no new permission. `BIND_GET_INSTALL_REFERRER_SERVICE` is present, as D-049 allows.
+    - The built manifest (owner's addition: read from the APK, not the config) has `android:allowBackup` false. `android:dataExtractionRules` resolves to `xml/no_backup_data_extraction_rules`, which excludes all nine domains from both cloud backup and device transfer. `android:fullBackupContent` resolves to `xml/no_backup_rules`, which excludes all nine. `expo-secure-store`'s own rule files are packaged with its library but not referenced.
+    - Firebase settings in the manifest: collection disabled at install, not deactivated, default analytics storage denied, automatic screen reporting off, advertising ID and SSAID off, every advertising consent denied.
+    - The APK was deleted.
+  - On-device check, 6 October 2026, build e571370c on the owner's Redmi Note 12 Pro 5G over USB, with JavaScript from Metro via `adb reverse`: **all four checks passed.**
+    - DebugView (Google Analytics → Admin → DebugView, device Xiaomi 22101316I) showed 12 events, matching each step:
+      1. Consent not asked (14:30): nothing. Home showed "Analytics: off (consent: not asked)", and Firebase logged "App measurement disabled via the manifest".
+      2. Switch on (14:31): `session_start` and six `screen_view`s (account, index, browse, cart, my-books, account). Back from the background (14:32): `app_open` and `user_engagement`.
+      3. Cold start (14:33): `app_open` and `screen_view` `index`. The switch was still on; consent re-applied with the advertising consents denied; user property `non_personalized_ads` = 1.
+      4. Switch off (14:34): the last `screen_view` came just before. Firebase logged collection off, analytics storage denied, then "Resetting analytics data". Nothing arrived from 14:35 onwards. After a cold start the switch was still off ("App measurement disabled by setAnalyticsCollectionEnabled(false)").
+    - Screen names in the app's log were route names only.
+    - No crash and no JavaScript error.
+  - adb commands that day, all with the owner's go-ahead ("do it yourself", then "do whatever you want"):
+    - `setprop debug.firebase.analytics.app` (on, then `.none.`);
+    - `setprop log.tag.FA` and `log.tag.FA-SVC` (verbose, then reset);
+    - `monkey` launches and `am force-stop` for the cold starts;
+    - `input tap` and `input keyevent` to drive the app;
+    - app screenshots (`exec-out screencap`);
+    - `dumpsys window` filtered to the focused-window line, to confirm the app was in front;
+    - logs filtered to the app's process only;
+    - `adb reverse` set and removed.
+
+    Metro was stopped afterwards.
+  - Follow-up recorded in `NEXT_TASK.md` (owner): the development APK's size, after two upload failures in four builds.
+
 ## What works
 
 - `npm run lint`, `format:check`, `typecheck`, `test` (86 tests) and `audit:gate` pass on `main` after P3-02. `npx expo-doctor` passes 21 of 21 checks.
@@ -111,6 +156,9 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (
 - From P2-01: `npx expo-doctor` passed 21 of 21 checks; the app bundles for iOS and Android with Metro; the app config gives the right name and app ID for each `APP_ENV`.
 
 ## Not done
+
+- **Analytics consent request** (Phase 7, placement for the owner to choose) and the **privacy policy's app section** (owner's task, risk 21): both are release-gate items (`TESTING.md`, "Release gate: analytics consent"). No build goes to an outside tester without them.
+- **14-month retention** in the development Google Analytics property: the owner sets it (D-051). Staging and production properties are set when created.
 
 - **Branch protection on `main`.** GitHub refused on 3 October 2026 (HTTP 403: "Upgrade to GitHub Pro or make this repository public"). As instructed, the plan and the visibility were not changed. The merge rule in `CLAUDE.md` is the gate (risk 18, D-026).
 - The development store is a development store with Basic-plan features. Development stores cannot remove the storefront password. The public Storefront token cannot read the plan; confirm it through the Admin API's `shop.plan` once the backend custom app exists.
@@ -138,6 +186,8 @@ Phase 4 (mobile foundation) is in progress. P4-01 (`df35fa0`, PR #7) and P4-02 (
 - npm 11 on this machine skips package install scripts it has not been told to allow, including `@sentry/cli`'s postinstall. `@sentry/cli` 3.x ships its binary as optional platform packages, so it is still installed; `@sentry/bundler-plugins` also brings `@sentry/cli` 2.58.6, which the React Native build does not use.
 
 ## Last passing build
+
+Branch `feat/p4-04-analytics` (P4-04), 6 October 2026: lint, format check, type check, tests (390), audit gate and `expo-doctor` (21 of 21) pass locally; CI runs on the pull request. Android development build e571370c runs it on the owner's phone.
 
 Branch `feat/p4-03-remote-config` (P4-03), 4 October 2026: lint, format check, type check, tests (255), audit gate and `expo-doctor` (21 of 21) pass locally; CI runs on PR #9. Android development build 97582938 runs it on the owner's phone.
 
