@@ -1,6 +1,6 @@
 # Current status
 
-Last updated: 6 October 2026 (P5-01: typed Storefront API client on branch `feat/p5-01-storefront-client`; local checks and the development store check pass; on-device check pending; awaiting review. P5-02 proposed).
+Last updated: 6 October 2026 (P5-01: typed Storefront API client on branch `feat/p5-01-storefront-client`; local checks, the development store check and the on-device check pass; awaiting review. P5-02 proposed).
 
 ## Phase
 
@@ -164,7 +164,13 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
   - 482 tests (92 new). Negative checks: a misspelled field fails `codegen` and the operations test; an operation without `@inContext` fails the operations test; an operation changed without regenerating fails `codegen:check`.
   - `npm run check:dev-store`, 6 October 2026: passed; the development store resolves `IN`, `EN` to INR and 3 products were read.
   - No native change and no new build: the generator's packages are development only, and the app's new code is JavaScript.
-  - On-device check (dev checkout lists books, creates a cart and opens Checkout Kit on the installed build e571370c with JavaScript from Metro): pending, with the owner.
+  - On-device check, 6 October 2026, build e571370c on the owner's phone over USB, with JavaScript from Metro (commit `b4cf3e9`, 2,046 modules bundled): **passed.**
+    1. The test checkout screen listed the development store's two available books at INR 49.00 each, read through `storefrontQuery` with the buyer context.
+    2. One copy added: estimated subtotal INR 49.00.
+    3. "Open test checkout" created the cart through `storefrontMutation` and Checkout Kit opened, showing the development store's password page (expected, as in P3-01). The password was not entered and no order was placed.
+    4. Closing the sheet showed "Checkout closed without an order." and "Cart subtotal from Shopify: INR 49.00."
+    5. The app's own log (filtered to its process, 722 lines) shows no crash and no JavaScript error. Its one error-level entry is React Native's `ReactNoCrashSoftException` for a window-focus event at launch, 13 seconds before JavaScript started, unrelated to this change.
+  - adb commands that day, with the owner's go-ahead ("do it yourself"): `devices`; `reverse tcp:8081` (set, then removed); `monkey` to launch the app; `dumpsys window` filtered to the focused-window line; `input tap` (four taps); `exec-out screencap` with the app in front (five screenshots, deleted afterwards); `shell pidof` and `logcat -d --pid`. Metro was stopped afterwards.
 
 ## What works
 
@@ -210,7 +216,7 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
 
 ## Last passing build
 
-Branch `feat/p5-01-storefront-client` (P5-01), 6 October 2026: lint, format check, type check, `codegen:check`, tests (482), audit gate and `expo-doctor` (21 of 21) pass locally; `check:dev-store` passes. CI runs on the pull request.
+Branch `feat/p5-01-storefront-client` (P5-01), 6 October 2026: lint, format check, type check, `codegen:check`, tests (482), audit gate and `expo-doctor` (21 of 21) pass locally; `check:dev-store` and the on-device check pass. CI runs on PR #11.
 
 Branch `feat/p4-04-analytics` (P4-04), 6 October 2026: lint, format check, type check, tests (390), audit gate and `expo-doctor` (21 of 21) pass locally; CI runs on the pull request. Android development build e571370c runs it on the owner's phone.
 
