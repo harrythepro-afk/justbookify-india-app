@@ -1,44 +1,87 @@
-# Next task: P5-03, network awareness and a smaller development APK
+# Next task (proposal): P6-01, sample catalogue for the development store
 
-Status: in progress (started 6 October 2026 on branch `p5-03-network-and-apk-size`; plan approved by the architect with amendments).
+Status: proposal. It starts after P5-03 is merged and the owner starts it. P5-03 completed Phase 5.
 
-## Phase 5: Shopify data layer
+## Phase 5: Shopify data layer (complete)
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P5-01 (done, 2f2b3e1) | Typed Storefront API client: code generation from the saved `2026-10` schema, buyer context, typed errors, retries for queries only, 30-second limit | D-054 to D-060 |
 | P5-02 (done, ac714e8) | One app-wide TanStack Query cache, in memory only: freshness presets, error reporting in one place, foreground refetch, `clearStorefrontCache()` and `clearAllCaches()`, hooks-only boundary enforced by ESLint | D-061 to D-063 |
-| P5-03 (in progress) | Network awareness for the cache, and a smaller development APK, in one new build | D-064 to D-066 |
+| P5-03 (done, awaiting review) | Network awareness with `expo-network` (queries pause offline, mutations never queue) and a development APK built for `arm64-v8a` only | D-064 to D-066 |
 
-## Goal of P5-03
+## Phase 6: catalogue, search, filtering
 
-Two native changes that share one new development build, so the owner installs one build instead of two (the architect's answer 2 in P5-02).
+The catalogue screens (Home rows, Browse with filters and sort, the book card, the book page) need data in the development store that has the same structure as the live store. Today the development store holds 3 sample products, 2 of them available at ₹49 (`CURRENT_STATUS.md`, P5-01). That is not enough to build or test a filter, a sort, a "Rented Out" badge or pagination.
 
-1. **Network awareness.** Tell TanStack Query when the phone goes offline and comes back, so queries pause offline and refetch on reconnect (D-063 deferred this). TanStack's React Native guide shows both `@react-native-community/netinfo` and `expo-network`. Choose after checking each package's current documentation and the version Expo SDK 57 lists, install it with `npx expo install`, and record a decision with its exact version. Wire it in `src/query/` next to `connectFocusToAppState()`.
-2. **Smaller development APK.** EAS failed to upload the 246 MB development APK on two of four builds (3dd75f68 in P4-03, ed13883d in P4-04). Reduce it, for example by building the development profile only for the phone's processor type (arm64-v8a), after checking the current Expo and React Native documentation for the supported setting. Record a decision; the staging and production builds keep every processor type the stores need.
+## Goal of P6-01
 
-## The architect's answers (6 October 2026)
+Agree and load a sample catalogue into the **development store only**, mirroring the live store's structure as recorded in `SHOPIFY_AUDIT.md` ("Products") and `SHOPIFY_INTEGRATION.md` ("Product data the app reads"). No app screens are built in P6-01. It ends with the data in place, the exact field names recorded, and a read-only check over the Storefront API.
 
-1. **Package: `expo-network`.** Compared with NetInfo against current documentation; on Expo SDK 57 it has change listeners and works with the New Architecture. Both packages declare `ACCESS_NETWORK_STATE` (already in the app) and `ACCESS_WIFI_STATE` (new; a normal permission with no prompt). Keep `ACCESS_WIFI_STATE`, record it in D-064 and justify it at the staging permission review.
-2. **Offline behaviour.** Queries keep TanStack's default: they pause offline, cached data stays visible, and they refetch on reconnect. Mutations never queue: they use `networkMode: 'always'`, so offline the real request fails at once with the `no-network` error and nothing fires later by itself. No offline guard in the Storefront client: the platform's signal can be wrong and must never block a customer's action. When reachability is unknown, the phone counts as online: offline only when `isConnected` is false and the type is not `UNKNOWN`; `isInternetReachable` is not used. Offline, nothing is reported to Sentry for the no-network case.
-3. **Processor types.** The development profile is built for the owner's phone's processor type only, read with `adb shell getprop ro.product.cpu.abi` (owner's yes given). A setting that applies to the development profile alone and adds no dependency. Staging and production keep every type the stores need. An emulator on this computer would need its own build.
+## What the development store needs
 
-Conditions: one new EAS development build (if the upload fails, rebuild once from the same commit, then stop and report); the APK's size recorded against 246 MB; the APK permission check run, failing on any `AD_ID` or `ADSERVICES` permission and reporting any new one; on the phone, the owner switches airplane mode, never Claude; a decision record with the exact version for every new package, and the audit gate passing. This task completes Phase 5; the next proposal is P6-01.
+**40 books.** That gives:
+- more than one page at a page size of 20, so pagination can be tested;
+- at least two values for each filter, with several books under each value;
+- every availability state below.
+
+Each book has the structure the audit records for the live store:
+
+| Field | Live store structure (`SHOPIFY_AUDIT.md`) | Sample data needed |
+| --- | --- | --- |
+| Variant | One variant per book; SKU empty; inventory tracked | The same for all 40 |
+| Cover | Product image | One image per book, made for testing: plain covers with the sample title, never real book covers (copyright). Two books with no image, to test the missing-cover fallback |
+| Author | Vendor field | 8 authors: 3 with at least 4 books each (Home "authors" row), the rest with 1 to 3. One very long author name |
+| Age groups | Product type | Every age-group value used on the live store, each on at least 4 books, written exactly as on the live store |
+| Series | Tags | 4 series, each with 3 to 6 books, written exactly in the live tag format; 12 books in no series |
+| New arrival | Tag (`SHOPIFY_INTEGRATION.md`) | 8 books, in the live tag format |
+| Genre | Product metafield | At least 5 genres, each on at least 4 books; same namespace, key and type as live |
+| Service city | Product metafield | Bangalore and Kolkata, both present; same namespace, key and type as live |
+| Publisher, pages, ISBN, language | Product metafields | Filled on most books; ISBN left empty on a few (the live store has damaged values, so the app must not depend on it) |
+| Rating | Judge.me metafields | A rating and a count on about half the books, none on the rest; the same namespace and key as live. Whether Judge.me's metafields can be written on the development store without installing Judge.me is a question below |
+| Price | Product price, ₹34 to ₹99 (R1) | Spread across the range, including exactly ₹34 and ₹99 |
+| Retail price | Compare-at price | On most books, missing on a few |
+| Title | Product title | One very long title; two products with the same title (the live store has duplicates) |
+
+**Availability states (R8):**
+1. In stock, one copy: about 20 books.
+2. In stock, several copies (169 live products have more than one): about 6 books.
+3. Out of stock, not orderable ("Rented Out" badge and "Notify me"): about 8 books.
+4. Out of stock but orderable, set to keep selling at zero stock (best-sellers on the live store): about 4 books.
+5. Not published to the Headless channel (must never appear in the app): 2 books.
+
+**Collections:** the live store's collections that the website's home page and catalogue use, recreated with the same names, handles and rules (automatic or manual), each holding some sample books. The audit does not list them; see the questions below.
+
+## Questions for the owner before starting
+
+1. **Exact field names and values from the live store.** The audit records where each field lives, not its exact names. Please supply them from the live store's admin. Claude never reads the live store.
+   - the metafield definitions: namespace, key and type for genre, service city, publisher, pages, ISBN, language and the Judge.me rating;
+   - the list of age-group values used as product types;
+   - the series tag format, with two examples;
+   - the new-arrival tag;
+   - the collections the website uses, with their rules.
+2. **How the data gets in.** Claude can prepare a product CSV in Shopify's import format, plus the test covers, for the owner to import into the development store's admin. Metafield definitions and collections would be created by hand from a written list. Or does the owner prefer another route? Claude does not use the Admin API or the Shopify Admin MCP tools (rule 13).
+3. **Judge.me ratings.** Install Judge.me's free plan on the development store, or write sample values into metafields with the same namespace and key?
+4. **Is 40 books right?** Or would the owner like a different count?
 
 ## Steps
 
-1. Read the current documentation (TanStack's onlineManager, the chosen package, Expo's build properties for Android architectures) and record versions and dates.
-2. Decision records for the package and the APK setting.
-3. `onlineManager` wired to the package, with tests: offline pauses a query, reconnect refetches, the listener is removed.
-4. The development build on EAS (owner's Expo login), its APK size compared with 246 MB, and an upload that succeeds.
-5. Lint, format check, type check, `codegen:check`, tests, audit gate and `expo-doctor`; CI green; the on-device check (airplane mode on and off on the dev checkout screen), under the owner's permission for one whole phone check.
+1. The owner answers the questions. Claude records the exact metafield namespaces and keys in `SHOPIFY_INTEGRATION.md` ("Product data the app reads").
+2. Claude prepares the sample data (CSV, covers and a checklist for the metafields and collections). The owner loads it into the development store.
+3. A read-only check over the Storefront API, extending `npm run check:dev-store`, confirms all of the following:
+   - the counts per availability state;
+   - every filter value is present;
+   - the metafields are readable by the storefront;
+   - the unpublished books are absent.
+4. Docs: `CURRENT_STATUS.md`, `TESTING.md` (the sample catalogue as the test fixture for Phase 6), and the next task (P6-02, the first catalogue screen).
 
 ## Out of scope
 
-- Saving the cache to disk (D-059), catalogue screens (Phase 6), the offline message's design (Phase 6), the Customer Account API (Phase 7), the backend (Phase 10).
-- Anything on the live store.
+- Any app screen (from P6-02).
+- Anything on the live store, including reading it: the owner supplies its field names.
+- Real book covers or descriptions copied from publishers.
 
-## Follow-ups (recorded, not part of P5-03)
+## Follow-ups (recorded, not part of P6-01)
 
 - **Release gate: analytics consent (from P4-04):** no build goes to any tester other than the owner until all of these hold (`TESTING.md`; D-048):
   - the consent request is built (Phase 7, at the placement the owner chooses between the two in D-048) and works;
@@ -70,3 +113,6 @@ Conditions: one new EAS development build (if the upload fails, rebuild once fro
 - **Phase 9, Checkout Kit TLS errors (owner, P5-02 phone check):** the app's log showed two TLS handshake errors (`net_error -101`) inside Checkout Kit's web view while the development store's password page loaded. The page itself loaded. Re-check during Phase 9's checkout tests.
 - **Phase 6, screen focus (D-062):** decide whether stack screens that stay mounted also refetch when they regain focus (TanStack's `useFocusEffect` pattern).
 - **Phase 7, logout (D-061):** call `clearAllCaches()`; customer data gets its own key root and is cached in memory only.
+- **Expo SDK 57 patch releases (owner, P5-03):** `expo` 57.0.27, `expo-constants` 57.0.21, `expo-linking` 57.0.12 and `expo-router` 57.0.25 are out; `npx expo-doctor` fails its version check until they are installed with `npx expo install --fix` (pinned exactly afterwards). Do it with the next task that needs a native build, so there is one build.
+- **Sentry, offline case (P5-03):** the owner may confirm that the development Sentry project shows no new event from the P5-03 phone check (7 October 2026, 03:13 to 03:18 IST).
+- **Local builds (D-067):** a fallback only, when the EAS queue is stuck. On this computer they need about 5 GB of free memory, other heavy programs closed, and `--max-workers=2`.
