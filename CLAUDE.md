@@ -54,6 +54,11 @@ Standard `adb` from Google's SDK Platform-Tools only; no third-party MCP server,
   - take screenshots of JustBookify only (`adb exec-out screencap -p`), and delete them afterwards.
 
   Under that permission Claude never enters a password or payment detail, never places an order, and never opens or reads anything outside JustBookify. If a screenshot shows anything other than JustBookify, Claude deletes it at once, stops and tells the owner. Every command is recorded in `docs/CURRENT_STATUS.md`. Any other command still needs its own yes. Without that permission, the rules above apply.
+- **Before and during every phone check** (architect's review of PR #12, after input reached WhatsApp in P5-02's check):
+  - Before the check starts, ask the owner to switch on Do Not Disturb and to leave the phone untouched until Claude says the check is over.
+  - Immediately before every tap or text entry, check that JustBookify is the focused app, in the same command where possible. Reading the focused app's package name is allowed for this purpose only. The command form is in `docs/TESTING.md`.
+  - If anything else is in front, send no input at all, stop the check and tell the owner. Do not try to return to the app.
+  - Text entry by adb (`adb shell input text`) is limited to the development server address, `http://localhost:8081`, and still needs the owner's yes. Nothing else is ever typed.
 
 ## Stop and ask the owner when
 

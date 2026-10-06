@@ -80,7 +80,19 @@ Used when a check needs the phone offline but the development build still needs 
     - take screenshots of JustBookify only (`adb exec-out screencap -p`), deleting them afterwards.
 
     Under that permission Claude never enters a password or payment detail (the development store's password page in Checkout Kit is closed, not filled in), never places an order, and never opens or reads anything outside JustBookify. A screenshot that shows anything other than JustBookify is deleted at once, and Claude stops and tells the owner. Every command is recorded in `CURRENT_STATUS.md`. Any other command still needs its own yes. Without that permission, the rules above apply.
-- After the checks, `adb reverse --remove tcp:8081`.
+  - **Before and during every phone check** (architect's review of PR #12). In P5-02's check the owner used the phone between messages: one tap and the typed server address went into WhatsApp's search box, and later an incoming-call notification covered the app.
+    - Before the check starts, Claude asks the owner to switch on **Do Not Disturb** and to **leave the phone untouched** until Claude says the check is over.
+    - **Immediately before every tap or text entry**, Claude checks that JustBookify is the focused app, in the same command as the input, so nothing can come to the front in between. Reading the focused app's package name is allowed for this purpose only; the full window list never leaves the phone:
+
+      ```
+      adb shell 'dumpsys window | grep -q "mCurrentFocus=.* com.justbookify.india.dev/" && input tap X Y || echo "JustBookify is not in front: no input sent"'
+      ```
+
+      The same form wraps `input text`. The check reads the focused window only: a notification banner over the app does not take focus, which is one reason for Do Not Disturb. A screenshot showing anything else still stops the check.
+    - If anything else is in front, Claude sends **no input at all**, stops the check and tells the owner. Claude does not try to return to the app (no Back, no Home, no relaunch).
+    - **Text entry** by adb (`adb shell input text`) is limited to the development server address, `http://localhost:8081`, and still needs the owner's yes. Nothing else is ever typed.
+- After the checks, `adb reverse --remove tcp:8081`. Stopping Metro's background task can leave the Expo CLI's `node` process listening on port 8081; check the port and stop that process.
+- The `adb reverse` mapping can drop during a check (P5-02: the dev client showed "Failed to connect to localhost/127.0.0.1:8081"). Set it again before tapping Connect.
 - First used for P4-03 on 4 October 2026 (build 97582938, all six flag checks passed). For those checks the owner approved cold starts (`am force-stop` and `monkey -p <package> 1`), `pm clear` for the fresh-install check, typing the Metro address into the dev client and tapping Connect (`input text`, `input tap`), and screenshots of the app (`exec-out screencap`). Wi-Fi, mobile data and the Firebase and Sentry consoles stay with the owner. Two commands that day were outside what had been approved; see `CURRENT_STATUS.md`.
 - After `pm clear`, the dev client forgets its server; enter `http://localhost:8081` again. The first reopen straight after `pm clear` once left Android's starting window on screen with no app process; a normal cold start fixed it.
 
