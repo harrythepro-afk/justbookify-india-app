@@ -136,6 +136,21 @@ CI step `npm run codegen:check`: regenerates the types from the saved schema and
 
 `npm run check:dev-store` (development store only) also checks that Shopify resolves the configured buyer context to the configured country, language and currency.
 
+### Query cache checks (P5-02)
+
+Unit tests; the Storefront client is mocked and nothing reaches a store:
+- `__tests__/query/queryClient.test.ts`: TanStack's retry is off for queries and mutations; a failed query is reported once however many screens watch it; a mutation's `meta.handledCodes` is respected; an error that is not a Storefront error is reported by its code only; a cancelled query is not reported; `clearAllCaches()` cancels a query in flight and empties both caches.
+- `__tests__/query/errorReporting.test.ts`: the dispatch by error type (D-061), including TanStack's `CancelledError` and an `AbortError`, and no message text reaching Sentry.
+- `__tests__/query/focus.test.ts`: going to the background and back refetches a stale query and leaves a fresh one alone.
+- `__tests__/query/freshness.test.ts`: the approved preset numbers (D-062).
+- `__tests__/query/lintGuards.test.ts`: the import boundary in `eslint.config.js` (D-063), 21 cases linted in one ESLint process.
+- `__tests__/shopify/cache.test.ts`: `clearStorefrontCache()` removes only `['storefront', …]` queries and mutations and cancels one in flight.
+- `__tests__/shopify/hooks/devCheckout.test.tsx`: the cache's cancel signal reaches `storefrontQuery` and aborts on unmount; the `liveStock` preset; a refetch each time a screen opens; no retry of the query or the cart mutation.
+- `__tests__/shopify/operations.test.ts`: every Storefront operation selects no personal field.
+- `__tests__/app/dev-checkout.test.tsx`: unchanged assertions, now with a query provider around the screen.
+
+Test helper: `__tests__/helpers/queryClient.tsx` (not run as a test) gives each test the app's client settings. Unmount before emptying the cache, and give mutations no garbage-collection timer: otherwise TanStack's timers hold Jest open after the tests.
+
 ## Edge cases
 
 | Case | Expected behaviour |
