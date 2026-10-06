@@ -8,7 +8,7 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 - [ ] Customer Account API with OAuth 2.0 and PKCE in the system browser session
 - [ ] The app never handles a password
 - [ ] Access tokens are short-lived and refreshed; one shared refresh in flight
-- [ ] Logout ends the Shopify session, deletes local tokens and caches, and unregisters the push token
+- [ ] Logout ends the Shopify session, deletes local tokens and caches, and unregisters the push token (P5-02: `clearAllCaches()` in `src/query/queryClient.ts` empties the in-memory query cache; Phase 7 calls it at logout)
 
 ### Authorization
 - [ ] Customer identity is derived on the server from a validated token

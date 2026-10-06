@@ -3,9 +3,10 @@
 /// <reference types="node" />
 
 /**
- * Every Storefront API operation in src/shopify/ (D-054, D-055, D-058): it validates against the
- * saved schema, is named, and carries the buyer context. Code generation in CI checks the first
- * point too; this test makes all three fail fast under `npm test`.
+ * Every Storefront API operation in src/shopify/ (D-054, D-055, D-058, D-061): it validates
+ * against the saved schema, is named, carries the buyer context and selects no personal field.
+ * Code generation in CI checks the first point too; this test makes all of them fail fast under
+ * `npm test`.
  */
 
 import { readdirSync, readFileSync } from 'fs';
@@ -14,6 +15,7 @@ import {
   Kind,
   parse,
   validate,
+  visit,
   type IntrospectionQuery,
   type OperationDefinitionNode,
 } from 'graphql';
@@ -60,6 +62,33 @@ function definitions(document: string): OperationDefinitionNode[] {
   );
 }
 
+// Fields that hold a customer's personal data. Query results are cached (D-061), and the
+// Storefront cache must hold nothing personal. `buyerIdentity` may be set as an input, which is
+// not a selection.
+const PERSONAL_FIELDS = new Set([
+  'email',
+  'phone',
+  'firstName',
+  'lastName',
+  'address1',
+  'address2',
+  'zip',
+  'customer',
+  'customerAccessToken',
+  'buyerIdentity',
+]);
+
+/** The personal fields an operation selects. */
+function personalFieldsIn(document: string): string[] {
+  const found: string[] = [];
+  visit(parse(document), {
+    Field(node) {
+      if (PERSONAL_FIELDS.has(node.name.value)) found.push(node.name.value);
+    },
+  });
+  return found;
+}
+
 it('finds the operations in src/shopify/', () => {
   expect(realOperations.map(({ document }) => definitions(document)[0]?.name?.value)).toEqual(
     expect.arrayContaining(['DevCheckoutProduct', 'DevCheckoutCartCreate']),
@@ -102,8 +131,27 @@ describe.each(realOperations.map((found) => [found.file, found] as const))(
       );
       expect(args).toEqual({ country: 'country', language: 'language' });
     });
+
+    it('selects no personal field, so nothing personal is cached', () => {
+      expect(personalFieldsIn(document)).toEqual([]);
+    });
   },
 );
+
+it('finds a personal field in a selection, and not in an input', () => {
+  expect(
+    personalFieldsIn(`query Q {
+      cart(id: "gid://shopify/Cart/1") { buyerIdentity { email phone customer { firstName } } }
+    }`),
+  ).toEqual(['buyerIdentity', 'email', 'phone', 'customer', 'firstName']);
+  expect(
+    personalFieldsIn(`mutation M {
+      cartCreate(input: { buyerIdentity: { countryCode: IN, email: "a@example.com" } }) {
+        cart { id }
+      }
+    }`),
+  ).toEqual([]);
+});
 
 it('uses the saved schema for the pinned API version', () => {
   const saved = readdirSync(GENERATED_DIR).filter((name) => name.endsWith('.schema.json'));

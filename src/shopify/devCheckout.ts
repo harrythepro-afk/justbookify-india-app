@@ -97,17 +97,25 @@ const MESSAGES: Record<DevCheckoutErrorKind, string> = {
 
 export class DevCheckoutError extends Error {
   readonly kind: DevCheckoutErrorKind;
+  /** For crash reports: matches the pattern `safeErrorCode()` passes through (D-061). */
+  readonly code: `devCheckout/${DevCheckoutErrorKind}`;
 
   constructor(kind: DevCheckoutErrorKind) {
     super(MESSAGES[kind]);
     this.name = 'DevCheckoutError';
     this.kind = kind;
+    this.code = `devCheckout/${kind}`;
   }
 }
 
-/** Lists the store's variants that are available for sale, in the store's product order. */
-export async function listDevCheckoutVariants(): Promise<DevCheckoutVariant[]> {
-  const data = await storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY);
+/**
+ * Lists the store's variants that are available for sale, in the store's product order.
+ * `signal` cancels the call; the query cache passes its own (D-061).
+ */
+export async function listDevCheckoutVariants(
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<DevCheckoutVariant[]> {
+  const data = await storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY, { signal: options.signal });
   const variants = data.products.nodes.flatMap((product) =>
     product.variants.nodes
       .filter((variant) => variant.availableForSale)

@@ -20,6 +20,37 @@ const GRAPHQL_RULES = [
   { selector: `TemplateElement[value.raw=${GRAPHQL_LITERAL}]`, message: GRAPHQL_LITERAL_MESSAGE },
 ];
 
+// The app's one query cache (D-061) and the boundary around it (D-063). TanStack Query is used
+// only in src/query/ and in a data source's hooks folder; only src/shopify/ calls the Storefront
+// client; screens and components import values only from hooks, the error types and the
+// provider. Type-only imports are allowed everywhere.
+const TANSTACK_MESSAGE =
+  'TanStack Query is used only in src/query/ and in hooks folders such as src/shopify/hooks/ (D-063).';
+const TANSTACK_PATHS = ['@tanstack/react-query', '@tanstack/query-core'].map((name) => ({
+  name,
+  message: TANSTACK_MESSAGE,
+  allowTypeImports: true,
+}));
+const CLIENT_PATTERN = {
+  group: ['**/shopify/client'],
+  message:
+    'Only src/shopify/ calls the Storefront client (D-063). Use a hook from src/shopify/hooks/.',
+  allowTypeImports: true,
+};
+const SCREEN_PATTERNS = [
+  {
+    group: ['**/shopify/*', '!**/shopify/hooks', '!**/shopify/errors'],
+    message:
+      'Screens read Storefront data through hooks only (D-063). Import from src/shopify/hooks/.',
+    allowTypeImports: true,
+  },
+  {
+    group: ['**/query/*', '!**/query/QueryProvider'],
+    message: 'Screens use the query cache through hooks only (D-063).',
+    allowTypeImports: true,
+  },
+];
+
 const FETCH_MESSAGE =
   'Only src/shopify/client.ts calls the network (D-056). Use storefrontQuery or storefrontMutation.';
 
@@ -64,6 +95,42 @@ module.exports = defineConfig([
         { object: 'globalThis', property: 'fetch', message: FETCH_MESSAGE },
         { object: 'window', property: 'fetch', message: FETCH_MESSAGE },
         { object: 'global', property: 'fetch', message: FETCH_MESSAGE },
+      ],
+    },
+  },
+  // Each block below covers different files, because a later block replaces the rule's options.
+  {
+    // Everything else in src/: no TanStack, no Storefront client.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      'src/query/**',
+      'src/*/hooks/**',
+      'src/shopify/**',
+      'src/app/**',
+      'src/components/**',
+    ],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        { paths: TANSTACK_PATHS, patterns: [CLIENT_PATTERN] },
+      ],
+    },
+  },
+  {
+    // src/shopify/ may call its client, but uses TanStack only in its hooks folder.
+    files: ['src/shopify/**/*.{ts,tsx}'],
+    ignores: ['src/shopify/hooks/**'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', { paths: TANSTACK_PATHS }],
+    },
+  },
+  {
+    // Screens and components: hooks, error types and the provider only.
+    files: ['src/app/**/*.{ts,tsx}', 'src/components/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        { paths: TANSTACK_PATHS, patterns: [CLIENT_PATTERN, ...SCREEN_PATTERNS] },
       ],
     },
   },

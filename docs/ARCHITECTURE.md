@@ -129,7 +129,31 @@ Screen / feature code
 
 - ESLint stops `fetch` anywhere in `src/` except `client.ts`, and GraphQL operation strings anywhere outside `src/shopify/`.
 - Generated files live in `src/shopify/generated/`: the saved schema and `.d.ts` types only. Nothing generated reaches the app bundle.
-- Caching comes in P5-02 with TanStack Query, in memory only, with its own retry off (D-059).
+- Since P5-02, screens reach these functions only through hooks and the query cache (next section), and the cache, not the caller, applies `reportStorefrontError`.
+
+## Query cache (P5-02)
+
+One TanStack Query client for the whole app (D-061), in `src/query/`, shared by every data source: the Storefront API now, the Customer Account API in Phase 7, the backend in Phase 10. In memory only, with no persister (D-059).
+
+```
+Screen (src/app/, src/components/)
+   └─ hook in a data source's hooks folder (for example src/shopify/hooks/devCheckout.ts)
+        ├─ useQuery: key under the source's root (['storefront', …]), a freshness preset (D-062),
+        │    and the cache's cancel signal passed to the function in src/shopify/
+        └─ useMutation: key under the same root, never retried; meta.handledCodes for user errors
+   Query client (src/query/queryClient.ts): retry off; QueryCache and MutationCache onError
+        └─ reportQueryError (src/query/errorReporting.ts), the one place errors are reported:
+             StorefrontError → reportStorefrontError (D-057); cancel → never reported;
+             anything else → "unexpected", by safeErrorCode() only
+   AppQueryProvider (src/query/QueryProvider.tsx) at the root layout; AppState drives
+        focusManager, so stale queries refetch when the app returns to the foreground (D-063)
+```
+
+- **Freshness presets** (`src/query/freshness.ts`, D-062): `catalogue` (default) 5 min fresh, 30 min kept; `liveStock` 30 s fresh, 5 min kept, refetched whenever a screen using it opens; `staticContent` 6 h fresh, 24 h kept; `checkout` never cached.
+- **Clearing:** `clearStorefrontCache()` (`src/shopify/cache.ts`) cancels and removes only `['storefront', …]` queries and mutations. `clearAllCaches()` (`src/query/queryClient.ts`) cancels every query in flight and empties the cache; Phase 7's logout calls it.
+- **Personal data:** each data source has its own key root and its own rule. Storefront operations select no personal field (a test enforces it); customer data (Phase 7) will be cached in memory only and cleared on logout.
+- **Boundary** (ESLint, D-063): TanStack only in `src/query/` and data-source `hooks/` folders; the Storefront client only from `src/shopify/`; screens and components import values only from hooks, `src/shopify/errors.ts` and the provider, and types from anywhere.
+- **Not yet:** network awareness (`onlineManager` keeps its default, always online) comes in P5-03 with a network-status package and a new build.
 
 ## Built for a second country
 
