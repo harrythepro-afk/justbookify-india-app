@@ -52,6 +52,7 @@ Caching and the catalogue queries follow in later Phase 5 tasks.
   - usage linked to the customer account;
   - the 14-month retention;
   - install-source reporting;
+  - the events and data Firebase sends by itself once consent is granted (`ANALYTICS.md`);
   - crash reports (Sentry);
   - Firebase.
 - **Analytics retention (owner, D-051):** set event data retention to 14 months, with "Reset user data on new activity" off, in the development Google Analytics property now, and in the staging and production properties when they are created.

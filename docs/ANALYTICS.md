@@ -47,6 +47,40 @@ Event data is kept for 14 months in each Google Analytics property, with "Reset 
 - `app_open` fires with `source` `cold_start` or `foreground`. The phases that build the other screens wire their events.
 - Nothing is sent under Jest, or before or without consent.
 
+## What Firebase sends by itself once consent is granted
+
+Besides the app's own events, Firebase Analytics sends events and data of its own, **only while consent is granted** (collection is off otherwise). Google's "[GA4] Automatically collected events" page, read on 6 October 2026, lists them.
+
+**Seen in DebugView on 6 October 2026** (build e571370c, P4-04 on-device check):
+- `session_start`: the customer starts using the app.
+- `user_engagement`: the app has been in the foreground for at least one second; it carries the time spent.
+- User property `first_open_time`, set by Firebase.
+- User property `non_personalized_ads` = 1, which follows from the denied advertising consents (D-049).
+
+**Listed by Google as automatic for Android apps, and able to occur in this app under consent:**
+- `first_open`: the first launch after an install or reinstall. It was not seen on 6 October, because collection was off at that install's first launch.
+- `app_update`: the first launch after an update.
+- `os_update`: the phone's Android version changed.
+- `app_remove` and `app_clear_data` (Android only): the app is uninstalled, or its data is cleared.
+- `firebase_campaign`: the app is opened with campaign parameters. This is the install-source reporting allowed by D-049.
+- `error`: logged in place of an event Firebase rejects as invalid.
+- **From Phase 12, with push notifications:** `notification_receive`, `notification_foreground`, `notification_open` and `notification_dismiss`.
+
+**Never in version 1**, because the app has no ads SDK, Crashlytics, in-app purchases, Dynamic Links or In-App Messaging:
+- the `ad_*` events and `adunit_exposure`;
+- `app_exception`;
+- `in_app_purchase` and the `app_store_*` events;
+- the `dynamic_link_*` events;
+- the `fiam_*` events.
+
+**Sent with every event:**
+- `app_version`;
+- the screen parameters `firebase_screen_id` and `firebase_screen_class`. Because automatic screen reporting is off, the screen class is the route name the app sets.
+
+Google Analytics also derives device model, operating system version, language and an approximate location (country and city, from the network address) for its reports. Firebase keeps an app instance ID, which a withdrawal resets.
+
+**The privacy policy's app section (risk 21) must cover these automatic events and data as well as the app's own events.** If a later phase adds an SDK that brings more automatic events (for example, push notifications in Phase 12), this list and the privacy policy are updated together.
+
 ## Rules
 
 - Snake case event names. IDs, never titles or free text.
