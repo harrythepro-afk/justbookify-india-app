@@ -8,9 +8,9 @@ Phase numbers used in every doc, task ID and decision from 3 October 2026 (D-035
 | 1 | Architecture and requirements approval | | Done |
 | 2 | Repository, documentation, environments, CI | | Done |
 | 3 | Development store preparation and early checks | 2 (Android) | Done; remaining checks moved (D-033, D-034) |
-| 4 | Mobile foundation: navigation, design tokens, config, crash reporting, analytics plumbing, feature flags | | Next |
-| 5 | Shopify data layer: typed GraphQL client, caching, error handling | | |
-| 6 | Catalogue, search, filtering | | |
+| 4 | Mobile foundation: navigation, design tokens, config, crash reporting, analytics plumbing, feature flags | | Done |
+| 5 | Shopify data layer: typed GraphQL client, caching, error handling | | Done |
+| 6 | Catalogue, search, filtering | | In progress (P6-01) |
 | 7 | Login and account | 3 | |
 | 8 | Cart and rental rules | | |
 | 9 | Checkout and order confirmation | 2 (iPhone) | |

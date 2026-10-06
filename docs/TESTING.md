@@ -171,6 +171,55 @@ On the phone (P5-03 check, development build): the owner switches airplane mode,
 
 Test helper: `__tests__/helpers/queryClient.tsx` (not run as a test) gives each test the app's client settings. Unmount before emptying the cache, and give mutations no garbage-collection timer: otherwise TanStack's timers hold Jest open after the tests.
 
+### Sample catalogue (P6-01)
+
+The development store's sample catalogue is the fixture for Phase 6 (D-069): 40 real books copied from the live store by the architect on 7 October 2026. Field names are in `SHOPIFY_INTEGRATION.md` ("Product data the app reads"). `npm run check:dev-store` asserts everything below over the Storefront API, with the expected values in `scripts/dev-store-catalogue.mjs`; change the two together, and only when the development store changes. If a number differs, report it; never adjust the expected value to make the check pass.
+
+**Products.** The Headless channel sees 42: 3 older test products and 39 sample books. The 40th book, `the-giraffe-and-the-pelly-and-me`, is a draft and must never appear.
+
+**Availability** (one variant per book):
+
+| State | Storefront fields | 39 sample books | All 42 |
+| --- | --- | --- | --- |
+| In stock | `availableForSale`, not `currentlyNotInStock` | 19 | 21 |
+| Rented out (stock 0, "deny") | not `availableForSale` | 12 | 13 |
+| Orderable at zero stock (stock 0, "continue selling") | `availableForSale` and `currentlyNotInStock` | 8 | 8 |
+
+**Prices** are ₹34, ₹49, ₹74 and ₹99. Every sample book has a compare-at price.
+
+**Covers.** 37 products have a featured image; 5 have none: `ruskin-bond-great-stories-for-children`, `peter-and-the-wolf-read-it-yourself` and the 3 older test products (`harry-potter`, `harry-potter-the-sorcerer-stone`, `harry-potter-and-the-chamber-of-secrets`).
+
+**Authors** are `vendor`. The older products use "J.k. Rowling", the sample books "J.K. Rowling".
+
+**Named examples**, one fixed book per case, for phone checks and screen tests:
+
+| Case | Handle |
+| --- | --- |
+| In stock | `the-diary-of-a-wimpy-kid-no-brainer` |
+| Rented out | `the-gruffalo` |
+| Orderable at zero stock | `harry-potter-and-the-deathly-hallows-book-7` |
+| In stock with "continue selling" on (counts as in stock) | `sudha-murty-three-thousand-stitches` |
+| No cover | `peter-and-the-wolf-read-it-yourself` |
+| Hardcover | `cat-kid-comic-club-on-purpose` |
+| Missing pages and ISBN | `jujutsu-kaisen-0` |
+| Every metafield (except target audience), rating with a count | `harry-potter-and-the-half-blood-prince-book-6` |
+| Rating without a count | `harry-potter-and-the-philosophers-stone-by-j-k-rowling` |
+
+**Collections**, all smart and published to the Headless channel, with their Storefront counts. The Admin API shows one more in `emerging-readers`, `junior-readers` and `roald-dahl`, because it counts the draft.
+
+| Group | Handle and count |
+| --- | --- |
+| Age groups | `early-readers` 5, `emerging-readers` 22, `junior-readers` 26, `pre-teen-readers` 16, `teenage-readers` 8 |
+| Series | `harry-potter-series` 4, `wimpy-kid-series` 4, `geronimo-stilton` 3, `my-hero-academia` 3, `secret-seven-series` 4, `read-it-yourself` 2, `manga-collections` 3, `cat-kid-comic-club` 3, `tintin-series` 0 (the empty state) |
+| Authors | `roald-dahl` 3, `ruskin-bond` 3, `enid-blyton` 4, `jeff-kinney` 4, `sudha-murthy` 2, `j-k-rowling` 7, `julia-donaldson` 3 |
+| Others | `new-arrivals` 5, `frontpage` 1 |
+
+`new-arrivals` matches tag `new-arrival` **and** inventory above 0, so three tagged books with zero stock are left out.
+
+**Deliberate gap, copied from the live store.** `one-of-us-1-lying` and `one-of-us-2-next` (product type "Teenage Readers") and `artemis-fowl-1-artemis-fowl` and `artemis-fowl-2-the-arctic-incident` (product type "Junior readers; Pre-teen readers") are in no age-group collection. They do not appear under any age group, and the app must not work around this (D-068).
+
+**Metafields.** Genre on every sample book (one to three values). Across all 40 books, counting the draft: English language version on all, paperback on 37 and hardcover on 3. No book uses `shopify.target-audience`, so the check can only show that it queries without error. `custom.pages` and `custom.isbn_13` are missing on 5 books. Five books have a rating, all 5.0; one of them has no count.
+
 ## Edge cases
 
 | Case | Expected behaviour |
