@@ -1,13 +1,13 @@
-# Next task (proposal): P5-02, caching with TanStack Query
+# Next task: P5-02, caching with TanStack Query
 
-Status: proposal. It starts after P5-01 is merged and the owner starts it.
+Status: in progress (started 6 October 2026, after P5-01 merged as 2f2b3e1).
 
 ## Phase 5: Shopify data layer
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P5-01 (done, awaiting review) | Typed Storefront API client: code generation from the saved `2026-10` schema, buyer context, typed errors, retries for queries only, 30-second limit | D-054 to D-060 |
-| P5-02 (proposed) | Caching with TanStack Query, in memory only | D-059 |
+| P5-01 (done, 2f2b3e1) | Typed Storefront API client: code generation from the saved `2026-10` schema, buyer context, typed errors, retries for queries only, 30-second limit | D-054 to D-060 |
+| P5-02 (in progress) | Caching with TanStack Query, in memory only | D-059 |
 
 ## Goal of P5-02
 
