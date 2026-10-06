@@ -1,14 +1,14 @@
-# Next task (proposal): P5-03, network awareness and a smaller development APK
+# Next task: P5-03, network awareness and a smaller development APK
 
-Status: proposal. It starts after P5-02 is merged and the owner starts it.
+Status: in progress (started 6 October 2026 on branch `p5-03-network-and-apk-size`; plan approved by the architect with amendments).
 
 ## Phase 5: Shopify data layer
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P5-01 (done, 2f2b3e1) | Typed Storefront API client: code generation from the saved `2026-10` schema, buyer context, typed errors, retries for queries only, 30-second limit | D-054 to D-060 |
-| P5-02 (done, awaiting review) | One app-wide TanStack Query cache, in memory only: freshness presets, error reporting in one place, foreground refetch, `clearStorefrontCache()` and `clearAllCaches()`, hooks-only boundary enforced by ESLint | D-061 to D-063 |
-| P5-03 (proposed) | Network awareness for the cache, and a smaller development APK, in one new build | to be recorded |
+| P5-02 (done, ac714e8) | One app-wide TanStack Query cache, in memory only: freshness presets, error reporting in one place, foreground refetch, `clearStorefrontCache()` and `clearAllCaches()`, hooks-only boundary enforced by ESLint | D-061 to D-063 |
+| P5-03 (in progress) | Network awareness for the cache, and a smaller development APK, in one new build | D-064 to D-066 |
 
 ## Goal of P5-03
 
@@ -17,11 +17,13 @@ Two native changes that share one new development build, so the owner installs o
 1. **Network awareness.** Tell TanStack Query when the phone goes offline and comes back, so queries pause offline and refetch on reconnect (D-063 deferred this). TanStack's React Native guide shows both `@react-native-community/netinfo` and `expo-network`. Choose after checking each package's current documentation and the version Expo SDK 57 lists, install it with `npx expo install`, and record a decision with its exact version. Wire it in `src/query/` next to `connectFocusToAppState()`.
 2. **Smaller development APK.** EAS failed to upload the 246 MB development APK on two of four builds (3dd75f68 in P4-03, ed13883d in P4-04). Reduce it, for example by building the development profile only for the phone's processor type (arm64-v8a), after checking the current Expo and React Native documentation for the supported setting. Record a decision; the staging and production builds keep every processor type the stores need.
 
-## Questions for the owner before starting
+## The architect's answers (6 October 2026)
 
-1. **Package.** `expo-network` (an Expo module, versioned with the SDK) or NetInfo (the community package TanStack shows first)? Claude will recommend one after reading both documents.
-2. **Offline behaviour.** With network awareness, a query started offline waits instead of failing (TanStack's default `networkMode: 'online'`). Keep that default, or fail at once so the screen can say "no connection"? Phase 6 designs the offline message.
-3. **Processor types.** Build the development APK for the owner's phone's processor type only (to be read with `adb shell getprop ro.product.cpu.abi`, with the owner's yes)? Another test phone or an emulator on this computer might need another type; it would then need its own build.
+1. **Package: `expo-network`.** Compared with NetInfo against current documentation; on Expo SDK 57 it has change listeners and works with the New Architecture. Both packages declare `ACCESS_NETWORK_STATE` (already in the app) and `ACCESS_WIFI_STATE` (new; a normal permission with no prompt). Keep `ACCESS_WIFI_STATE`, record it in D-064 and justify it at the staging permission review.
+2. **Offline behaviour.** Queries keep TanStack's default: they pause offline, cached data stays visible, and they refetch on reconnect. Mutations never queue: they use `networkMode: 'always'`, so offline the real request fails at once with the `no-network` error and nothing fires later by itself. No offline guard in the Storefront client: the platform's signal can be wrong and must never block a customer's action. When reachability is unknown, the phone counts as online: offline only when `isConnected` is false and the type is not `UNKNOWN`; `isInternetReachable` is not used. Offline, nothing is reported to Sentry for the no-network case.
+3. **Processor types.** The development profile is built for the owner's phone's processor type only, read with `adb shell getprop ro.product.cpu.abi` (owner's yes given). A setting that applies to the development profile alone and adds no dependency. Staging and production keep every type the stores need. An emulator on this computer would need its own build.
+
+Conditions: one new EAS development build (if the upload fails, rebuild once from the same commit, then stop and report); the APK's size recorded against 246 MB; the APK permission check run, failing on any `AD_ID` or `ADSERVICES` permission and reporting any new one; on the phone, the owner switches airplane mode, never Claude; a decision record with the exact version for every new package, and the audit gate passing. This task completes Phase 5; the next proposal is P6-01.
 
 ## Steps
 
