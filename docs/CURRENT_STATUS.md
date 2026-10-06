@@ -1,6 +1,6 @@
 # Current status
 
-Last updated: 6 October 2026 (P5-02: app-wide query cache on branch `feat/p5-02-query-cache`; local checks pass; on-device check pending the owner's go-ahead; awaiting review. P5-03 proposed).
+Last updated: 6 October 2026 (P5-02: app-wide query cache on branch `feat/p5-02-query-cache`; local checks and the on-device check pass; awaiting review. P5-03 proposed).
 
 ## Phase
 
@@ -184,7 +184,16 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
   - 536 tests (54 new), in 36 files; Jest exits cleanly. Negative checks: the lint-guard test lints 11 forbidden imports (each fails) and 10 allowed ones (each passes); the personal-field check finds `buyerIdentity { email phone customer { firstName } }` in a sample selection.
   - Checked on 6 October 2026: the 5.104.1 source shows that a cancelled fetch that is neither "silent" nor "revert" still reaches the query cache's `onError`, so the cancel filter is needed.
   - No native change and no new build: the two packages hold no native code and no install script; `npx expo-doctor` passes 21 of 21 checks; the audit gate passes with no new advisory.
-  - On-device check: pending the owner's go-ahead for one whole phone check (the existing development build with JavaScript from Metro).
+  - On-device check, 6 October 2026, under the owner's permission for one whole phone check ("Yes, do the whole phone check"), existing development build on the owner's phone over USB, JavaScript from Metro (commit `8b5fe4f`, 2,098 modules bundled): **passed, with one step accepted on unit-test coverage.**
+    1. The test checkout screen listed the development store's two available books at INR 49.00 each, read through `useDevCheckoutVariants` (the query cache).
+    2. One copy added: estimated subtotal INR 49.00. "Open test checkout" created the cart through `useCreateDevCheckout` and Checkout Kit opened on the development store's password page (expected). Nothing was entered and no order was placed.
+    3. Closing the sheet showed "Checkout closed without an order." and "Cart subtotal from Shopify: INR 49.00."
+    4. Refetch on return to the foreground: not observable on the phone, because the screen keeps showing its data during a refetch and the app logs nothing. The owner accepted the unit test (`__tests__/query/focus.test.ts`) as coverage; a check with real data is a Phase 6 follow-up (`NEXT_TASK.md`).
+    5. The app's own log (filtered to its process, 41,396 lines): no crash, no JavaScript error. Error-level entries unrelated to this change: React Native's `ReactNoCrashSoftException` for a window-focus event at Connect (as in P5-01); two TLS handshake errors (`net_error -101`) inside Checkout Kit's web view while the password page loaded (to re-check in Phase 9, `NEXT_TASK.md`); and messages from the phone's own system software.
+  - adb commands that day: `devices`; `reverse tcp:8081 tcp:8081` (set three times, because the mapping dropped once and Connect failed with "Failed to connect to localhost/127.0.0.1:8081"), `reverse --list` (twice; not on the allowed list, a read of the mapping only), `reverse --remove tcp:8081`; `monkey` to launch the app; `input tap` (eleven taps); `input text "http://localhost:8081"` (three times, with the owner's separate yes, "do it yourself"; the first went into WhatsApp, see below); `exec-out screencap` (sixteen screenshots, all deleted); `shell pidof` and `logcat -d --pid`. Metro was stopped afterwards.
+  - **Two incidents during the check, both stopped as the rule requires.**
+    - About 16 minutes passed between the owner's yes and the first typing command, and in that time WhatsApp had come to the front. One tap and the typed address `http://localhost:8081` went into WhatsApp's search box; nothing was sent. The screenshot showed WhatsApp, was deleted at once unread, and the check stopped; the owner was asked to clear the search box. From then on a screenshot was taken immediately before every tap or typed command.
+    - Later an incoming-call notification covered the app in one screenshot. It was deleted at once, nothing was tapped, and the check resumed only on the owner's "go".
 
 ## What works
 
@@ -230,7 +239,7 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
 
 ## Last passing build
 
-Branch `feat/p5-02-query-cache` (P5-02), 6 October 2026: lint, format check, type check, `codegen:check`, tests (536), audit gate and `expo-doctor` (21 of 21) pass locally. CI runs on the pull request.
+Branch `feat/p5-02-query-cache` (P5-02), 6 October 2026: lint, format check, type check, `codegen:check`, tests (536), audit gate and `expo-doctor` (21 of 21) pass locally; the on-device check passes. CI runs on PR #12.
 
 Branch `feat/p5-01-storefront-client` (P5-01), 6 October 2026: lint, format check, type check, `codegen:check`, tests (482), audit gate and `expo-doctor` (21 of 21) pass locally; `check:dev-store` and the on-device check pass. CI runs on PR #11.
 
