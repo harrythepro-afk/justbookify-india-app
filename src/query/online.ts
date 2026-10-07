@@ -1,5 +1,6 @@
 import { onlineManager } from '@tanstack/react-query';
 import * as Network from 'expo-network';
+import { useSyncExternalStore } from 'react';
 
 /**
  * Whether a network state means the phone is offline (D-064). Only a definite "not connected"
@@ -37,4 +38,20 @@ export function connectOnlineToNetwork(): () => void {
     onlineManager.setEventListener(() => undefined);
     onlineManager.setOnline(true);
   };
+}
+
+function subscribeToOnline(onChange: () => void): () => void {
+  return onlineManager.subscribe(onChange);
+}
+
+function isOfflineNow(): boolean {
+  return !onlineManager.isOnline();
+}
+
+/**
+ * Whether the app currently counts as offline (D-064), for screens that say so (D-078). It
+ * follows TanStack's online state, which is what pauses queries.
+ */
+export function useIsOffline(): boolean {
+  return useSyncExternalStore(subscribeToOnline, isOfflineNow, isOfflineNow);
 }

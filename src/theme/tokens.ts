@@ -13,6 +13,8 @@ export const palette = {
   green: '#9DE46D',
   /** For a green that carries light text or stands alone as a button or outline (D-039). */
   greenDark: '#3E7916',
+  /** The background the store's cover pictures carry (P6-03, D-077). */
+  white: '#FFFFFF',
 } as const;
 
 export const colors = {
@@ -26,8 +28,10 @@ export const colors = {
   secondaryButtonText: palette.darkMaroon,
   /** Outline of a secondary button on the page background, such as the card's "Notify me". */
   secondaryButtonBorder: palette.darkMaroon,
-  /** The frame behind a book cover while it loads, and the whole cover when there is none. */
-  coverFrame: palette.cream,
+  /** The frame behind a book cover: white, like the pictures' own background, so no bands show. */
+  coverFrame: palette.white,
+  /** The whole cover when a book has none (D-073, D-077). */
+  coverFallback: palette.cream,
 
   rentBadge: palette.green,
   onRentBadge: palette.darkMaroon,
@@ -43,6 +47,19 @@ export const colors = {
 
   banner: palette.darkMaroon,
   onBanner: palette.yellow,
+
+  /** Home's banner with the headline and "Books for Rent" (P6-03). */
+  hero: palette.cream,
+  onHero: palette.maroon,
+  /** A series tile on Home. */
+  tile: palette.lightCream,
+  tileBorder: palette.cream,
+  onTile: palette.maroon,
+  /** The outline of an age chip on the page background; its text is `link`. */
+  chipBorder: palette.darkMaroon,
+  /** The thin offline notice over saved books (D-078). */
+  notice: palette.yellow,
+  onNotice: palette.darkMaroon,
 
   // A switch's state shows by the thumb's side as well as the track's colour.
   switchTrackOn: palette.greenDark,
@@ -65,6 +82,10 @@ export const textPairs: readonly { text: ColorRole; background: ColorRole }[] = 
   { text: 'tabActive', background: 'tabBar' },
   { text: 'tabInactive', background: 'tabBar' },
   { text: 'onBanner', background: 'banner' },
+  { text: 'onHero', background: 'hero' },
+  { text: 'onTile', background: 'tile' },
+  { text: 'onNotice', background: 'notice' },
+  { text: 'text', background: 'coverFallback' },
 ];
 
 /** One family per face: SDK 57 cannot map `fontWeight` to a custom face (D-041). */
@@ -108,5 +129,8 @@ export const iconSize = {
 /** The smallest touch target, in points (WCAG 2.5.5 and both platforms' guidelines). */
 export const minTouchTarget = 44;
 
-/** Width over height of the book card's cover frame. Covers fit inside it, never cropped. */
-export const coverAspectRatio = 2 / 3;
+/**
+ * Width over height of the book card's cover frame. Covers fit inside it, never cropped. Every
+ * sample cover is 1280 by 1280 pixels, so the frame is square (measured 7 October 2026, D-077).
+ */
+export const coverAspectRatio = 1;

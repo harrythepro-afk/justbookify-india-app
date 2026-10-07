@@ -96,6 +96,7 @@ it('finds the operations in src/shopify/', () => {
       'DevCheckoutCartCreate',
       'CollectionBooks',
       'BookCardByHandle',
+      'CollectionHandles',
     ]),
   );
 });
@@ -103,12 +104,36 @@ it('finds the operations in src/shopify/', () => {
 // The book card shows no rating (owner, P6-02; D-073): its operations read no review metafield.
 it('reads no rating in the catalogue operations', () => {
   const catalogue = realOperations.filter(({ document }) =>
-    ['CollectionBooks', 'BookCardByHandle'].includes(definitions(document)[0]?.name?.value ?? ''),
+    ['CollectionBooks', 'BookCardByHandle', 'CollectionHandles'].includes(
+      definitions(document)[0]?.name?.value ?? '',
+    ),
   );
-  expect(catalogue).toHaveLength(2);
+  expect(catalogue).toHaveLength(3);
   for (const { document } of catalogue) {
     expect(document).not.toMatch(/reviews|rating|metafield/i);
   }
+});
+
+// Home's series tiles are text only (owner, P6-03; D-076): the listing reads handles, no image.
+it('reads only handles in the collection listing', () => {
+  const listing = realOperations.find(
+    ({ document }) => definitions(document)[0]?.name?.value === 'CollectionHandles',
+  );
+  expect(listing).toBeDefined();
+  const fields: string[] = [];
+  visit(parse(listing?.document ?? ''), {
+    Field: (node) => {
+      fields.push(node.name.value);
+    },
+  });
+  expect(fields).toEqual([
+    'collections',
+    'pageInfo',
+    'hasNextPage',
+    'endCursor',
+    'nodes',
+    'handle',
+  ]);
 });
 
 describe.each(realOperations.map((found) => [found.file, found] as const))(

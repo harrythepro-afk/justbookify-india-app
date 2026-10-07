@@ -1,0 +1,171 @@
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { BookCard } from '@/components/BookCard';
+import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
+import {
+  EMPTY_MESSAGE,
+  ERROR_MESSAGE,
+  NoDataState,
+  NOT_FOUND_MESSAGE,
+  OfflineNotice,
+  ScreenMessage,
+} from '@/components/ScreenMessage';
+import {
+  useCollectionBooks,
+  useIsOffline,
+  type BookCard as BookCardData,
+} from '@/shopify/hooks/catalogue';
+import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
+
+/**
+ * One collection's books (P6-03, D-080), opened from a series tile, an age chip or "See all":
+ * every book in the collection's own order, two columns, "Load more". No filters yet; the
+ * "Available now" toggle comes with Browse and will apply here too. A stack screen with no tab
+ * bar, so the list leaves room for Android's navigation bar itself.
+ */
+export default function CollectionScreen() {
+  const params = useLocalSearchParams<{ handle?: string | string[] }>();
+  const handle = typeof params.handle === 'string' ? params.handle : '';
+  return <Collection handle={handle} />;
+}
+
+function Collection({ handle }: { readonly handle: string }) {
+  const insets = useSafeAreaInsets();
+  const isOffline = useIsOffline();
+  const query = useCollectionBooks(handle);
+  const pages = query.data?.pages ?? [];
+  const first = pages[0];
+  const hasData = first !== undefined;
+
+  const header = (title: string) => (
+    <Stack.Screen
+      options={{
+        headerShown: true,
+        title,
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.text,
+        headerTitleStyle: { fontFamily: fonts.heading, fontSize: fontSize.title },
+        headerShadowVisible: false,
+      }}
+    />
+  );
+
+  if (first === undefined) {
+    const state = catalogueViewState({
+      hasData,
+      isFetching: query.isFetching,
+      isOffline,
+      error: query.error,
+    });
+    return (
+      <View style={styles.screen}>
+        {header('')}
+        {state !== 'ready' && <NoDataState onRetry={() => void query.refetch()} state={state} />}
+      </View>
+    );
+  }
+
+  if (first.kind === 'not-found') {
+    return (
+      <View style={styles.screen}>
+        {header('')}
+        <ScreenMessage message={NOT_FOUND_MESSAGE} />
+      </View>
+    );
+  }
+
+  const books = pages.flatMap((page) => (page.kind === 'found' ? page.books : []));
+  return (
+    <View style={styles.screen}>
+      {header(first.title)}
+      {showsOfflineNotice({ hasData, isOffline, error: query.error }) && <OfflineNotice />}
+      <FlatList
+        columnWrapperStyle={styles.row}
+        testID="collection-books"
+        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + spacing.xl }]}
+        data={books}
+        keyExtractor={(book) => book.id}
+        ListEmptyComponent={<ScreenMessage message={EMPTY_MESSAGE} />}
+        ListFooterComponent={
+          <LoadMore
+            failed={query.isFetchNextPageError}
+            hasNextPage={query.hasNextPage}
+            isFetchingNextPage={query.isFetchingNextPage}
+            onPress={() => void query.fetchNextPage()}
+          />
+        }
+        numColumns={2}
+        renderItem={({ item }: { item: BookCardData }) => (
+          <View style={styles.cell}>
+            <BookCard book={item} />
+          </View>
+        )}
+        style={styles.screen}
+      />
+    </View>
+  );
+}
+
+/** "Load more" while there is a next page. After a failed page it stays, as the retry. */
+function LoadMore({
+  hasNextPage,
+  isFetchingNextPage,
+  failed,
+  onPress,
+}: {
+  readonly hasNextPage: boolean;
+  readonly isFetchingNextPage: boolean;
+  readonly failed: boolean;
+  readonly onPress: () => void;
+}) {
+  if (!hasNextPage) return null;
+  return (
+    <>
+      {failed && !isFetchingNextPage && (
+        <Text accessibilityLiveRegion="polite" style={styles.footerMessage}>
+          {ERROR_MESSAGE}
+        </Text>
+      )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isFetchingNextPage }}
+        disabled={isFetchingNextPage}
+        onPress={onPress}
+        style={[styles.loadMore, isFetchingNextPage && styles.disabled]}
+      >
+        <Text style={styles.loadMoreText}>{isFetchingNextPage ? 'Loading…' : 'Load more'}</Text>
+      </Pressable>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  list: { padding: spacing.sm },
+  row: { alignItems: 'flex-start' },
+  cell: { width: '50%', padding: spacing.sm },
+  footerMessage: {
+    marginTop: spacing.lg,
+    fontFamily: fonts.body,
+    fontSize: fontSize.body,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  loadMore: {
+    minHeight: minTouchTarget,
+    marginTop: spacing.lg,
+    marginHorizontal: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryButton,
+  },
+  disabled: { opacity: 0.5 },
+  loadMoreText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: fontSize.body,
+    color: colors.onPrimaryButton,
+  },
+});

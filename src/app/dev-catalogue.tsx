@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookCard } from '@/components/BookCard';
 import {
@@ -42,6 +43,7 @@ export default function DevCatalogueScreen() {
 }
 
 function DevCatalogue() {
+  const insets = useSafeAreaInsets();
   const [status, setStatus] = useState('No button tapped yet.');
   const configured = getStoreConfigStatus() === 'configured';
   const actions: CardActions = {
@@ -50,7 +52,12 @@ function DevCatalogue() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} style={styles.screen}>
+    // The bottom inset keeps the last row and "Load more" clear of Android's navigation bar.
+    <ScrollView
+      contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + spacing.lg }]}
+      testID="dev-catalogue-scroll"
+      style={styles.screen}
+    >
       <Text accessibilityRole="header" style={styles.title}>
         Book card preview
       </Text>

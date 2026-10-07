@@ -1,8 +1,8 @@
 /**
  * Catalogue reads for the book card (P6-02): a collection's books, page by page, by handle
- * (D-068), and one book by handle for the development preview. Both go through the Storefront
- * client (D-056), are typed by code generation (D-054) and select no personal field and no
- * rating (the card shows none, D-073).
+ * (D-068), and one book by handle for the development preview; and for Home (P6-03), the handles
+ * of every published collection. All go through the Storefront client (D-056), are typed by code
+ * generation (D-054) and select no personal field and no rating (the card shows none, D-073).
  *
  * The two operations select the same product fields. They cannot share a fragment, because an
  * operation holds no `${}` interpolation (D-054); `toBookCard` takes the CollectionBooks product
@@ -14,6 +14,7 @@ import { getStoreConfig } from '@/config';
 
 import { toBookCard, type BookCard, type BookCardProduct } from './bookCard';
 import { storefrontQuery } from './client';
+import type { CollectionHandlesQuery } from './generated/storefront.generated';
 
 /** Books per page. `junior-readers` (26 books) takes two pages. */
 export const CATALOGUE_PAGE_SIZE = 20;
@@ -96,6 +97,32 @@ query BookCardByHandle($handle: String!, $country: CountryCode, $language: Langu
   }
 }` as const;
 
+/** The largest page Shopify allows. One page is expected; the loop follows `pageInfo` anyway. */
+const COLLECTION_HANDLES_PAGE_SIZE = 250;
+
+/**
+ * The handle of every collection published to the app's channel, so Home shows only tiles that
+ * lead somewhere (D-076). Storefront's `collections(query:)` cannot filter by handle, so one
+ * listing is the fewest requests. Handles only: no title and no image (owner, P6-03).
+ */
+export const COLLECTION_HANDLES_QUERY = `#graphql
+query CollectionHandles(
+  $first: Int!
+  $after: String
+  $country: CountryCode
+  $language: LanguageCode
+) @inContext(country: $country, language: $language) {
+  collections(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      handle
+    }
+  }
+}` as const;
+
 export type CollectionBooksPage =
   | {
       readonly kind: 'found';
@@ -151,6 +178,25 @@ export async function fetchCollectionBooksPage(options: {
     books: nodes.flatMap(cardOrNothing),
     nextCursor: pageInfo.hasNextPage ? (pageInfo.endCursor ?? null) : null,
   };
+}
+
+/** The handles of every collection the app's channel can read. `signal` cancels the listing. */
+export async function fetchCollectionHandles(options: {
+  readonly signal?: AbortSignal;
+}): Promise<ReadonlySet<string>> {
+  const handles = new Set<string>();
+  let after: string | null = null;
+  for (;;) {
+    const data: CollectionHandlesQuery = await storefrontQuery(COLLECTION_HANDLES_QUERY, {
+      variables: { first: COLLECTION_HANDLES_PAGE_SIZE, after },
+      signal: options.signal,
+    });
+    const { pageInfo, nodes } = data.collections;
+    for (const node of nodes) handles.add(node.handle);
+    const next = pageInfo.endCursor ?? null;
+    if (!pageInfo.hasNextPage || next === null) return handles;
+    after = next;
+  }
 }
 
 /** One book's card, by handle, or null when no such book is published to the app's channel. */

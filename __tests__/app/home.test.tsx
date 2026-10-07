@@ -1,11 +1,17 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+import { onlineManager, type QueryClient } from '@tanstack/react-query';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { ScrollView } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { AnalyticsConsentState } from '@/analytics/consent';
 import HomeScreen from '@/app/(tabs)/index';
 import type { FeatureFlagState } from '@/featureFlags/session';
+import { toBookCard, type BookCard } from '@/shopify/bookCard';
+import type { CollectionBooksPage } from '@/shopify/catalogue';
+import { StorefrontError } from '@/shopify/errors';
+
+import { bookProduct } from '../helpers/catalogue';
+import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
+import { withScreen } from '../helpers/screen';
 
 // React Native loads ScrollView's module tree on first access, which takes several seconds on a
 // cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
@@ -20,6 +26,8 @@ jest.mock('@/crashReporting/sentry', () => ({
   isCrashReportingOn: () => mockCrashReportingOn,
   sendTestError: () => mockSendTestError(),
   triggerTestNativeCrash: () => mockTriggerTestNativeCrash(),
+  reportStorefrontProblem: jest.fn(),
+  reportUnexpectedDataError: jest.fn(),
 }));
 
 let mockFlagState: FeatureFlagState = { status: 'not ready' };
@@ -33,12 +41,31 @@ jest.mock('@/featureFlags/session', () => ({
   useFeatureFlags: () => mockFlagState,
 }));
 
+// A link's target is put in its accessibility hint, so tests can read where it leads.
+type MockHref = string | { pathname: string; params: { handle: string } };
 jest.mock('expo-router', () => {
+  const { cloneElement } = jest.requireActual<typeof import('react')>('react');
   const { Text } = jest.requireActual('react-native');
+  const target = (href: MockHref) =>
+    typeof href === 'string' ? href : href.pathname.replace('[handle]', href.params.handle);
   return {
-    Link: ({ href, children }: { href: string; children: string }) => (
-      <Text accessibilityHint={href}>{children}</Text>
-    ),
+    Link: ({
+      href,
+      asChild,
+      children,
+    }: {
+      href: MockHref;
+      asChild?: boolean;
+      children: React.ReactElement | string;
+    }) =>
+      asChild === true && typeof children !== 'string' ? (
+        cloneElement(children as React.ReactElement<{ accessibilityHint?: string }>, {
+          accessibilityHint: target(href),
+        })
+      ) : (
+        <Text accessibilityHint={target(href)}>{children}</Text>
+      ),
+    useFocusEffect: () => undefined,
   };
 });
 
@@ -52,35 +79,271 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
-// The app gets this provider from Expo Router; a screen rendered alone needs its own.
-const SAFE_AREA = {
-  frame: { x: 0, y: 0, width: 390, height: 844 },
-  insets: { top: 47, left: 0, right: 0, bottom: 34 },
-};
-function SafeArea({ children }: { children: ReactNode }) {
-  return <SafeAreaProvider initialMetrics={SAFE_AREA}>{children}</SafeAreaProvider>;
+const mockFetchHandles = jest.fn<Promise<ReadonlySet<string>>, []>();
+const mockFetchPage = jest.fn<Promise<CollectionBooksPage>, [{ handle: string }]>();
+
+jest.mock('@/shopify/catalogue', () => ({
+  ...jest.requireActual('@/shopify/catalogue'),
+  fetchCollectionHandles: () => mockFetchHandles(),
+  fetchCollectionBooksPage: (options: { handle: string }) => mockFetchPage(options),
+}));
+
+// The development store's 23 collections (`TESTING.md`, "Sample catalogue (P6-01)"): 5 of the 15
+// series, all 5 age groups and new-arrivals.
+const DEV_STORE_HANDLES = new Set([
+  'frontpage',
+  'early-readers',
+  'emerging-readers',
+  'junior-readers',
+  'pre-teen-readers',
+  'teenage-readers',
+  'harry-potter-series',
+  'wimpy-kid-series',
+  'geronimo-stilton',
+  'my-hero-academia',
+  'secret-seven-series',
+  'read-it-yourself',
+  'manga-collections',
+  'cat-kid-comic-club',
+  'roald-dahl',
+  'ruskin-bond',
+  'enid-blyton',
+  'jeff-kinney',
+  'sudha-murthy',
+  'j-k-rowling',
+  'julia-donaldson',
+  'new-arrivals',
+  'tintin-series',
+]);
+
+const CONFIG = { currencyCode: 'INR', language: 'EN', country: 'IN' };
+
+function card(index: number, availableForSale = true): BookCard {
+  const result = toBookCard(
+    bookProduct({ handle: `new-${index}`, title: `New book ${index}`, availableForSale }),
+    CONFIG,
+  );
+  if (result === null) throw new Error('expected a card');
+  return result;
 }
 
-describe('HomeScreen', () => {
-  beforeEach(() => {
-    mockAppEnv = 'development';
-    mockCrashReportingOn = true;
-    mockFlagState = { status: 'not ready' };
-    mockConsent = { consent: 'loading', busy: false, saveFailed: false };
-    jest.clearAllMocks();
+function arrivals(count: number): CollectionBooksPage {
+  return {
+    kind: 'found',
+    title: 'New Arrivals',
+    books: Array.from({ length: count }, (_, index) => card(index + 1, index !== 1)),
+    nextCursor: null,
+  };
+}
+
+const HTTP_ERROR = new StorefrontError('http-error', { operationName: 'X', status: 500 });
+const NO_NETWORK = new StorefrontError('no-network', { operationName: 'X' });
+
+let client: QueryClient;
+
+/** Renders Home and waits until nothing on it is still loading. */
+async function renderHome() {
+  await render(<HomeScreen />, { wrapper: withScreen(client) });
+  await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
+}
+
+function linkTargets(): string[] {
+  return screen
+    .getAllByRole('link')
+    .map((link) => (link.props as { accessibilityHint?: string }).accessibilityHint ?? '');
+}
+
+beforeEach(() => {
+  client = createTestQueryClient();
+  mockAppEnv = 'development';
+  mockCrashReportingOn = true;
+  mockFlagState = { status: 'not ready' };
+  mockConsent = { consent: 'loading', busy: false, saveFailed: false };
+  jest.clearAllMocks();
+  mockFetchHandles.mockReset().mockResolvedValue(DEV_STORE_HANDLES);
+  mockFetchPage.mockReset().mockResolvedValue(arrivals(5));
+});
+
+afterEach(async () => {
+  await tearDownQueryClient(client);
+  onlineManager.setOnline(true);
+});
+
+describe('HomeScreen (P6-03)', () => {
+  it('shows the store name and the banner', async () => {
+    await renderHome();
+
+    expect(screen.getByRole('header', { name: 'JustBookify' })).toBeOnTheScreen();
+    expect(
+      screen.getByRole('header', { name: "Children's books rental in Bengaluru" }),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText('Now delivering across South India. No subscription. No deposit.'),
+    ).toBeOnTheScreen();
+    expect(screen.getByRole('link', { name: 'Books for Rent' }).props.accessibilityHint).toBe(
+      '/browse',
+    );
   });
 
-  it('shows its heading and placeholder message', async () => {
-    await render(<HomeScreen />, { wrapper: SafeArea });
+  it('has no search button until search is built', async () => {
+    await renderHome();
 
-    expect(screen.getByRole('header', { name: 'Home' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: /search/i })).not.toBeOnTheScreen();
+    expect(screen.queryByText(/search/i)).not.toBeOnTheScreen();
+  });
+
+  it('shows only the series and age groups the store has, in order, then "All series"', async () => {
+    await renderHome();
+
+    expect(linkTargets()).toEqual([
+      '/browse',
+      '/collection/wimpy-kid-series',
+      '/collection/harry-potter-series',
+      '/collection/tintin-series',
+      '/collection/geronimo-stilton',
+      '/collection/read-it-yourself',
+      '/browse',
+      '/collection/early-readers',
+      '/collection/emerging-readers',
+      '/collection/junior-readers',
+      '/collection/pre-teen-readers',
+      '/collection/teenage-readers',
+      '/collection/new-arrivals',
+    ]);
+    expect(screen.getByRole('link', { name: 'Tintin' })).toBeOnTheScreen();
+    expect(screen.getByRole('link', { name: 'All series' })).toBeOnTheScreen();
+    expect(screen.getByRole('link', { name: '9-10 years' })).toBeOnTheScreen();
+    expect(screen.queryByText('Dog Man')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Ella Diaries')).not.toBeOnTheScreen();
+    expect(mockFetchHandles).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads the new arrivals by handle and shows the first 6 books with "See all"', async () => {
+    mockFetchPage.mockResolvedValue(arrivals(8));
+
+    await renderHome();
+
+    expect(mockFetchPage.mock.calls.map(([options]) => options.handle)).toEqual(['new-arrivals']);
+    expect(screen.getByRole('header', { name: 'New arrivals' })).toBeOnTheScreen();
+    expect(screen.getByText('New book 6')).toBeOnTheScreen();
+    expect(screen.queryByText('New book 7')).not.toBeOnTheScreen();
+    expect(screen.getByRole('link', { name: 'See all new arrivals' }).props.accessibilityHint).toBe(
+      '/collection/new-arrivals',
+    );
+  });
+
+  it('shows no cart or notify-me button until they are wired (D-081)', async () => {
+    mockAppEnv = 'production';
+
+    await renderHome();
+
+    expect(screen.getByText('New book 2')).toBeOnTheScreen();
+    expect(screen.getByText('Rented Out')).toBeOnTheScreen();
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+  });
+
+  it.each([
+    ['missing', { kind: 'not-found' } as const],
+    ['empty', arrivals(0)],
+  ])('hides "New arrivals" when the collection is %s', async (_case, page) => {
+    mockFetchPage.mockResolvedValue(page);
+
+    await renderHome();
+
+    expect(screen.getByRole('link', { name: 'Tintin' })).toBeOnTheScreen();
+    expect(screen.queryByText('New arrivals')).not.toBeOnTheScreen();
+    expect(screen.queryByText('See all')).not.toBeOnTheScreen();
+  });
+
+  it('shows no tile before the handles are known', async () => {
+    mockFetchHandles.mockReturnValue(new Promise(() => undefined));
+
+    await render(<HomeScreen />, { wrapper: withScreen(client) });
+
+    expect(await screen.findByText('New book 1')).toBeOnTheScreen();
+    expect(screen.queryByText('Popular series')).not.toBeOnTheScreen();
+    expect(screen.getByLabelText('Loading')).toBeOnTheScreen();
+  });
+});
+
+describe('HomeScreen states (D-078)', () => {
+  it('says it is offline, with "Try again", when nothing is saved', async () => {
+    onlineManager.setOnline(false);
+
+    await render(<HomeScreen />, { wrapper: withScreen(client) });
+
     expect(
-      screen.getByText('Popular series, age groups and new arrivals will appear here.'),
+      await screen.findByText("You're offline. Check your connection and try again."),
+    ).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeOnTheScreen();
+    // The header and banner are local and still show.
+    expect(screen.getByRole('link', { name: 'Books for Rent' })).toBeOnTheScreen();
+    expect(mockFetchHandles).not.toHaveBeenCalled();
+  });
+
+  it('shows a thin notice over saved books when it goes offline', async () => {
+    await renderHome();
+
+    await act(async () => {
+      onlineManager.setOnline(false);
+    });
+
+    expect(await screen.findByText("You're offline. Showing saved books.")).toBeOnTheScreen();
+    expect(screen.getByText('New book 1')).toBeOnTheScreen();
+    expect(screen.getByRole('link', { name: 'Tintin' })).toBeOnTheScreen();
+  });
+
+  it('shows no notice while online', async () => {
+    await renderHome();
+
+    expect(screen.queryByTestId('offline-notice')).not.toBeOnTheScreen();
+  });
+
+  it('says it is offline when Shopify cannot be reached, even if the phone says online', async () => {
+    mockFetchHandles.mockRejectedValue(NO_NETWORK);
+    mockFetchPage.mockRejectedValue(NO_NETWORK);
+
+    await render(<HomeScreen />, { wrapper: withScreen(client) });
+
+    expect(
+      await screen.findByText("You're offline. Check your connection and try again."),
     ).toBeOnTheScreen();
   });
 
+  it('says something went wrong, in our words, and "Try again" reloads', async () => {
+    mockFetchHandles.mockRejectedValueOnce(HTTP_ERROR);
+    mockFetchPage.mockRejectedValueOnce(HTTP_ERROR);
+
+    await render(<HomeScreen />, { wrapper: withScreen(client) });
+
+    expect(await screen.findByText('Something went wrong. Please try again.')).toBeOnTheScreen();
+    expect(screen.queryByText(/HTTP|500|Storefront/)).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByRole('link', { name: 'Tintin' })).toBeOnTheScreen();
+    expect(await screen.findByText('New book 1')).toBeOnTheScreen();
+    expect(screen.queryByText('Something went wrong. Please try again.')).not.toBeOnTheScreen();
+  });
+
+  it('shows what loaded when one part fails, and the failed part says so', async () => {
+    mockFetchHandles.mockRejectedValueOnce(HTTP_ERROR);
+
+    await render(<HomeScreen />, { wrapper: withScreen(client) });
+
+    expect(await screen.findByText('New book 1')).toBeOnTheScreen();
+    expect(await screen.findByText('Something went wrong. Please try again.')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByRole('link', { name: 'Tintin' })).toBeOnTheScreen();
+    expect(mockFetchPage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('HomeScreen development tools', () => {
   it('links to the test checkout screen on a development build', async () => {
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
     const link = screen.getByText('Open the test checkout screen');
     expect(link).toBeOnTheScreen();
@@ -92,14 +355,15 @@ describe('HomeScreen', () => {
     async (env) => {
       mockAppEnv = env;
 
-      await render(<HomeScreen />, { wrapper: SafeArea });
+      await renderHome();
 
       expect(screen.queryByText('Open the test checkout screen')).not.toBeOnTheScreen();
+      expect(screen.queryByText('Development tools')).not.toBeOnTheScreen();
     },
   );
 
   it('links to the book card preview on a development build', async () => {
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
     const link = screen.getByText('Open the book card preview');
     expect(link.props.accessibilityHint).toBe('/dev-catalogue');
@@ -110,26 +374,26 @@ describe('HomeScreen', () => {
     async (env) => {
       mockAppEnv = env;
 
-      await render(<HomeScreen />, { wrapper: SafeArea });
+      await renderHome();
 
       expect(screen.queryByText('Open the book card preview')).not.toBeOnTheScreen();
     },
   );
 
   it('sends a test error to Sentry on a development build', async () => {
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Send a test error to Sentry' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Send a test error to Sentry' }));
 
     expect(mockSendTestError).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('Test error sent. Check Sentry.')).toBeOnTheScreen();
   });
 
   it("triggers Sentry's native test crash on a development build", async () => {
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
     expect(screen.getByText('The app will close; reopen it to send the report.')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Trigger a native crash (test)' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Trigger a native crash (test)' }));
 
     expect(mockTriggerTestNativeCrash).toHaveBeenCalledTimes(1);
   });
@@ -137,14 +401,14 @@ describe('HomeScreen', () => {
   it('says crash reporting is off, with no test controls, when no DSN is set', async () => {
     mockCrashReportingOn = false;
 
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
     expect(screen.getByText('Crash reporting is off (no DSN).')).toBeOnTheScreen();
     expect(screen.queryByRole('button')).not.toBeOnTheScreen();
   });
 
   it('says the feature flags are not ready before local activation', async () => {
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
     expect(screen.getByText('Feature flags: not ready')).toBeOnTheScreen();
   });
@@ -165,7 +429,7 @@ describe('HomeScreen', () => {
         fetch,
       };
 
-      await render(<HomeScreen />, { wrapper: SafeArea });
+      await renderHome();
 
       expect(screen.getByText(`checkout_presentation: ${value} (${label})`)).toBeOnTheScreen();
       expect(
@@ -185,7 +449,7 @@ describe('HomeScreen', () => {
       fetch: undefined,
     };
 
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
     expect(
       screen.getByText('Remote Config fetch for the next launch: not started'),
@@ -195,7 +459,7 @@ describe('HomeScreen', () => {
   it.each(['staging', 'production'])('shows no feature flag line on a %s build', async (env) => {
     mockAppEnv = env;
 
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
     expect(screen.queryByText(/Feature flags|checkout_presentation/)).not.toBeOnTheScreen();
   });
@@ -203,11 +467,12 @@ describe('HomeScreen', () => {
   it.each(['staging', 'production'])('shows no crash test controls on a %s build', async (env) => {
     mockAppEnv = env;
 
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
     expect(screen.queryByRole('button')).not.toBeOnTheScreen();
     expect(screen.queryByText('Crash reporting is off (no DSN).')).not.toBeOnTheScreen();
   });
+
   it.each([
     ['loading', 'Analytics: consent loading'],
     ['not asked', 'Analytics: off (consent: not asked)'],
@@ -216,7 +481,7 @@ describe('HomeScreen', () => {
   ] as const)('shows the analytics state when consent is %s', async (consent, line) => {
     mockConsent = { consent, busy: false, saveFailed: false };
 
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
     expect(screen.getByText(line)).toBeOnTheScreen();
   });
@@ -224,7 +489,7 @@ describe('HomeScreen', () => {
   it.each(['staging', 'production'])('shows no analytics line on a %s build', async (env) => {
     mockAppEnv = env;
 
-    await render(<HomeScreen />, { wrapper: SafeArea });
+    await renderHome();
 
     expect(screen.queryByText(/^Analytics:/)).not.toBeOnTheScreen();
   });

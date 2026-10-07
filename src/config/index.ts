@@ -10,6 +10,7 @@ export {
   type DevCatalogueExample,
 } from './devCatalogue';
 export { getAppEnvironment, getEnvironmentLabel } from './environment';
+export { HOME_CONTENT, type CollectionLink, type HomeContent } from './home';
 export {
   defaultFeatureFlags,
   FEATURE_FLAG_NAMES,

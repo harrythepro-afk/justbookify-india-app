@@ -38,6 +38,16 @@ export type BookCardByHandleQuery = { product?: StorefrontTypes.Maybe<(
       )> } }
   )> };
 
+export type CollectionHandlesQueryVariables = StorefrontTypes.Exact<{
+  first: StorefrontTypes.Scalars['Int']['input'];
+  after?: StorefrontTypes.InputMaybe<StorefrontTypes.Scalars['String']['input']>;
+  country?: StorefrontTypes.InputMaybe<StorefrontTypes.CountryCode>;
+  language?: StorefrontTypes.InputMaybe<StorefrontTypes.LanguageCode>;
+}>;
+
+
+export type CollectionHandlesQuery = { collections: { pageInfo: Pick<StorefrontTypes.PageInfo, 'hasNextPage' | 'endCursor'>, nodes: Array<Pick<StorefrontTypes.Collection, 'handle'>> } };
+
 export type DevCheckoutProductQueryVariables = StorefrontTypes.Exact<{
   country?: StorefrontTypes.InputMaybe<StorefrontTypes.CountryCode>;
   language?: StorefrontTypes.InputMaybe<StorefrontTypes.LanguageCode>;
@@ -67,6 +77,7 @@ export type DevCheckoutCartCreateMutation = { cartCreate?: StorefrontTypes.Maybe
 interface GeneratedQueryTypes {
   "#graphql\nquery CollectionBooks(\n  $handle: String!\n  $first: Int!\n  $after: String\n  $country: CountryCode\n  $language: LanguageCode\n) @inContext(country: $country, language: $language) {\n  collection(handle: $handle) {\n    title\n    products(first: $first, after: $after) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      nodes {\n        id\n        handle\n        title\n        vendor\n        featuredImage {\n          url(transform: { maxWidth: 600 })\n          width\n          height\n          altText\n        }\n        variants(first: 1) {\n          nodes {\n            id\n            availableForSale\n            currentlyNotInStock\n            price {\n              amount\n              currencyCode\n            }\n            compareAtPrice {\n              amount\n              currencyCode\n            }\n          }\n        }\n      }\n    }\n  }\n}": {return: CollectionBooksQuery, variables: CollectionBooksQueryVariables},
   "#graphql\nquery BookCardByHandle($handle: String!, $country: CountryCode, $language: LanguageCode)\n@inContext(country: $country, language: $language) {\n  product(handle: $handle) {\n    id\n    handle\n    title\n    vendor\n    featuredImage {\n      url(transform: { maxWidth: 600 })\n      width\n      height\n      altText\n    }\n    variants(first: 1) {\n      nodes {\n        id\n        availableForSale\n        currentlyNotInStock\n        price {\n          amount\n          currencyCode\n        }\n        compareAtPrice {\n          amount\n          currencyCode\n        }\n      }\n    }\n  }\n}": {return: BookCardByHandleQuery, variables: BookCardByHandleQueryVariables},
+  "#graphql\nquery CollectionHandles(\n  $first: Int!\n  $after: String\n  $country: CountryCode\n  $language: LanguageCode\n) @inContext(country: $country, language: $language) {\n  collections(first: $first, after: $after) {\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n    nodes {\n      handle\n    }\n  }\n}": {return: CollectionHandlesQuery, variables: CollectionHandlesQueryVariables},
   "#graphql\nquery DevCheckoutProduct($country: CountryCode, $language: LanguageCode)\n@inContext(country: $country, language: $language) {\n  products(first: 10) {\n    nodes {\n      title\n      variants(first: 5) {\n        nodes {\n          id\n          title\n          availableForSale\n          price {\n            amount\n            currencyCode\n          }\n        }\n      }\n    }\n  }\n}": {return: DevCheckoutProductQuery, variables: DevCheckoutProductQueryVariables},
 }
 

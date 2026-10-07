@@ -12,5 +12,6 @@ export const storefrontKeys = {
     collectionBooks: (handle: string) =>
       [...storefrontKeys.all, 'catalogue', 'collectionBooks', handle] as const,
     bookCard: (handle: string) => [...storefrontKeys.all, 'catalogue', 'bookCard', handle] as const,
+    collectionHandles: () => [...storefrontKeys.all, 'catalogue', 'collectionHandles'] as const,
   },
 };
