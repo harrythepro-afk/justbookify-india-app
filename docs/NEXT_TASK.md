@@ -109,3 +109,11 @@ Price format (owner, plan review): "₹49", with no decimals for whole rupees an
 - **Local builds (D-067):** a fallback only, when the EAS queue is stuck. On this computer they need about 5 GB of free memory, other heavy programs closed, and `--max-workers=2`.
 - **Genre filter (from P6-01):** the Storefront `filters` on a collection return only Availability and Price on the development store. A later Phase 6 task decides how the Genre filter works (`PRODUCT_REQUIREMENTS.md`, Browse), without parsing tags or `productType` (D-068).
 - **Phone checks in Phase 6:** use the named example books in `TESTING.md` ("Sample catalogue (P6-01)").
+- **From the live website (architect, view only, 7 October 2026; `SHOPIFY_AUDIT.md`), not built in P6-02:**
+  - **Home and Browse handles (P6-03):** the collection handles for the Home rows and the Browse groups go in `src/config/` with the Home screen; the architect supplies the list from the live website (owner's answer 1).
+  - **Browse default:** the website's collection pages open with the "In stock" availability filter already on. Input for the Browse task.
+  - **Genre filter:** the live store has Genre, tag and Service City filters configured; the development store has only Availability and Price. The architect mirrors the filter setup in the development store before the Genre filter task.
+  - **Book page:** it must not show an unavailable message for a book that can be ordered at zero stock (R8, D-073). The live book page does show one ("Currently not available as another junior reader is enjoying this book."); the owner knows.
+  - **Ratings:** the book page task reads `reviews.rating` and `reviews.rating_count`, handling a rating without a count and a malformed rating (D-071). The card shows none (D-073).
+  - **Website cards** show no author and no stars; the app's card keeps the author (D-073).
+- **Remove the book card preview** (D-074) once Home and Browse show the card.

@@ -222,6 +222,15 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
   - **`filters` probe (report only)** on `junior-readers`: Availability ("In stock" 21, "Out of stock" 5; Shopify counts a book orderable at zero stock as in stock) and Price (0 to 99). No Genre, author or product-type filter. Recorded in `SHOPIFY_INTEGRATION.md`; the Genre filter is a later decision.
   - Housekeeping: `NEXT_TASK.md`'s Phase 5 table gives P5-03's hash (`6bb14f2`); `ROADMAP.md` statuses: Phases 4 and 5 done, Phase 6 in progress.
 
+- P6-02 (branch `p6-02-book-card`, in progress), 7 October 2026: catalogue data hooks and the book card.
+  - Housekeeping (first commit): P6-01 and P5-02 recorded as merged; `NEXT_TASK.md` records the owner's and architect's answers (collection handles move to P6-03; no rating on the card).
+  - Decisions: D-072 (`expo-image` 57.0.5 for covers, no config plugin; the Expo SDK 57 patch releases `expo` 57.0.27, `expo-constants` 57.0.21, `expo-linking` 57.0.12, `expo-router` 57.0.25 in the same build), D-073 (what the card shows: zero stock looks like in stock, no rating, author kept, "₹49" with no space, currency mismatch fails the page), D-074 (development-only book card preview).
+  - Code: `src/shopify/catalogue.ts` (operations `CollectionBooks`, 20 per page, and `BookCardByHandle`; fetchers with a typed not-found), `src/shopify/bookCard.ts` (`toBookCard`, `formatPrice`, `CatalogueDataError`), `src/shopify/hooks/catalogue.ts` (`useCollectionBooks` as an infinite query, `useBookCard`; `catalogue` preset), `src/components/BookCard.tsx`, `src/app/dev-catalogue.tsx` with its handles in `src/config/devCatalogue.ts`, a Home link on development builds, and five tokens (cover frame colour, secondary button border, cover aspect ratio 2:3, fallback icon size, 44-point touch target).
+  - 628 tests in 43 files (70 new). Negative checks: removing `currentlyNotInStock` from `BookCardByHandle` fails the type check; mapping zero stock to "rented out" fails 3 tests.
+  - `npx expo-doctor` passes 21 of 21 again. `npm run audit:gate` passes; it now also lists two moderate advisories that do not gate (`lodash` GHSA-f23m-r3pf-42rh, `sprintf-js` GHSA-hp3w-g68c-fv3c). `npm run check:dev-store` passes.
+  - Typed routes: `.expo/types/router.d.ts` (local, gitignored) only learns a new route when the Expo dev server runs; it was started briefly on port 8099 and its leftover `node` process stopped afterwards.
+  - EAS Android development build **3c8bf273** (commit `d32b7bd`) queued. `eas build:inspect` (archive stage): the upload holds `.env.example` only (empty placeholders), no `.env.local`, keystore or credential file, and neither the store's domain nor its token; the copy was deleted. The first inspect attempt failed on an Expo API network reset and was repeated.
+
 ## What works
 
 - `npm run lint`, `format:check`, `typecheck`, `test` (86 tests) and `audit:gate` pass on `main` after P3-02. `npx expo-doctor` passes 21 of 21 checks.
