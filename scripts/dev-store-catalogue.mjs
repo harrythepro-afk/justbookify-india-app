@@ -40,6 +40,14 @@ export const COLLECTION_COUNTS = {
 // All 42 visible products. "orderableAtZero" is stock 0 with "continue selling" on.
 export const AVAILABILITY_COUNTS = { inStock: 21, rentedOut: 13, orderableAtZero: 8 };
 
+// "Available now" (P6-04): Storefront's root products(query: "available_for_sale:true") must
+// return exactly the in-stock and orderable-at-zero products, 21 + 8 = 29, the same meaning as a
+// collection's Availability filter (filters: [{ available: true }]). The collection below is the
+// comparison; P6-01's probe counted 21 "In stock" there.
+export const AVAILABLE_PRODUCT_COUNT =
+  AVAILABILITY_COUNTS.inStock + AVAILABILITY_COUNTS.orderableAtZero;
+export const AVAILABLE_FILTER_COLLECTION = { handle: 'junior-readers', count: 21 };
+
 export const NO_COVER_HANDLES = [
   'ruskin-bond-great-stories-for-children',
   'peter-and-the-wolf-read-it-yourself',

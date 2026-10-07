@@ -186,6 +186,8 @@ The development store's sample catalogue is the fixture for Phase 6 (D-069): 40 
 | Rented out (stock 0, "deny") | not `availableForSale` | 12 | 13 |
 | Orderable at zero stock (stock 0, "continue selling") | `availableForSale` and `currentlyNotInStock` | 8 | 8 |
 
+**"Available now" (P6-04, D-083).** The root `products(query: "available_for_sale:true")` returns 29 of the 42: exactly the in-stock and the orderable-at-zero products. `junior-readers` with `filters: [{ available: true }]` returns 21 of its 26: exactly its `availableForSale` books. So the root query and a collection's Availability filter mean the same thing, Shopify's `availableForSale`. Checked on 8 October 2026; `npm run check:dev-store` asserts both counts and both handle sets.
+
 **Prices** are ₹34, ₹49, ₹74 and ₹99. Every sample book has a compare-at price.
 
 **Covers.** 37 products have a featured image; 5 have none: `ruskin-bond-great-stories-for-children`, `peter-and-the-wolf-read-it-yourself` and the 3 older test products (`harry-potter`, `harry-potter-the-sorcerer-stone`, `harry-potter-and-the-chamber-of-secrets`).

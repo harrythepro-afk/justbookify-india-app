@@ -8,6 +8,8 @@
 // visible products, the draft's absence, each collection's count by handle, the availability
 // states, the covers, every product metafield the app may read, the metaobject labels behind
 // the category metafields, ratings with and without a count, and one named book per case.
+// For Browse (P6-04) it checks that "available" means the same in the root products query
+// (`available_for_sale:true`) as in a collection's Availability filter (`available: true`).
 //
 // Run with `npm run check:dev-store`. Read-only: named queries, no mutations. Never prints the
 // token or the domain. Not run in CI, which has no .env.local. Point it at a development store
@@ -19,6 +21,8 @@ import { STOREFRONT_API_VERSION, storefrontEndpoint } from '../src/config/shopif
 import { getStoreConfig, StoreConfigError } from '../src/config/store.ts';
 import {
   AVAILABILITY_COUNTS,
+  AVAILABLE_FILTER_COLLECTION,
+  AVAILABLE_PRODUCT_COUNT,
   COLLECTION_COUNTS,
   DRAFT_HANDLE,
   EXAMPLES,
@@ -121,6 +125,47 @@ const COLLECTION_QUERY = `query DevStoreCollection(
       }
       nodes {
         id
+      }
+    }
+  }
+}`;
+
+// Browse's "all books" with "Available now" on (P6-04): the root products query filtered through
+// Shopify's search syntax.
+const AVAILABLE_PRODUCTS_QUERY = `query DevStoreAvailableProducts(
+  $country: CountryCode
+  $language: LanguageCode
+  $after: String
+) @inContext(country: $country, language: $language) {
+  products(first: 250, after: $after, query: "available_for_sale:true") {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      handle
+      availableForSale
+    }
+  }
+}`;
+
+// A group with "Available now" on: the collection's Availability filter.
+const AVAILABLE_COLLECTION_QUERY = `query DevStoreAvailableCollection(
+  $country: CountryCode
+  $language: LanguageCode
+  $handle: String!
+) @inContext(country: $country, language: $language) {
+  collection(handle: $handle) {
+    products(first: 250, filters: [{ available: true }]) {
+      nodes {
+        handle
+        availableForSale
+      }
+    }
+    all: products(first: 250) {
+      nodes {
+        handle
+        availableForSale
       }
     }
   }
@@ -270,6 +315,52 @@ function checkCounts(label, actual, expected, problems) {
   if (actual !== expected) problems.push(`${label}: expected ${expected}, found ${actual}.`);
 }
 
+function sameHandles(label, actual, expected, problems) {
+  const missing = [...expected].filter((handle) => !actual.has(handle));
+  const extra = [...actual].filter((handle) => !expected.has(handle));
+  if (missing.length > 0) problems.push(`${label} leaves out ${missing.join(', ')}.`);
+  if (extra.length > 0) problems.push(`${label} also returns ${extra.join(', ')}.`);
+}
+
+async function checkAvailableNow(config, products, problems) {
+  const available = [];
+  let after = null;
+  do {
+    const data = await storefrontRequest(config, AVAILABLE_PRODUCTS_QUERY, { after });
+    const page = data?.products;
+    available.push(...(page?.nodes ?? []));
+    after = page?.pageInfo?.hasNextPage ? page.pageInfo.endCursor : null;
+  } while (after);
+  checkCounts(
+    'root products, available_for_sale:true',
+    available.length,
+    AVAILABLE_PRODUCT_COUNT,
+    problems,
+  );
+  sameHandles(
+    'root products, available_for_sale:true,',
+    new Set(available.map((product) => product.handle)),
+    new Set(products.filter((p) => availabilityOf(p) !== 'rentedOut').map((p) => p.handle)),
+    problems,
+  );
+
+  const { handle, count } = AVAILABLE_FILTER_COLLECTION;
+  const data = await storefrontRequest(config, AVAILABLE_COLLECTION_QUERY, { handle });
+  const filtered = data?.collection?.products?.nodes ?? [];
+  const all = data?.collection?.all?.nodes ?? [];
+  checkCounts(`collection ${handle}, available: true`, filtered.length, count, problems);
+  sameHandles(
+    `collection ${handle}, available: true,`,
+    new Set(filtered.map((product) => product.handle)),
+    new Set(all.filter((product) => product.availableForSale).map((product) => product.handle)),
+    problems,
+  );
+  console.log(
+    `Available now: root query ${available.length} of ${products.length}; ` +
+      `${handle} filter ${filtered.length} of ${all.length}.`,
+  );
+}
+
 async function checkCatalogue(config) {
   const problems = [];
   const products = await fetchAllProducts(config);
@@ -304,6 +395,9 @@ async function checkCatalogue(config) {
     `Availability: ${availability.inStock} in stock, ${availability.rentedOut} rented out, ` +
       `${availability.orderableAtZero} orderable at zero.`,
   );
+
+  // "Available now" (P6-04): the root query and a collection's filter mean availableForSale.
+  await checkAvailableNow(config, products, problems);
 
   // Covers.
   const noCover = products.filter((product) => !product.featuredImage).map((p) => p.handle);
