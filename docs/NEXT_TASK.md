@@ -92,6 +92,7 @@ A customer finds a book by title, author or series (`PRODUCT_REQUIREMENTS.md`: "
   - **Ratings:** not on the book page (D-092). Phase 13 (reviews) reads `reviews.rating` and `reviews.rating_count`, handling a rating without a count and a malformed rating (D-071).
   - **Website cards** show no author and no stars; the app's card keeps the author (D-073).
 - **Book card preview** (D-074, D-088): kept until Phase 8, when customer screens draw the card's buttons. Since P6-05 it also holds the book page links and the description sample (D-094).
+- **Development store descriptions (architect, from P6-05's phone check):** all 42 are a single `<p>` with no `<br>` or `<strong>`, so their headings and bullets run together on the book page. Re-import them with the live markup if the development store's book pages should look like the live ones.
 - **Analytics events for catalogue screens (P6-05):** `view_collection` and `view_book` (`ANALYTICS.md`) are not wired; screen views are (D-053). Wire them in one task, with the owner's choice of timing.
 - **Book page in a release build:** the description and the full-width cover are checked on the development build only; include a long real description in the release-build list check (`TESTING.md`, "Release gate: list performance").
 - **Bottom inset:** Browse is a tab screen, so its tab bar already takes the inset, as on Home; any new stack screen adds it (D-080).
