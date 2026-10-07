@@ -15,6 +15,8 @@ export const palette = {
   greenDark: '#3E7916',
   /** The background the store's cover pictures carry (P6-03, D-077). */
   white: '#FFFFFF',
+  /** Dark maroon at 40% opacity: dims the screen behind an open list (P6-04). */
+  darkMaroonScrim: '#3D081B66',
 } as const;
 
 export const colors = {
@@ -60,6 +62,11 @@ export const colors = {
   /** The thin offline notice over saved books (D-078). */
   notice: palette.yellow,
   onNotice: palette.darkMaroon,
+
+  /** Behind an open sort or group list (P6-04). */
+  scrim: palette.darkMaroonScrim,
+  /** The panel that holds an open list. */
+  sheet: palette.offWhite,
 
   // A switch's state shows by the thumb's side as well as the track's colour.
   switchTrackOn: palette.greenDark,
