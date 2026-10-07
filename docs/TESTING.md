@@ -300,6 +300,8 @@ Unit tests; the Storefront client or the catalogue fetchers are mocked and nothi
 10. Standing step (D-082, D-087): more than 5 minutes in the background, then back: no false offline notice.
 11. The app's own log shows no crash and no JavaScript error.
 
+Passed on 8 October 2026 (all 11 steps; one interruption by a phone call, handled by the focus check; details in `CURRENT_STATUS.md`).
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).

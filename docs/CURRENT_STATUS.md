@@ -1,6 +1,6 @@
 # Current status
 
-Last updated: 8 October 2026 (P6-03, the Home screen and the collection screen, merged as `f9c3212`, PR #16. P6-04, Browse, in progress on branch `p6-04-browse`).
+Last updated: 8 October 2026 (P6-03, the Home screen and the collection screen, merged as `f9c3212`, PR #16. P6-04, Browse, on branch `p6-04-browse`, PR #17: phone check passed, awaiting review).
 
 ## Phase
 
@@ -304,7 +304,7 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
   - adb commands in the three runs before the fix: `devices`; `reverse tcp:8081 tcp:8081` and `reverse --remove tcp:8081`; `monkey` to launch the app (also to bring it back from the background); the focus check (`dumpsys window` filtered to JustBookify's focus line) before every input and screenshot, and twice to confirm the app was in the background; `input tap` (12: series and chip tiles, back arrows, "Load more", "Books for Rent", "All series", tabs); `input swipe` (about 25, all behind the focus check, under the owner's yes for swipes); `exec-out screencap` (22 screenshots of JustBookify only, all deleted); `shell pidof` and `logcat -d --pid` (one read: no network lines, one slow-list warning). Metro was stopped after each run and its leftover `node` process on port 8081 ended. Second evidence run: the same commands, 15 screenshots (deleted), and `reverse` set again after the USB drop. Post-fix check: `devices`, `reverse` and its removal, `monkey` (twice), the focus check, `input tap` (4), `input swipe` (about 10), `exec-out screencap` (13, deleted), `shell pidof` and `logcat -d --pid` (two reads).
   - **Found and fixed: Jest did not exit after `tabs.test.tsx`** (all its tests passed). Home now reads the catalogue into the app's own query cache in that test, and a query left without a screen keeps a 30-minute removal timer. On `main` the file exited; on the branch it hung until killed. The test now unmounts the screens and empties the app's cache after each test (the order the P5-02 helper uses); it exits again, and every new or changed test file exits on its own.
 
-- P6-04 (branch `p6-04-browse`, in progress), 8 October 2026: Browse ("Books for Rent").
+- P6-04 (branch `p6-04-browse`, PR #17, awaiting review), 8 October 2026: Browse ("Books for Rent").
   - Housekeeping (first commit): P6-03 recorded as merged (`f9c3212`, PR #16).
   - Live "Books for Rent" page recorded in `SHOPIFY_AUDIT.md` (architect, 7 October 2026, view only): 2,026 products (993 in stock, 1,033 out of stock), opens with "In stock" on and A-Z, the 9 sorts, the 5 filters; `/collections/all` is a virtual page.
   - **Gate before building (owner's answer 1):** on the development store the root `products(query: "available_for_sale:true")` returned **29 of 42**, exactly the 21 in-stock and 8 orderable-at-zero products, and `junior-readers` with `filters: [{ available: true }]` returned 21 of 26, exactly its `availableForSale` books. Same meaning, so the build went ahead. `npm run check:dev-store` now asserts both (D-083).
@@ -313,7 +313,20 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
   - Screens: Browse (all books, or one age group or series at a time, "Clear", "Available now", sort, two columns, "Load more"; no Genre button); the collection screen gains "Available now" (on) and the sort (Featured) (D-086). Both share `BookGrid`, the P6-03 list with its window settings. Sort and group lists use React Native's `Modal` and close on Android's back button and on a tap outside (D-089). The development preview stays until Phase 8 (D-088). Offline unchanged (D-087).
   - Checks on 8 October 2026: `lint`, `format:check`, `typecheck`, `test` (769 tests), `audit:gate`, `codegen:check` and `npx expo-doctor` (21 of 21) pass; `npm run check:dev-store` passes.
   - Test timing: under a full parallel run, the first render in `BookListControls.test.tsx` once took over 5 seconds (it passed alone). As in P6-03, the test files now touch `Modal` and `Switch` at the top so the modules load with the file; no timeout or assertion was changed.
-  - Phone check: not yet run (waits for the owner's permission).
+  - **Phone check passed**, 8 October 2026, 00:49 to 01:08 IST, development build 3c8bf273 with JavaScript from Metro over `adb reverse`, under the owner's permission for one whole check (swipes and the back key included), Do Not Disturb on. Steps (`TESTING.md`, P6-04):
+    1. Browse: "Books for Rent", Age group and Series (no Genre), "Available now" on, "Sort: Alphabetically, A-Z", two columns, no card buttons. Pass.
+    2. "Load more": 20, then 29 (odd last row), then no button. Pass.
+    3. `harry-potter-and-the-deathly-hallows-book-7` listed with "Available now" on, no badge. Pass.
+    4. "Available now" off: the list reloads from the top; `the-gruffalo` (found with Z-A) and other rented-out books show "Rented Out" and no button. Pass.
+    5. "9-10 years" shows "Age group: 9-10 years" and "Clear"; the sort picked earlier ("Date, new to old") was kept, as decided (D-085); Series offers the 5 development-store series; "Harry Potter" replaced the age group; inside the group Sort offers all 8 with Featured first; a picked Featured became "Alphabetically, A-Z" after "Clear". Pass.
+    6. All 7 all-books sorts load; Z-A runs backwards; low to high starts at ₹34, high to low at ₹99; "Date, old to new" starts with the older test products. Pass.
+    7. Sort list open, Android's back key once: the list closed, Browse stayed, the sort unchanged. A tap outside closed it the same way. Pass.
+    8. Tintin from Home: "Available now" on, "Sort: Featured", "No books available right now. Switch off Available now to see rented-out books."; off: "No books here yet." The "9-10 years" chip: on, Featured, 20 then 21 (the 21st is Deathly Hallows), last row clear of the navigation bar. Pass.
+    9. Home and the development preview unchanged ("Add to Cart" and "Notify me" still in the preview). Pass.
+    10. Standing step: background 01:00:41 to 01:06:58 (6 min 17 s; the owner pressed Home); no offline notice 3 s and 10 s after the return; "Query cache: online"; reads on return and 3 s later connected. Browse kept its settings and showed no notice. Pass.
+    11. The app's own log (2,807 lines, filtered to its process): no crash, no JavaScript error; only vendor lines (`mi_exception_log`, `OpenGLRenderer` swap behaviour, `SplineOverScroller`). Pass.
+  - **Interruption:** at 00:55, before the tap on "Harry Potter", the focus check found another app in front (a phone-call icon had appeared in the status bar): no input was sent, the screenshot taken in the same command was deleted unviewed, and the check stopped. The owner brought JustBookify back to Browse; the check resumed at step 5 after a new focus check. The app's tools recorded the interruption as background 00:56:23 to 00:56:45, online throughout. Do Not Disturb did not stop the call; the owner may check its call setting.
+  - **adb commands:** `devices`; `reverse tcp:8081 tcp:8081` and `reverse --remove tcp:8081`; `monkey` to launch (twice: start, and the return after the background step); the focus check before every input; `input tap`; `input swipe`; `input keyevent KEYCODE_BACK` twice (step 7, and once to leave the preview for Home's tools in step 10); `exec-out screencap` (JustBookify only, all deleted afterwards); `logcat -d --pid=` filtered to the app. **One command outside the permission:** `shell wm size` (read-only, the screen size) at the start; recorded, not repeated. The Expo CLI's `node` process kept port 8081 after Metro stopped and was stopped by its process ID.
 
 ## What works
 
