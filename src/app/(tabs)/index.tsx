@@ -9,6 +9,7 @@ import { openBook } from '@/components/openBook';
 import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
 import { AgeChip, SeriesTile } from '@/components/CollectionLinks';
 import { SearchButton } from '@/components/SearchButton';
+import { guardLinkPress } from '@/navigation/openGuard';
 import { NoDataState, OfflineNotice } from '@/components/ScreenMessage';
 import {
   FEATURE_FLAG_NAMES,
@@ -106,7 +107,7 @@ function Banner() {
         {headline}
       </Text>
       <Text style={styles.bannerLine}>{line}</Text>
-      <Link asChild href={BROWSE}>
+      <Link asChild href={BROWSE} onPress={guardLinkPress}>
         <Pressable accessibilityRole="link" style={styles.bannerButton}>
           <Text style={styles.bannerButtonText}>{buttonLabel}</Text>
         </Pressable>
@@ -213,7 +214,7 @@ function NewArrivals({
         <Text accessibilityRole="header" style={styles.sectionInRow}>
           New arrivals
         </Text>
-        <Link asChild href={collectionHref(handle)}>
+        <Link asChild href={collectionHref(handle)} onPress={guardLinkPress}>
           <Pressable accessibilityLabel="See all new arrivals" accessibilityRole="link">
             <Text style={styles.seeAll}>See all</Text>
           </Pressable>
@@ -235,10 +236,10 @@ function DevelopmentTools() {
   return (
     <View style={styles.devTools}>
       <SectionHeading>Development tools</SectionHeading>
-      <Link href="/dev-checkout" style={styles.link}>
+      <Link href="/dev-checkout" onPress={guardLinkPress} style={styles.link}>
         Open the test checkout screen
       </Link>
-      <Link href="/dev-catalogue" style={styles.secondLink}>
+      <Link href="/dev-catalogue" onPress={guardLinkPress} style={styles.secondLink}>
         Open the book card preview
       </Link>
       <CrashReportingTestControls />

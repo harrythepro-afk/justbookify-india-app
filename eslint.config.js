@@ -54,6 +54,20 @@ const SCREEN_PATTERNS = [
 const FETCH_MESSAGE =
   'Only src/shopify/client.ts calls the network (D-056). Use storefrontQuery or storefrontMutation.';
 
+const FETCH_PROPERTIES = [
+  { object: 'globalThis', property: 'fetch', message: FETCH_MESSAGE },
+  { object: 'window', property: 'fetch', message: FETCH_MESSAGE },
+  { object: 'global', property: 'fetch', message: FETCH_MESSAGE },
+];
+
+const OPEN_MESSAGE =
+  'Open screens through openScreen() or guardLinkPress in src/navigation/openGuard.ts, so a double tap opens once (D-099).';
+const ROUTER_PROPERTIES = ['push', 'navigate', 'replace'].map((property) => ({
+  object: 'router',
+  property,
+  message: OPEN_MESSAGE,
+}));
+
 module.exports = defineConfig([
   expoConfig,
   eslintPluginPrettierRecommended,
@@ -90,12 +104,14 @@ module.exports = defineConfig([
     ignores: ['src/shopify/client.ts'],
     rules: {
       'no-restricted-globals': ['error', { name: 'fetch', message: FETCH_MESSAGE }],
-      'no-restricted-properties': [
-        'error',
-        { object: 'globalThis', property: 'fetch', message: FETCH_MESSAGE },
-        { object: 'window', property: 'fetch', message: FETCH_MESSAGE },
-        { object: 'global', property: 'fetch', message: FETCH_MESSAGE },
-      ],
+      'no-restricted-properties': ['error', ...FETCH_PROPERTIES, ...ROUTER_PROPERTIES],
+    },
+  },
+  {
+    // The double-tap guard is the one place that opens screens (D-099).
+    files: ['src/navigation/openGuard.ts'],
+    rules: {
+      'no-restricted-properties': ['error', ...FETCH_PROPERTIES],
     },
   },
   // Each block below covers different files, because a later block replaces the rule's options.

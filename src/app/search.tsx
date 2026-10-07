@@ -1,6 +1,7 @@
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookGrid } from '@/components/BookGrid';
@@ -8,7 +9,7 @@ import { BookListControls } from '@/components/BookListControls';
 import { ScreenMessage } from '@/components/ScreenMessage';
 import { noResultsMessage, resultCountLabel, SEARCH_CONTENT, type SearchSort } from '@/config';
 import { searchableTerm, useSearchBooks } from '@/shopify/hooks/search';
-import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
+import { colors, fonts, fontSize, iconSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
 
 const SORT_OPTIONS = SEARCH_CONTENT.sortOptions.map((option) => ({
   value: option.sort,
@@ -22,7 +23,8 @@ const SORT_OPTIONS = SEARCH_CONTENT.sortOptions.map((option) => ({
  * are book cards in two columns, 20 at a time, with the website's count line, "Available now" (off)
  * and the sort (Relevance). While a new term loads, the previous results stay, with no count line
  * and no "no results" line. A card opens the book page; Back returns here with the term and the
- * results kept, because this screen stays mounted under the book page.
+ * results kept, because this screen stays mounted under the book page. While the field has text,
+ * a clear button empties it, brings the hint back and keeps the keyboard open (P6-06 review).
  *
  * The term is untrusted text and private: it lives in this screen's state and the in-memory cache
  * only. It is never a route parameter (screen views are logged as `search`), never logged, never
@@ -36,6 +38,7 @@ export default function SearchScreen() {
   const [sort, setSort] = useState<SearchSort>(SEARCH_CONTENT.defaultSort);
   const search = useMemo(() => ({ available, sort }), [available, sort]);
   const query = useSearchBooks(term, search);
+  const field = useRef<TextInput>(null);
 
   // The pause after typing. A newer keystroke or the search key replaces it.
   const pause = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,6 +71,14 @@ export default function SearchScreen() {
     setTerm(searchableTerm(text, 'search-key'));
   };
 
+  // Empties the field and shows the hint; the field keeps its focus, so the keyboard stays open.
+  const onClear = () => {
+    stopPause();
+    setText('');
+    setTerm(null);
+    field.current?.focus();
+  };
+
   const books = useMemo(
     () => (query.data?.pages ?? []).flatMap((page) => page.books),
     [query.data],
@@ -91,21 +102,35 @@ export default function SearchScreen() {
           headerShadowVisible: false,
         }}
       />
-      <TextInput
-        accessibilityLabel={SEARCH_CONTENT.placeholder}
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoFocus
-        maxLength={SEARCH_CONTENT.maxTermLength}
-        onChangeText={onChangeText}
-        onSubmitEditing={onSubmitEditing}
-        placeholder={SEARCH_CONTENT.placeholder}
-        placeholderTextColor={colors.searchPlaceholder}
-        returnKeyType="search"
-        style={styles.field}
-        testID="search-field"
-        value={text}
-      />
+      <View style={styles.field}>
+        <TextInput
+          accessibilityLabel={SEARCH_CONTENT.placeholder}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoFocus
+          maxLength={SEARCH_CONTENT.maxTermLength}
+          onChangeText={onChangeText}
+          onSubmitEditing={onSubmitEditing}
+          placeholder={SEARCH_CONTENT.placeholder}
+          placeholderTextColor={colors.searchPlaceholder}
+          ref={field}
+          returnKeyType="search"
+          style={styles.input}
+          testID="search-field"
+          value={text}
+        />
+        {text.length > 0 && (
+          <Pressable
+            accessibilityLabel={SEARCH_CONTENT.clearLabel}
+            accessibilityRole="button"
+            onPress={onClear}
+            style={styles.clear}
+            testID="search-clear"
+          >
+            <Ionicons color={colors.onSearchField} name="close-circle" size={iconSize.search} />
+          </Pressable>
+        )}
+      </View>
       {term === null ? (
         <ScreenMessage message={SEARCH_CONTENT.hint} />
       ) : (
@@ -144,19 +169,32 @@ export default function SearchScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
+  // The outlined field holds the text input and, while there is text, the clear button.
   field: {
+    flexDirection: 'row',
+    alignItems: 'center',
     minHeight: minTouchTarget,
     marginHorizontal: spacing.lg,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
-    paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: colors.searchFieldBorder,
     borderRadius: radius.md,
     backgroundColor: colors.searchField,
+  },
+  input: {
+    flex: 1,
+    minHeight: minTouchTarget,
+    paddingHorizontal: spacing.md,
     fontFamily: fonts.body,
     fontSize: fontSize.body,
     color: colors.onSearchField,
+  },
+  clear: {
+    minWidth: minTouchTarget,
+    minHeight: minTouchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   count: {
     paddingHorizontal: spacing.lg,

@@ -6,6 +6,7 @@ describe('SEARCH_CONTENT', () => {
     expect(SEARCH_CONTENT.title).toBe('Search');
     expect(SEARCH_CONTENT.placeholder).toBe('Search books');
     expect(SEARCH_CONTENT.hint).toBe("Type a book's title or the author's name.");
+    expect(SEARCH_CONTENT.clearLabel).toBe('Clear search');
   });
 
   it('offers Relevance, then the two price sorts in Browse wording, Relevance first', () => {

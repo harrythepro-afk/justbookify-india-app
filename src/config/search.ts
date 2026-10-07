@@ -18,6 +18,8 @@ export type SearchContent = {
   readonly placeholder: string;
   /** Shown before a search runs. */
   readonly hint: string;
+  /** The clear button's accessible name, as on the website ("Clear search term"; owner, review). */
+  readonly clearLabel: string;
   /** In the website's order: Relevance, then the two price sorts in Browse's wording. */
   readonly sortOptions: readonly SearchSortOption[];
   readonly defaultSort: SearchSort;
@@ -39,6 +41,7 @@ export const SEARCH_CONTENT: SearchContent = {
   title: 'Search',
   placeholder: 'Search books',
   hint: "Type a book's title or the author's name.",
+  clearLabel: 'Clear search',
   sortOptions: [
     { sort: 'relevance', label: 'Relevance' },
     { sort: 'price-ascending', label: browseLabel('price-ascending') },

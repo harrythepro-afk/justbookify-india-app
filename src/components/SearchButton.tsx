@@ -1,12 +1,12 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { router } from 'expo-router';
 import { Pressable, StyleSheet } from 'react-native';
 
+import { openScreen } from '@/navigation/openGuard';
 import { colors, iconSize, minTouchTarget } from '@/theme/tokens';
 
-/** Opens the search screen (P6-06). A plain function, so every button shares it. */
+/** Opens the search screen (P6-06), through the shared guard (D-099). */
 export function openSearch(): void {
-  router.push('/search');
+  openScreen('/search');
 }
 
 /**

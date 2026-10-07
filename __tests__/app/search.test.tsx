@@ -1,6 +1,6 @@
 import { onlineManager, type QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { FlatList, Keyboard, Modal, ScrollView, Switch, StyleSheet } from 'react-native';
+import { FlatList, Keyboard, Modal, ScrollView, Switch, StyleSheet, TextInput } from 'react-native';
 
 import SearchScreen from '@/app/search';
 import { toBookCard, type BookCard } from '@/shopify/bookCard';
@@ -183,6 +183,58 @@ describe('before a search', () => {
 
     expect(screen.getByText(HINT)).toBeOnTheScreen();
     expect(mockFetchSearch).not.toHaveBeenCalled();
+  });
+});
+
+describe('the clear button (P6-06 review)', () => {
+  // React Native's test setup gives TextInput a shared mocked focus().
+  const focus = (TextInput.prototype as unknown as { focus: jest.Mock }).focus;
+
+  it('shows only while the field has text, named "Clear search", at least 44 points', async () => {
+    await renderScreen();
+    expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeOnTheScreen();
+
+    await type('h');
+    const clear = screen.getByRole('button', { name: 'Clear search' });
+    const style = StyleSheet.flatten(clear.props.style as object) as {
+      minWidth?: number;
+      minHeight?: number;
+    };
+    expect(style.minWidth).toBeGreaterThanOrEqual(44);
+    expect(style.minHeight).toBeGreaterThanOrEqual(44);
+
+    await type('');
+    expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeOnTheScreen();
+  });
+
+  it('empties the field, brings back the hint and keeps the keyboard open', async () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => undefined);
+    await renderScreen();
+    await searchFor('harry');
+    expect(screen.getByText('7 results')).toBeOnTheScreen();
+    focus.mockClear();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
+
+    expect(field().props.value).toBe('');
+    expect(screen.getByText(HINT)).toBeOnTheScreen();
+    expect(screen.queryByTestId('search-books')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeOnTheScreen();
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(dismiss).not.toHaveBeenCalled();
+  });
+
+  it('stops a search that was waiting for the pause, then searches the next term', async () => {
+    await renderScreen();
+    await type('harry');
+    await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
+    await waitPastPause();
+    expect(mockFetchSearch).not.toHaveBeenCalled();
+    expect(screen.getByText(HINT)).toBeOnTheScreen();
+
+    await searchFor('dahl');
+    expect(await screen.findByText('3 results')).toBeOnTheScreen();
+    expect(terms()).toEqual(['dahl']);
   });
 });
 
