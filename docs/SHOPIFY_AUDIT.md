@@ -82,6 +82,17 @@ Recorded in P6-02. Nothing on the live store was changed or read through an API.
 - **Filters:** the live collection pages offer Genre, tag and Service City filters, so these are configured on the live store. The development store has only the default Availability and Price filters (`SHOPIFY_INTEGRATION.md`). The architect mirrors the filter setup in the development store before the Genre filter task.
 - **Book page:** it shows "Currently not available as another junior reader is enjoying this book." even for a book that can be ordered at zero stock. The owner knows. The app's book page must not show an unavailable message for a book that can be ordered (R8, D-073).
 
+### Live home page, architect's view (7 October 2026, view only)
+
+Recorded in P6-03 from the architect's reading of justbookify.in's home page. Nothing on the live store was changed or read through an API. The app's Home follows it (D-075).
+
+- **Banner:** headline "Children's books rental in Bengaluru"; line "Now delivering across South India. No subscription. No deposit."; a "Books for Rent" button.
+- **Popular series**, in the website's order, as handle and label: `dog-man-series` Dog Man; `wimpy-kid-series` Wimpy Kid; `harry-potter-series` Harry Potter; `tintin-series` Tintin; `captain-underpants-series` Captain Underpants; `peppa-pig-series` Peppa Pig; `disney-series` Disney; `dork-diaries-series` Dork Diaries; `naruto-series` Naruto; `geronimo-stilton` Geronimo Stilton; `ella-dairies` Ella Diaries; `read-it-yourself` Read It Yourself; `demon-slayer-series` Demon Slayer; `famous-five-series` Famous Five; `asterix` Asterix. The row scrolls sideways.
+- **The handle `ella-dairies` really is spelled "dairies"** in the store; the label is "Ella Diaries".
+- **Browse by age**, in order: `early-readers` Up to 5 years; `emerging-readers` 6-8 years; `junior-readers` 9-10 years; `pre-teen-readers` 11-12 years; `teenage-readers` 13+ years.
+- **New arrivals:** the collection `new-arrivals`. On the development store it holds books with stock above 0 (`TESTING.md`, "Sample catalogue (P6-01)").
+- **On the development store** only 5 of the 15 series exist (`wimpy-kid-series`, `harry-potter-series`, `tintin-series`, `geronimo-stilton`, `read-it-yourself`), and `tintin-series` is empty (D-076).
+
 ## Orders and rentals
 
 - A rental is an order. Staff mark delivery as a fulfilment and pickup as a return. About 2,930 orders are fulfilled and 2,330 are returned.

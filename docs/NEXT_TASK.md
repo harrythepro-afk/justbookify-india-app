@@ -1,6 +1,6 @@
-# Next task (proposal): P6-03, the Home screen
+# Next task (proposal): P6-04, Browse ("Books for Rent")
 
-Status: proposal. P6-02 (catalogue data hooks and the book card) is on branch `p6-02-book-card`, PR #15, awaiting review: local checks, the APK permission check and the phone check passed (`CURRENT_STATUS.md`). P6-03 starts when the owner starts it.
+Status: proposal. P6-03 (the Home screen and the collection screen) is on branch `p6-03-home`; see `CURRENT_STATUS.md`. P6-04 starts when the owner starts it.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -15,41 +15,41 @@ Status: proposal. P6-02 (catalogue data hooks and the book card) is on branch `p
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P6-01 (done, e378fa6) | The development store's sample catalogue (40 real books loaded by the architect) recorded in `SHOPIFY_INTEGRATION.md` and `TESTING.md`; `npm run check:dev-store` asserts it over the Storefront API; `filters` probed | D-068 to D-071 |
-| P6-02 (PR #15, awaiting review) | Catalogue operations and hooks (`useCollectionBooks`, `useBookCard`), the `toBookCard` mapping, the book card, a development-only preview; `expo-image` and the Expo SDK 57 patch releases in one build (3c8bf273) | D-072 to D-074 |
-| P6-03 (proposed) | The Home screen | Records for the Home handles and the offline message |
+| P6-02 (done, fa4c6c9) | Catalogue operations and hooks (`useCollectionBooks`, `useBookCard`), the `toBookCard` mapping, the book card, a development-only preview; `expo-image` and the Expo SDK 57 patch releases in one build (3c8bf273) | D-072 to D-074 |
+| P6-03 (branch `p6-03-home`, PR open) | The Home screen and the collection screen: Home content in configuration, only collections that exist, a square white cover frame, offline and error states, stale-only focus refetch, no dead card buttons, recovery from a false "offline" | D-075 to D-082 |
+| P6-04 (proposed) | Browse, "Books for Rent" | Records for the Browse groups, the "Available now" toggle and sort |
 
-## Goal of P6-03
+## Goal of P6-04
 
-The first customer-facing catalogue screen, following `PRODUCT_REQUIREMENTS.md` ("Screen layouts", Home) and the website's home page (D-037): a header with the store name, a banner with a "Books for Rent" button, a "Popular series" row, a "Browse by age" row of chips, and a "New arrivals" grid of book cards (P6-02). Everything reads through the P6-02 hooks; nothing new is native, so no new build is expected.
+The Browse tab, titled "Books for Rent", following `PRODUCT_REQUIREMENTS.md` ("Screen layouts", Browse) and the website's collection pages (D-037): filter buttons for Age group and Series, an "Available now" toggle, a sort control, and a two-column grid of book cards. Groups are the store's own collections by handle (D-068); the Home content's series and age groups (D-075) are the natural starting list. Home's "Books for Rent" and "All series" already open this tab.
 
 ## Proposed scope
 
-1. **Home handles in configuration** (`src/config/`, D-068): the collection handles, in order, for "Popular series", "Browse by age" and "New arrivals", typed and store-specific, from the architect's list (owner's answer 1 to P6-02).
-2. **Operations and hooks:** the collection's own image and title for the series row (`Collection.image`), read by handle; the "New arrivals" grid through `useCollectionBooks`.
-3. **A collection screen** (`collection/[handle]`): the two-column grid of book cards with "Load more", opened from a series tile or an age chip, with the not-found state (an empty collection, `tintin-series`, shows an empty state).
-4. **Home layout:** header, banner ("Books for Rent" opens Browse), series row, age chips, New arrivals grid; the bottom safe-area inset (P6-02 finding); loading, error and offline states. The offline message's design is Phase 6's (D-065).
-5. **Screen focus refetch** (D-062 follow-up): decide whether stack screens refetch when they regain focus.
-6. **Remove the development-only book card preview** once Home shows the card (D-074), or keep it until Browse exists (owner).
-7. **Phone check** on the existing build 3c8bf273 with JavaScript from Metro, including the Phase 6 foreground-refetch follow-up with real data.
+1. **Reuse the collection screen's list** (two columns, stable item functions, memoised card, 4-row window settings; P6-03) rather than a second list.
+2. **Browse groups in configuration** (`src/config/`): the Age group and Series lists, store-specific and typed, probably shared with Home's (D-075); only collections that exist are offered (D-076).
+3. **"Available now" toggle**, on by default as on the website, applied to Browse and to the collection screen (D-080), through the Storefront `filters` argument (`available: true`), which the development store supports (P6-01).
+4. **Sort:** the options the website offers, mapped to Storefront `ProductCollectionSortKeys`.
+5. **What Browse shows with no group chosen** (all books needs a collection or a product search; a question for the owner).
+6. **Remove the development-only book card preview** (D-074) once Browse shows the card, unless the owner keeps it.
+7. **Phone check** on the existing build 3c8bf273 if nothing native changes, including the standing step (more than 5 minutes in the background, no false offline notice).
 8. **Docs:** decisions, `TESTING.md`, `CURRENT_STATUS.md`, and the next task.
 
 ## Questions for the owner and the architect
 
-1. **Handles:** which collections, in which order, for "Popular series", "Browse by age" and "New arrivals" (from the live website)?
-2. **Banner:** the headline, the line of text and the "Books for Rent" target, copied from the website (D-037)?
-3. **Header search button:** search is a later Phase 6 task. Hide the button until then, or show it and open Browse?
-4. **Series tiles:** the collection's own image from Shopify, or the cover of its first book? Some collections may have no image.
-5. **Cover frame:** keep the 2:3 frame and cream bands seen in P6-02's phone check, or change `coverAspectRatio` or `coverFrame`?
-6. **Offline message:** wording and placement when Home cannot load (a banner over cached content, and a retry control when nothing is cached)?
+1. **No group chosen:** what does Browse list first: the `frontpage` collection, an all-books collection on the live store, or a Storefront product search?
+2. **Series filter:** the same 15 series as Home, or a longer list (the live store has more than 50 collections)?
+3. **Sort options:** which ones, in which order, and the default (from the website)?
+4. **"Available now" off:** is a rented-out book still shown with its badge and no button (D-081), as today?
+5. **Genre filter:** still waits for the architect to mirror the live filters in the development store (from P6-01)?
 
 ## Out of scope
 
-- Browse with its filters and sort, search, and the book page (later Phase 6 tasks).
-- The Genre filter (the architect mirrors the live filter setup in the development store first).
-- Cart and notify-me actions (Phase 8 and later).
+- Search and the book page (later Phase 6 tasks).
+- The Genre filter until the development store has it.
+- Cart and notify-me actions (Phase 8 and later; until then the card shows no button, D-081).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P6-03)
+## Follow-ups (recorded, not part of P6-04)
 
 - **Release gate: analytics consent (from P4-04):** no build goes to any tester other than the owner until all of these hold (`TESTING.md`; D-048):
   - the consent request is built (Phase 7, at the placement the owner chooses between the two in D-048) and works;
@@ -77,22 +77,21 @@ The first customer-facing catalogue screen, following `PRODUCT_REQUIREMENTS.md` 
 - **Store variables for EAS (from P5-01):** add `EXPO_PUBLIC_STORE_COUNTRY` and `EXPO_PUBLIC_STORE_LANGUAGE` to the EAS environment when the staging build is set up (D-058).
 - **Storefront domain for staging and production (architect, P5-01):** when the staging and production configurations are set up, confirm from Shopify's documentation which store domain the Storefront API calls should use, so that requests are not redirected.
 - **Code generator audit entries (D-060):** reviewed by 2026-11-15 with the `braces` and `@grpc/grpc-js` entries; re-checked whenever the preset or the codegen CLI is upgraded; each removed in the commit that picks up a compatible fix.
-- **Phase 6, foreground refetch with real data (owner, P5-02 phone check):** verify on the phone that a screen refetches when the app returns to the foreground. While the app has been in the background for more than 30 seconds, the owner changes a sample book's stock in the development store; on returning to the app, the screen must show the new value. (In P5-02 this was not observable on the phone and was accepted on the unit test `__tests__/query/focus.test.ts`.)
+- **Question for the architect (owner, P6-03; not to build now):** should queries stop pausing on the platform's offline signal and let the real request decide, as mutations already do (D-065), so a wrong signal can never block reading? Context: a false "offline" was seen once on 7 October 2026, not reproduced, cause unproven (D-082, risk 22).
+- **Standing phone-check step (owner, D-082):** in every phone check, after more than 5 minutes in the background, no false offline notice (`TESTING.md`).
+- **Release gate: list performance (P6-03):** the collection list (and Browse) must scroll and load more smoothly on a release build before any outside tester (`TESTING.md`). Measured so far only with production-mode JavaScript: the 6 extra books of `junior-readers` on screen within 0.8 to 1.8 seconds. Browse reuses the collection screen's list settings (D-080, `34218d5`).
 - **Phase 9, Checkout Kit TLS errors (owner, P5-02 phone check):** the app's log showed two TLS handshake errors (`net_error -101`) inside Checkout Kit's web view while the development store's password page loaded. The page itself loaded. Re-check during Phase 9's checkout tests.
-- **Phase 6, screen focus (D-062):** decide whether stack screens that stay mounted also refetch when they regain focus (TanStack's `useFocusEffect` pattern).
 - **Phase 7, logout (D-061):** call `clearAllCaches()`; customer data gets its own key root and is cached in memory only.
-- **Expo SDK 57 patch releases (owner, P5-03):** `expo` 57.0.27, `expo-constants` 57.0.21, `expo-linking` 57.0.12 and `expo-router` 57.0.25 are out; `npx expo-doctor` fails its version check until they are installed with `npx expo install --fix` (pinned exactly afterwards). Grouped into P6-02's one native build, with the image library.
 - **Sentry, offline case (P5-03):** the owner may confirm that the development Sentry project shows no new event from the P5-03 phone check (7 October 2026, 03:13 to 03:18 IST).
 - **Local builds (D-067):** a fallback only, when the EAS queue is stuck. On this computer they need about 5 GB of free memory, other heavy programs closed, and `--max-workers=2`.
 - **Genre filter (from P6-01):** the Storefront `filters` on a collection return only Availability and Price on the development store. A later Phase 6 task decides how the Genre filter works (`PRODUCT_REQUIREMENTS.md`, Browse), without parsing tags or `productType` (D-068).
 - **Phone checks in Phase 6:** use the named example books in `TESTING.md` ("Sample catalogue (P6-01)").
-- **From the live website (architect, view only, 7 October 2026; `SHOPIFY_AUDIT.md`), not built in P6-02:**
-  - **Home and Browse handles (P6-03):** the collection handles for the Home rows and the Browse groups go in `src/config/` with the Home screen; the architect supplies the list from the live website (owner's answer 1).
-  - **Browse default:** the website's collection pages open with the "In stock" availability filter already on. Input for the Browse task.
+- **From the live website (architect, view only, 7 October 2026; `SHOPIFY_AUDIT.md`), not built yet:**
+  - **Browse default:** the website's collection pages open with the "In stock" availability filter already on. Input for P6-04 ("Available now", D-080).
   - **Genre filter:** the live store has Genre, tag and Service City filters configured; the development store has only Availability and Price. The architect mirrors the filter setup in the development store before the Genre filter task.
   - **Book page:** it must not show an unavailable message for a book that can be ordered at zero stock (R8, D-073). The live book page does show one ("Currently not available as another junior reader is enjoying this book."); the owner knows.
   - **Ratings:** the book page task reads `reviews.rating` and `reviews.rating_count`, handling a rating without a count and a malformed rating (D-071). The card shows none (D-073).
   - **Website cards** show no author and no stars; the app's card keeps the author (D-073).
-- **Remove the book card preview** (D-074) once Home and Browse show the card.
-- **Bottom inset (from P6-02's phone check):** the preview's last row and "Load more" sat partly behind Android's navigation bar, because its scroll view adds no bottom safe-area inset for the edge-to-edge system bar. Home and Browse must add it (P6-03).
-- **Cover frame (owner's choice, from P6-02's phone check):** the sample covers carry their own white space, so cream bands show above and below the image in the 2:3 frame. Changing `coverAspectRatio` or `coverFrame` in the tokens changes every card; nothing is changed until the owner decides.
+- **Remove the book card preview** (D-074) once Browse shows the card (owner, P6-03: kept until then).
+- **Bottom inset:** Browse is a tab screen, so its tab bar already takes the inset, as on Home; any new stack screen adds it (D-080).
+- **Cold test start (P6-03, owner to decide):** with Jest's cache off, the first render in `account.test.tsx`, `tabs.test.tsx` and `BookCard.test.tsx` still takes 2.4 to 4.1 s (under the 5-second limit). A public-import touch does not move it (`CURRENT_STATUS.md`); no deep import is used without the owner's yes.

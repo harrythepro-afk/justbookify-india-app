@@ -126,7 +126,40 @@ describe('a book without a cover (owner, plan review)', () => {
     expect(fallback.props.accessibilityLabel).toBe('Peter and the Wolf');
     expect(screen.queryByTestId('book-card-cover')).not.toBeOnTheScreen();
     expect(screen.queryByText(/cover/i)).not.toBeOnTheScreen();
+    expect(StyleSheet.flatten(fallback.props.style)).toMatchObject({
+      backgroundColor: colors.coverFallback,
+    });
   });
+});
+
+// Cart and notify-me are wired later; until then no customer screen shows a dead button (D-081).
+describe('without actions (owner, P6-03)', () => {
+  it('draws no "Add to Cart" when no action is passed', async () => {
+    await render(<BookCard book={card(EXAMPLES.inStock())} />);
+
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+    expect(screen.getByText('₹49')).toBeOnTheScreen();
+  });
+
+  it('draws no "Notify me", but keeps the "Rented Out" badge', async () => {
+    await render(<BookCard book={card(EXAMPLES.rentedOut())} />);
+
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+    expect(screen.getByText('Rented Out')).toBeOnTheScreen();
+  });
+
+  it('draws each button only with its own action', async () => {
+    await render(<BookCard book={card(EXAMPLES.rentedOut())} onAddToCart={onAddToCart} />);
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+
+    await render(<BookCard book={card(EXAMPLES.inStock())} onNotifyMe={onNotifyMe} />);
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+  });
+});
+
+// A long list re-renders a card only when its props change (P6-03 phone check, slow-list warning).
+it('is memoised', () => {
+  expect((BookCard as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
 });
 
 describe('accessibility', () => {

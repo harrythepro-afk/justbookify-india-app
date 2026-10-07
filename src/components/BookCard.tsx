@@ -1,5 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { BookCard as BookCardData } from '@/shopify/hooks/catalogue';
@@ -16,10 +17,13 @@ import {
 
 type Props = {
   readonly book: BookCardData;
-  /** Called with the book when "Add to Cart" is tapped. The cart wires it (Phase 8). */
-  readonly onAddToCart: (book: BookCardData) => void;
-  /** Called with the book when "Notify me" is tapped. Notify-me wires it later. */
-  readonly onNotifyMe: (book: BookCardData) => void;
+  /**
+   * Called with the book when "Add to Cart" is tapped. The cart wires it (Phase 8). Without it,
+   * the button is not drawn: no customer screen shows a button that does nothing (D-081).
+   */
+  readonly onAddToCart?: (book: BookCardData) => void;
+  /** Called with the book when "Notify me" is tapped. Notify-me wires it later. Same rule. */
+  readonly onNotifyMe?: (book: BookCardData) => void;
 };
 
 /** What a screen reader says for the card's cover, title, author and prices. */
@@ -39,9 +43,11 @@ export function bookCardSummary(book: BookCardData): string {
  * The book card used on every catalogue screen (`PRODUCT_REQUIREMENTS.md`, "Screen layouts";
  * D-073): cover, title on one line, author, the rental price in bold with the retail price struck
  * through, and "Add to Cart". A book that cannot be ordered has a "Rented Out" badge on its cover
- * and "Notify me" instead. A book orderable at zero stock looks exactly like one in stock.
+ * and "Notify me" instead. A book orderable at zero stock looks exactly like one in stock. A
+ * button is drawn only when its action is passed (D-081). Memoised: a long list re-renders a card
+ * only when its book or actions change (P6-03 phone check, slow-list warning).
  */
-export function BookCard({ book, onAddToCart, onNotifyMe }: Props) {
+export const BookCard = memo(function BookCard({ book, onAddToCart, onNotifyMe }: Props) {
   return (
     <View style={styles.card}>
       <View accessible accessibilityLabel={bookCardSummary(book)}>
@@ -83,28 +89,30 @@ export function BookCard({ book, onAddToCart, onNotifyMe }: Props) {
           {book.retailPrice !== null && <Text style={styles.retailPrice}>{book.retailPrice}</Text>}
         </View>
       </View>
-      {book.orderable ? (
-        <Pressable
-          accessibilityLabel={`Add ${book.title} to cart`}
-          accessibilityRole="button"
-          onPress={() => onAddToCart(book)}
-          style={[styles.button, styles.primaryButton]}
-        >
-          <Text style={styles.primaryButtonText}>Add to Cart</Text>
-        </Pressable>
-      ) : (
-        <Pressable
-          accessibilityLabel={`Notify me when ${book.title} is back`}
-          accessibilityRole="button"
-          onPress={() => onNotifyMe(book)}
-          style={[styles.button, styles.secondaryButton]}
-        >
-          <Text style={styles.secondaryButtonText}>Notify me</Text>
-        </Pressable>
-      )}
+      {book.orderable
+        ? onAddToCart !== undefined && (
+            <Pressable
+              accessibilityLabel={`Add ${book.title} to cart`}
+              accessibilityRole="button"
+              onPress={() => onAddToCart(book)}
+              style={[styles.button, styles.primaryButton]}
+            >
+              <Text style={styles.primaryButtonText}>Add to Cart</Text>
+            </Pressable>
+          )
+        : onNotifyMe !== undefined && (
+            <Pressable
+              accessibilityLabel={`Notify me when ${book.title} is back`}
+              accessibilityRole="button"
+              onPress={() => onNotifyMe(book)}
+              style={[styles.button, styles.secondaryButton]}
+            >
+              <Text style={styles.secondaryButtonText}>Notify me</Text>
+            </Pressable>
+          )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: { flex: 1, backgroundColor: colors.background },
@@ -114,7 +122,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.coverFrame,
   },
-  coverFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  coverFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.coverFallback,
+  },
   badge: {
     position: 'absolute',
     top: spacing.sm,

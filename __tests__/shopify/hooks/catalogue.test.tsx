@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { freshness } from '@/query/freshness';
-import { useBookCard, useCollectionBooks } from '@/shopify/hooks/catalogue';
+import { useBookCard, useCollectionBooks, useCollectionHandles } from '@/shopify/hooks/catalogue';
 import { storefrontKeys } from '@/shopify/queryKeys';
 
 import { bookProduct, EXAMPLES } from '../../helpers/catalogue';
@@ -17,6 +17,9 @@ const mockQuery = jest.fn();
 jest.mock('@/shopify/client', () => ({
   storefrontQuery: (...args: unknown[]) => mockQuery(...args),
 }));
+
+// The hooks refetch on screen focus (D-079); `__tests__/query/screenFocus.test.tsx` covers that.
+jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
 
 jest.mock('@/crashReporting/sentry', () => ({
   reportStorefrontProblem: jest.fn(),
@@ -141,6 +144,30 @@ describe('useBookCard', () => {
     const query = client.getQueryCache().find({
       queryKey: storefrontKeys.catalogue.bookCard('harry-potter-and-the-deathly-hallows-book-7'),
     });
+    expect(query?.options).toMatchObject({ staleTime: freshness.catalogue.staleTime });
+  });
+});
+
+describe('useCollectionHandles', () => {
+  it('gives the set of handles, under the storefront key root with the catalogue preset', async () => {
+    mockQuery.mockResolvedValue({
+      collections: {
+        pageInfo: { hasNextPage: false, endCursor: null },
+        nodes: [{ handle: 'tintin-series' }, { handle: 'new-arrivals' }],
+      },
+    });
+
+    const { result } = await renderHook(() => useCollectionHandles(), {
+      wrapper: withQueryClient(client),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.has('tintin-series')).toBe(true);
+    expect(result.current.data?.has('dog-man-series')).toBe(false);
+    const query = client
+      .getQueryCache()
+      .find({ queryKey: storefrontKeys.catalogue.collectionHandles() });
+    expect(query?.queryKey[0]).toBe('storefront');
     expect(query?.options).toMatchObject({ staleTime: freshness.catalogue.staleTime });
   });
 });

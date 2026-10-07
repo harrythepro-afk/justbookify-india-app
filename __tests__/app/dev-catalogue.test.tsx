@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import DevCatalogueScreen from '@/app/dev-catalogue';
 import { DEV_CATALOGUE_EXAMPLES } from '@/config/devCatalogue';
@@ -9,11 +10,12 @@ import type { CollectionBooksPage } from '@/shopify/catalogue';
 import { StorefrontError } from '@/shopify/errors';
 
 import { bookProduct } from '../helpers/catalogue';
-import {
-  createTestQueryClient,
-  tearDownQueryClient,
-  withQueryClient,
-} from '../helpers/queryClient';
+import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
+import { SAFE_AREA, withScreen } from '../helpers/screen';
+
+// React Native loads ScrollView's module tree on first access, which takes several seconds on a
+// cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
+void ScrollView;
 
 let mockAppEnv = 'development';
 let mockStoreStatus: StoreConfigStatus = 'configured';
@@ -22,7 +24,10 @@ const mockFetchPage = jest.fn<Promise<CollectionBooksPage>, [{ after: string | n
 
 jest.mock('expo-router', () => {
   const { Text } = jest.requireActual('react-native');
-  return { Redirect: ({ href }: { href: string }) => <Text>Redirect to {href}</Text> };
+  return {
+    Redirect: ({ href }: { href: string }) => <Text>Redirect to {href}</Text>,
+    useFocusEffect: () => undefined,
+  };
 });
 
 jest.mock('expo-constants', () => ({
@@ -70,7 +75,7 @@ let client: QueryClient;
  * setTimeout), so one flush is not enough; each test then waits for the state it asserts.
  */
 async function renderScreen() {
-  await render(<DevCatalogueScreen />, { wrapper: withQueryClient(client) });
+  await render(<DevCatalogueScreen />, { wrapper: withScreen(client) });
   await waitFor(() => {
     expect(screen.queryAllByText('Loading…')).toHaveLength(0);
     expect(screen.queryByText(/^Loading junior-readers/)).not.toBeOnTheScreen();
@@ -104,7 +109,7 @@ afterEach(async () => {
 it.each(['staging', 'production'])('redirects to the start screen on a %s build', async (env) => {
   mockAppEnv = env;
 
-  await render(<DevCatalogueScreen />, { wrapper: withQueryClient(client) });
+  await render(<DevCatalogueScreen />, { wrapper: withScreen(client) });
 
   expect(screen.getByText('Redirect to /')).toBeOnTheScreen();
   expect(mockFetchBookCard).not.toHaveBeenCalled();
@@ -168,4 +173,13 @@ it('shows our own wording when the collection cannot be read', async () => {
   expect(
     await screen.findByText('The Storefront API could not be reached. (CollectionBooks)'),
   ).toBeOnTheScreen();
+});
+
+it("leaves room for Android's navigation bar below the last row", async () => {
+  await renderScreen();
+
+  const content = StyleSheet.flatten(
+    screen.getByTestId('dev-catalogue-scroll').props.contentContainerStyle,
+  ) as { paddingBottom?: number };
+  expect(content.paddingBottom).toBeGreaterThanOrEqual(SAFE_AREA.insets.bottom);
 });

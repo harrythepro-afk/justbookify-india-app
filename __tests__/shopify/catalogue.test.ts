@@ -2,6 +2,7 @@ import {
   CATALOGUE_PAGE_SIZE,
   fetchBookCard,
   fetchCollectionBooksPage,
+  fetchCollectionHandles,
   resetCatalogueReportsForTests,
 } from '@/shopify/catalogue';
 
@@ -129,5 +130,60 @@ describe('fetchBookCard', () => {
     mockQuery.mockResolvedValue({ product: null });
 
     await expect(fetchBookCard({ handle: 'the-giraffe-and-the-pelly-and-me' })).resolves.toBeNull();
+  });
+});
+
+describe('fetchCollectionHandles (D-076)', () => {
+  function listing(handles: string[], hasNextPage = false, endCursor: string | null = null) {
+    return {
+      collections: {
+        pageInfo: { hasNextPage, endCursor },
+        nodes: handles.map((handle) => ({ handle })),
+      },
+    };
+  }
+
+  it('reads every handle in one request of 250, with the cancel signal', async () => {
+    mockQuery.mockResolvedValueOnce(
+      listing(['early-readers', 'harry-potter-series', 'tintin-series']),
+    );
+    const signal = new AbortController().signal;
+
+    const handles = await fetchCollectionHandles({ signal });
+
+    expect([...handles]).toEqual(['early-readers', 'harry-potter-series', 'tintin-series']);
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery.mock.calls[0]?.[1]).toEqual({
+      variables: { first: 250, after: null },
+      signal,
+    });
+  });
+
+  it('follows pageInfo when a store has more than one page', async () => {
+    mockQuery
+      .mockResolvedValueOnce(listing(['a', 'b'], true, 'cursor-1'))
+      .mockResolvedValueOnce(listing(['c']));
+
+    const handles = await fetchCollectionHandles({});
+
+    expect([...handles]).toEqual(['a', 'b', 'c']);
+    expect(
+      mockQuery.mock.calls.map(
+        (call) => (call[1] as { variables: { after: string | null } }).variables.after,
+      ),
+    ).toEqual([null, 'cursor-1']);
+  });
+
+  it('stops when Shopify says there is a next page but gives no cursor', async () => {
+    mockQuery.mockResolvedValueOnce(listing(['a'], true, null));
+
+    expect([...(await fetchCollectionHandles({}))]).toEqual(['a']);
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes a failure on to the cache', async () => {
+    mockQuery.mockRejectedValueOnce(new Error('boom'));
+
+    await expect(fetchCollectionHandles({})).rejects.toThrow('boom');
   });
 });

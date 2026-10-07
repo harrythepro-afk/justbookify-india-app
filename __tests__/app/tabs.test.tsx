@@ -1,4 +1,5 @@
-import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { cleanup, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { ScrollView } from 'react-native';
 
 import RootLayout from '@/app/_layout';
 import TabLayout from '@/app/(tabs)/_layout';
@@ -7,6 +8,12 @@ import BrowseScreen from '@/app/(tabs)/browse';
 import CartScreen from '@/app/(tabs)/cart';
 import HomeScreen from '@/app/(tabs)/index';
 import MyBooksScreen from '@/app/(tabs)/my-books';
+import CollectionScreen from '@/app/collection/[handle]';
+import { appQueryClient } from '@/query/queryClient';
+
+// React Native loads ScrollView's module tree on first access, which takes several seconds on a
+// cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
+void ScrollView;
 
 let mockAppEnv = 'development';
 
@@ -45,6 +52,18 @@ jest.mock('@/analytics/consentStorage', () => ({
   deleteStoredConsent: () => Promise.resolve(),
 }));
 
+// Home and the collection screen read the catalogue; nothing reaches a store in tests.
+jest.mock('@/shopify/catalogue', () => ({
+  ...jest.requireActual('@/shopify/catalogue'),
+  fetchCollectionHandles: () => Promise.resolve(new Set(['tintin-series'])),
+  fetchCollectionBooksPage: ({ handle }: { handle: string }) =>
+    Promise.resolve(
+      handle === 'tintin-series'
+        ? { kind: 'found', title: 'Tintin', books: [], nextCursor: null }
+        : { kind: 'not-found' },
+    ),
+}));
+
 jest.mock('expo-constants', () => ({
   __esModule: true,
   default: {
@@ -63,6 +82,7 @@ function renderApp() {
     '(tabs)/cart': CartScreen,
     '(tabs)/my-books': MyBooksScreen,
     '(tabs)/account': AccountScreen,
+    'collection/[handle]': CollectionScreen,
   });
 }
 
@@ -71,7 +91,7 @@ const TABS = [
   ['Cart', 'Cart', '/cart'],
   ['My Books', 'My Books', '/my-books'],
   ['Account', 'Account', '/account'],
-  ['Home', 'Home', '/'],
+  ['Home', 'JustBookify', '/'],
 ] as const;
 
 describe('tab navigation', () => {
@@ -79,8 +99,12 @@ describe('tab navigation', () => {
     mockAppEnv = 'development';
   });
 
-  // renderRouter switches to fake timers.
-  afterEach(() => {
+  // renderRouter switches to fake timers. Home reads the catalogue into the app's own cache, so
+  // the screens are unmounted and that cache emptied, in that order: a query left without a
+  // screen keeps a 30-minute removal timer that would hold Jest open.
+  afterEach(async () => {
+    await cleanup();
+    appQueryClient.clear();
     jest.useRealTimers();
   });
 
@@ -89,7 +113,7 @@ describe('tab navigation', () => {
     await app;
 
     expect(app.getPathname()).toBe('/');
-    expect(screen.getByRole('header', { name: 'Home' })).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'JustBookify' })).toBeOnTheScreen();
   });
 
   it('shows five tabs with their labels, in order', async () => {
@@ -123,6 +147,32 @@ describe('tab navigation', () => {
     expect(screen.getByRole('header', { name: heading })).toBeOnTheScreen();
   });
 
+  it('opens Browse from the banner button "Books for Rent"', async () => {
+    const app = renderApp();
+    await app;
+
+    await fireEvent.press(screen.getByRole('link', { name: 'Books for Rent' }));
+
+    expect(app.getPathname()).toBe('/browse');
+  });
+
+  it('opens a series from its tile', async () => {
+    const app = renderApp();
+    await app;
+
+    await fireEvent.press(await screen.findByRole('link', { name: 'Tintin' }));
+    expect(app.getPathname()).toBe('/collection/tintin-series');
+    expect(await screen.findByText('No books here yet.')).toBeOnTheScreen();
+  });
+
+  it('opens Browse from the "All series" tile', async () => {
+    const app = renderApp();
+    await app;
+
+    await fireEvent.press(await screen.findByRole('link', { name: 'All series' }));
+    expect(app.getPathname()).toBe('/browse');
+  });
+
   it('shows the environment banner above the tabs on a development build', async () => {
     await renderApp();
 
@@ -135,6 +185,6 @@ describe('tab navigation', () => {
     await renderApp();
 
     expect(screen.queryByTestId('environment-banner')).not.toBeOnTheScreen();
-    expect(screen.getByRole('header', { name: 'Home' })).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'JustBookify' })).toBeOnTheScreen();
   });
 });

@@ -1,5 +1,5 @@
 import { contrastRatio, relativeLuminance } from '@/theme/contrast';
-import { colors, palette, textPairs } from '@/theme/tokens';
+import { colors, coverAspectRatio, palette, textPairs } from '@/theme/tokens';
 
 // WCAG 2.2 AA for normal-size text.
 const AA_TEXT = 4.5;
@@ -46,5 +46,18 @@ describe('design tokens', () => {
         colors[background] === palette.green && creams.includes(colors[text]),
     );
     expect(onBrandGreen).toEqual([]);
+  });
+});
+
+// Every sample cover is 1280 by 1280 pixels on a white background (measured 7 October 2026).
+describe('cover frame (owner, P6-03; D-077)', () => {
+  it('is square and white, so no bands show around a cover', () => {
+    expect(coverAspectRatio).toBe(1);
+    expect(colors.coverFrame).toBe('#FFFFFF');
+  });
+
+  it('keeps cream for a book with no cover only', () => {
+    expect(colors.coverFallback).toBe(palette.cream);
+    expect(colors.coverFrame).not.toBe(colors.coverFallback);
   });
 });
