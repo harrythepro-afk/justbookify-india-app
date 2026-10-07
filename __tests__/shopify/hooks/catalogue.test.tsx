@@ -78,8 +78,13 @@ describe('useCollectionBooks', () => {
       await result.current.fetchNextPage();
     });
 
-    const pages = result.current.data?.pages ?? [];
-    expect(pages.map((p) => (p.kind === 'found' ? p.books.length : -1))).toEqual([20, 6]);
+    // TanStack hands the new page to the hook on a later timer tick (its notify manager uses
+    // setTimeout), so wait for it instead of reading the result at once.
+    await waitFor(() =>
+      expect(
+        (result.current.data?.pages ?? []).map((p) => (p.kind === 'found' ? p.books.length : -1)),
+      ).toEqual([20, 6]),
+    );
     expect(mockQuery.mock.calls.map((call) => call[1].variables.after)).toEqual([null, 'end-0']);
     expect(result.current.hasNextPage).toBe(false);
   });

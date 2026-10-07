@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import DevCatalogueScreen from '@/app/dev-catalogue';
 import { DEV_CATALOGUE_EXAMPLES } from '@/config/devCatalogue';
@@ -64,10 +64,17 @@ const JUNIOR = Array.from({ length: 26 }, (_, index) =>
 
 let client: QueryClient;
 
+/**
+ * Renders the screen and waits until neither a named example nor the collection is still
+ * loading. TanStack hands results to the screen on a later timer tick (its notify manager uses
+ * setTimeout), so one flush is not enough; each test then waits for the state it asserts.
+ */
 async function renderScreen() {
   await render(<DevCatalogueScreen />, { wrapper: withQueryClient(client) });
-  // Let the queries settle.
-  await act(async () => {});
+  await waitFor(() => {
+    expect(screen.queryAllByText('Loading…')).toHaveLength(0);
+    expect(screen.queryByText(/^Loading junior-readers/)).not.toBeOnTheScreen();
+  });
 }
 
 beforeEach(() => {
@@ -116,39 +123,37 @@ it('reads nothing when the store is not configured', async () => {
 it('shows a card for each named example, with its case', async () => {
   await renderScreen();
 
+  expect(await screen.findByText('The Gruffalo')).toBeOnTheScreen();
+  expect(await screen.findByText('Not found: jujutsu-kaisen-0')).toBeOnTheScreen();
   expect(mockFetchBookCard.mock.calls.map(([options]) => options.handle)).toEqual(
     DEV_CATALOGUE_EXAMPLES.map((example) => example.handle),
   );
   for (const example of DEV_CATALOGUE_EXAMPLES) {
     expect(screen.getByText(example.label)).toBeOnTheScreen();
   }
-  expect(screen.getByText('The Gruffalo')).toBeOnTheScreen();
-  expect(screen.getByText('Not found: jujutsu-kaisen-0')).toBeOnTheScreen();
 });
 
 it('shows which button was tapped', async () => {
   await renderScreen();
 
   await fireEvent.press(
-    screen.getByRole('button', { name: 'Notify me when The Gruffalo is back' }),
+    await screen.findByRole('button', { name: 'Notify me when The Gruffalo is back' }),
   );
-  expect(screen.getByText('Notify me tapped: The Gruffalo')).toBeOnTheScreen();
+  expect(await screen.findByText('Notify me tapped: The Gruffalo')).toBeOnTheScreen();
 
-  await fireEvent.press(screen.getByRole('button', { name: 'Add Junior 1 to cart' }));
-  expect(screen.getByText('Add to Cart tapped: Junior 1')).toBeOnTheScreen();
+  await fireEvent.press(await screen.findByRole('button', { name: 'Add Junior 1 to cart' }));
+  expect(await screen.findByText('Add to Cart tapped: Junior 1')).toBeOnTheScreen();
 });
 
 it('pages through junior-readers: 20 books, then 26 after "Load more"', async () => {
   await renderScreen();
 
-  expect(screen.getByText('Junior Readers')).toBeOnTheScreen();
-  expect(screen.getByText('Showing 20 books')).toBeOnTheScreen();
+  expect(await screen.findByText('Junior Readers')).toBeOnTheScreen();
+  expect(await screen.findByText('Showing 20 books')).toBeOnTheScreen();
 
-  await act(async () => {
-    await fireEvent.press(screen.getByRole('button', { name: 'Load more' }));
-  });
+  await fireEvent.press(screen.getByRole('button', { name: 'Load more' }));
 
-  expect(screen.getByText('Showing 26 books')).toBeOnTheScreen();
+  expect(await screen.findByText('Showing 26 books')).toBeOnTheScreen();
   expect(mockFetchPage.mock.calls.map(([options]) => options.after)).toEqual([null, 'end-0']);
   expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeOnTheScreen();
 });
@@ -161,6 +166,6 @@ it('shows our own wording when the collection cannot be read', async () => {
   await renderScreen();
 
   expect(
-    screen.getByText('The Storefront API could not be reached. (CollectionBooks)'),
+    await screen.findByText('The Storefront API could not be reached. (CollectionBooks)'),
   ).toBeOnTheScreen();
 });
