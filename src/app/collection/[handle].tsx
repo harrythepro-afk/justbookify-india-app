@@ -1,4 +1,5 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
+import { useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -36,9 +37,17 @@ function Collection({ handle }: { readonly handle: string }) {
   const insets = useSafeAreaInsets();
   const isOffline = useIsOffline();
   const query = useCollectionBooks(handle);
-  const pages = query.data?.pages ?? [];
-  const first = pages[0];
+  const first = query.data?.pages[0];
   const hasData = first !== undefined;
+  // Built only when the pages change, so the list does not see a new array on every render.
+  const books = useMemo(
+    () => (query.data?.pages ?? []).flatMap((page) => (page.kind === 'found' ? page.books : [])),
+    [query.data],
+  );
+  const listStyle = useMemo(
+    () => [styles.list, { paddingBottom: insets.bottom + spacing.xl }],
+    [insets.bottom],
+  );
 
   const header = (title: string) => (
     <Stack.Screen
@@ -82,7 +91,6 @@ function Collection({ handle }: { readonly handle: string }) {
     );
   }
 
-  const books = pages.flatMap((page) => (page.kind === 'found' ? page.books : []));
   return (
     <View style={styles.screen}>
       {header(first.title)}
@@ -90,8 +98,13 @@ function Collection({ handle }: { readonly handle: string }) {
       <FlatList
         columnWrapperStyle={styles.row}
         testID="collection-books"
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + spacing.xl }]}
+        contentContainerStyle={listStyle}
         data={books}
+        // Rows of two: about two screens are kept around the visible rows, and rows are added
+        // a few at a time, so a long collection stays light (slow-list warning, P6-03).
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={5}
         keyExtractor={bookKey}
         ListEmptyComponent={<ScreenMessage message={EMPTY_MESSAGE} />}
         ListFooterComponent={
