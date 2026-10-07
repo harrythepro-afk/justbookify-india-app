@@ -19,7 +19,12 @@ void FlatList;
 void Modal;
 void Switch;
 
-jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
+// A book card opens its page through the router (P6-05).
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useFocusEffect: () => undefined,
+  router: { push: (href: unknown) => mockPush(href) },
+}));
 
 jest.mock('@/crashReporting/sentry', () => ({
   reportStorefrontProblem: jest.fn(),
@@ -115,11 +120,23 @@ beforeEach(() => {
   mockFetchGroup.mockReset().mockImplementation(async (options) => groupPage(options));
   mockFetchHandles.mockReset().mockResolvedValue(DEV_STORE_HANDLES);
   mockRecheckNetwork.mockClear();
+  mockPush.mockReset();
 });
 
 afterEach(async () => {
   await tearDownQueryClient(client);
   onlineManager.setOnline(true);
+});
+
+it('opens the book page when a card is tapped (P6-05)', async () => {
+  await renderScreen();
+
+  await fireEvent.press(screen.getByTestId('book-card-open-book-2'));
+
+  expect(mockPush).toHaveBeenCalledWith({
+    pathname: '/book/[handle]',
+    params: { handle: 'book-2' },
+  });
 });
 
 describe('Browse, "Books for Rent" (P6-04)', () => {

@@ -1,7 +1,7 @@
 /**
  * Hooks for catalogue screens (D-063): screens read books through the app's cache and never
  * call the Storefront client. Errors are reported by the cache (D-061). Lists use the
- * `catalogue` preset (D-062). Each hook refetches its data when its screen regains focus, only
+ * `catalogue` preset (D-062); the book page uses `liveStock` (D-093). Each hook refetches its data when its screen regains focus, only
  * if that data is stale (D-079).
  */
 
@@ -12,6 +12,7 @@ import { useRefetchStaleOnFocus } from '@/query/screenFocus';
 
 import {
   fetchAllBooksPage,
+  fetchBook,
   fetchBookCard,
   fetchCollectionBooksPage,
   fetchCollectionHandles,
@@ -25,6 +26,10 @@ export {
   type BookListOptions,
   type CollectionBooksPage,
 } from '../catalogue';
+export type { BookPage } from '../bookPage';
+export type { RichSpan, RichTextBlock } from '../richText';
+// The development preview shows a sample description through the book page's parser (D-094).
+export { parseDescriptionHtml } from '../richText';
 export {
   CatalogueDataError,
   type BookAvailability,
@@ -78,6 +83,21 @@ export function useBookCard(handle: string) {
     queryKey,
     queryFn: ({ signal }) => fetchBookCard({ handle, signal }),
     ...freshness.catalogue,
+  });
+}
+
+/**
+ * One book's page by handle (P6-05); `null` when no such book is published to the app's channel.
+ * The `liveStock` preset (D-062, D-093): most books have one copy, so the page reads Shopify again
+ * every time it opens, and on focus once its data is 30 seconds old.
+ */
+export function useBook(handle: string) {
+  const queryKey = storefrontKeys.catalogue.book(handle);
+  useRefetchStaleOnFocus(queryKey);
+  return useQuery({
+    queryKey,
+    queryFn: ({ signal }) => fetchBook({ handle, signal }),
+    ...freshness.liveStock,
   });
 }
 

@@ -302,6 +302,32 @@ Unit tests; the Storefront client or the catalogue fetchers are mocked and nothi
 
 Passed on 8 October 2026 (all 11 steps; one interruption by a phone call, handled by the focus check; details in `CURRENT_STATUS.md`).
 
+### The book page (P6-05)
+
+Unit tests; the Storefront client or the catalogue fetchers are mocked and nothing reaches a store:
+- `__tests__/shopify/richText.test.ts` (D-091), the description as untrusted input: the live shape (bold headings, "•" lines, ✅ and ❌, a `span`); every kept tag in any case; nested bold and italic; bullets, numbering per list, nested lists by depth, `li` wrapping `p`, a second paragraph in an item, an unclosed `li`, an `li` outside a list; `div`, `blockquote`, `tr` and `table` end a paragraph with no style; **`h1` to `h6` end a paragraph and are bold**; links as plain text with nothing of the address kept; attributes never read, `>` inside a quoted value; `script` and `style` (and the other dropped elements) lose their content, also when unclosed or in capitals, a self-closed one is empty; comments, doctype, CDATA, processing instructions; control characters; unclosed, stray and misnested tags; a `<` that starts no tag; an unfinished tag at the end; 22 hostile fragments never throw; named, decimal, hex, Windows-1252, invalid and unknown references; an encoded tag stays text; whitespace, line breaks and empty paragraphs; a 200 KB description, 10,000 nested tags and 50,000 stray `<` each read within 2 seconds.
+- `__tests__/shopify/bookPage.test.ts`: the card's fields plus the description and genres; the three availability states; no description; no variant; a foreign currency throws; genre labels in order, trimmed and once, skipping other types and blank labels.
+- `__tests__/shopify/catalogue.test.ts`: `fetchBook` reads `BookPage` by handle with the cancel signal; null for a missing book; null for a book without a variant, reported once by code.
+- `__tests__/shopify/hooks/catalogue.test.tsx`: `useBook` caches under `book(handle)` with the `liveStock` preset and reads Shopify again when the page opens again.
+- `__tests__/shopify/operations.test.ts`: `BookPage` validates and carries `@inContext`; it reads only the `shopify.genre` metafield and no rating, ISBN, publisher, pages, language or binding; the no-rating check now covers `AllBooks` too.
+- `__tests__/app/book.test.tsx`: the header with the back arrow only; the live order; the author in small capitals and the title as a header; rented out: "Rented Out" badge and the sentence, no "Rent"; in stock and orderable at zero stock: the green "Rent" badge and never the sentence or any unavailable wording; the screen reader's price label; no retail price below the price; the cream frame with no cover; the full description with bold headings and emoji lines; genre chips under "Genre", not tappable; no rating, cart, buy, notify or shipping text; "This book is not available."; offline, the notice over a saved page, the error and "Try again" after `recheckNetwork()`; the bottom inset.
+- `__tests__/components/BookCard.test.tsx` and `RichText.test.tsx`: `onOpen` makes the card one link and leaves its buttons apart; no link without it; bold, italic, markers and indents; a link with nothing to tap.
+- `__tests__/app/home.test.tsx`, `browse.test.tsx`, `collection.test.tsx`, `dev-catalogue.test.tsx`: a tapped card opens `/book/[handle]`; the preview's missing-book link and description sample.
+
+**Phone check** (development build 3c8bf273, JavaScript from Metro, owner's phone, under `CLAUDE.md`'s phone check rules; Do Not Disturb on; the focus check and each tap or swipe in the same command):
+1. The development preview's "Book page" section: the description sample shows bold headings, "•" lines and ✅ and ❌ lines; the link is plain text.
+2. An in-stock book (`the-diary-of-a-wimpy-kid-no-brainer`), opened from its card: cover, author in capitals, title, prices with the green "Rent" badge, description, genre chips; no sentence, rating or buttons. Back returns to the list.
+3. `the-gruffalo`: the sentence and the "Rented Out" badge in the price row.
+4. `harry-potter-and-the-deathly-hallows-book-7` (orderable at zero stock): the "Rent" badge and no sentence.
+5. `peter-and-the-wolf-read-it-yourself`: the cream frame with the book icon.
+6. "Open a missing book": "This book is not available."
+7. A card on Browse opens its page; back returns to Browse with its settings.
+8. Pause: the owner takes their own screenshots of Browse and one book page for the architect.
+9. Standing step (D-082, D-087): more than 5 minutes in the background, then back on a book page: no false offline notice.
+10. The app's own log shows no crash and no JavaScript error.
+
+Passed on 8 October 2026 (all 10 steps; details in `CURRENT_STATUS.md`). The development store's own descriptions are single paragraphs with no markup, so only the preview's sample shows the live shape there.
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).

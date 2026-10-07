@@ -3,11 +3,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { ScrollView, StyleSheet } from 'react-native';
 
 import DevCatalogueScreen from '@/app/dev-catalogue';
-import { DEV_CATALOGUE_EXAMPLES } from '@/config/devCatalogue';
+import { DEV_CATALOGUE_EXAMPLES, DEV_MISSING_BOOK_HANDLE } from '@/config/devCatalogue';
 import type { StoreConfigStatus } from '@/config/store';
 import { toBookCard, type BookCard } from '@/shopify/bookCard';
 import type { CollectionBooksPage } from '@/shopify/catalogue';
 import { StorefrontError } from '@/shopify/errors';
+import { fonts } from '@/theme/tokens';
 
 import { bookProduct } from '../helpers/catalogue';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
@@ -20,6 +21,8 @@ void ScrollView;
 let mockAppEnv = 'development';
 let mockStoreStatus: StoreConfigStatus = 'configured';
 const mockFetchBookCard = jest.fn<Promise<BookCard | null>, [{ handle: string }]>();
+// Cards and the missing-book link open the book page through the router (P6-05).
+const mockPush = jest.fn();
 const mockFetchPage = jest.fn<Promise<CollectionBooksPage>, [{ after: string | null }]>();
 
 jest.mock('expo-router', () => {
@@ -27,6 +30,7 @@ jest.mock('expo-router', () => {
   return {
     Redirect: ({ href }: { href: string }) => <Text>Redirect to {href}</Text>,
     useFocusEffect: () => undefined,
+    router: { push: (href: unknown) => mockPush(href) },
   };
 });
 
@@ -84,6 +88,7 @@ async function renderScreen() {
 
 beforeEach(() => {
   client = createTestQueryClient();
+  mockPush.mockReset();
   mockAppEnv = 'development';
   mockStoreStatus = 'configured';
   mockFetchBookCard.mockReset().mockImplementation(async ({ handle }) => {
@@ -182,4 +187,43 @@ it("leaves room for Android's navigation bar below the last row", async () => {
     screen.getByTestId('dev-catalogue-scroll').props.contentContainerStyle,
   ) as { paddingBottom?: number };
   expect(content.paddingBottom).toBeGreaterThanOrEqual(SAFE_AREA.insets.bottom);
+});
+
+describe('the book page section (P6-05, D-094)', () => {
+  it('opens a book that does not exist, so the not-found page can be checked', async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByRole('link', { name: 'Open a missing book' }));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/book/[handle]',
+      params: { handle: DEV_MISSING_BOOK_HANDLE },
+    });
+  });
+
+  it('shows the description sample through the book page parser, links as plain text', async () => {
+    await renderScreen();
+
+    const sample = screen.getByTestId('dev-description-sample');
+    expect(sample).toBeOnTheScreen();
+    expect(
+      StyleSheet.flatten(screen.getByText('Perfect for readers, who:').props.style),
+    ).toMatchObject({ fontFamily: fonts.bodyBold });
+    expect(screen.getByText("Why You'll Love It:")).toBeOnTheScreen();
+    expect(screen.getByText(/✅ Short chapters/)).toBeOnTheScreen();
+    expect(screen.getByText(/❌ Not a book of facts/)).toBeOnTheScreen();
+    expect(screen.getByText(/everyone & everything/)).toBeOnTheScreen();
+    expect(screen.getByText('More in the Fox series.')).toBeOnTheScreen();
+  });
+
+  it("opens a named example's book page from its card", async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('book-card-open-the-gruffalo'));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/book/[handle]',
+      params: { handle: 'the-gruffalo' },
+    });
+  });
 });

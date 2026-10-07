@@ -14,6 +14,8 @@ export const AVAILABLE_EMPTY_MESSAGE =
   'No books available right now. Switch off Available now to see rented-out books.';
 // Proposed by Claude Code, confirmed by the owner at P6-03's plan review.
 export const NOT_FOUND_MESSAGE = 'This collection is not available.';
+// The owner's wording (answer 5, P6-05; D-093).
+export const BOOK_NOT_FOUND_MESSAGE = 'This book is not available.';
 
 /** What an empty list says, by whether "Available now" is on (owner, P6-04). */
 export function emptyMessageFor(available: boolean): string {

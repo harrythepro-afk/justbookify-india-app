@@ -187,3 +187,35 @@ describe('accessibility', () => {
     expect(style.minHeight).toBeGreaterThanOrEqual(44);
   });
 });
+
+describe('opening the book page (P6-05)', () => {
+  it('opens the book when its cover, title, author or prices are tapped', async () => {
+    const onOpen = jest.fn();
+    const book = card(EXAMPLES.rentedOut());
+    await render(<BookCard book={book} onOpen={onOpen} />);
+
+    const link = screen.getByRole('link', { name: bookCardSummary(book) });
+    await fireEvent.press(link);
+
+    expect(onOpen).toHaveBeenCalledWith(book);
+    expect(screen.getByText('Rented Out')).toBeOnTheScreen();
+  });
+
+  it('keeps the buttons apart from the link', async () => {
+    const onOpen = jest.fn();
+    await render(
+      <BookCard book={card(EXAMPLES.inStock())} onAddToCart={onAddToCart} onOpen={onOpen} />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: /to cart$/ }));
+
+    expect(onAddToCart).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('is no link without onOpen', async () => {
+    await render(<BookCard book={card(EXAMPLES.inStock())} />);
+
+    expect(screen.queryByRole('link')).not.toBeOnTheScreen();
+  });
+});

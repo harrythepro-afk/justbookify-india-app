@@ -22,6 +22,7 @@ void Switch;
 
 let mockParams: { handle?: string | string[] } = { handle: 'junior-readers' };
 let mockHeaderTitle: string | undefined;
+const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
   Stack: {
@@ -32,6 +33,8 @@ jest.mock('expo-router', () => ({
   },
   useLocalSearchParams: () => mockParams,
   useFocusEffect: () => undefined,
+  // A book card opens its page through the router (P6-05).
+  router: { push: (href: unknown) => mockPush(href) },
 }));
 
 jest.mock('@/crashReporting/sentry', () => ({
@@ -114,6 +117,7 @@ beforeEach(() => {
   mockHeaderTitle = undefined;
   mockFetchPage.mockReset().mockImplementation(async (options) => juniorPage(options));
   mockRecheckNetwork.mockClear();
+  mockPush.mockReset();
 });
 
 afterEach(async () => {
@@ -311,6 +315,17 @@ it('says something went wrong, and "Try again" reloads', async () => {
   expect(mockRecheckNetwork.mock.invocationCallOrder[0]).toBeLessThan(
     mockFetchPage.mock.invocationCallOrder[1] ?? 0,
   );
+});
+
+it('opens the book page when a card is tapped (P6-05)', async () => {
+  await renderScreen();
+
+  await fireEvent.press(screen.getByTestId('book-card-open-junior-3'));
+
+  expect(mockPush).toHaveBeenCalledWith({
+    pathname: '/book/[handle]',
+    params: { handle: 'junior-3' },
+  });
 });
 
 it("leaves room for Android's navigation bar below the last row", async () => {

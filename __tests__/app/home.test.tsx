@@ -43,6 +43,8 @@ jest.mock('@/featureFlags/session', () => ({
 
 // A link's target is put in its accessibility hint, so tests can read where it leads.
 type MockHref = string | { pathname: string; params: { handle: string } };
+// A book card opens its page through the router (P6-05).
+const mockPush = jest.fn();
 jest.mock('expo-router', () => {
   const { cloneElement } = jest.requireActual<typeof import('react')>('react');
   const { Text } = jest.requireActual('react-native');
@@ -66,6 +68,7 @@ jest.mock('expo-router', () => {
         <Text accessibilityHint={target(href)}>{children}</Text>
       ),
     useFocusEffect: () => undefined,
+    router: { push: (href: MockHref) => mockPush(href) },
   };
 });
 
@@ -154,14 +157,17 @@ async function renderHome() {
   await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
 }
 
+/** Where Home's collection links lead. Book cards, which open book pages, are left out. */
 function linkTargets(): string[] {
   return screen
     .getAllByRole('link')
+    .filter((link) => !String(link.props.testID ?? '').startsWith('book-card-open-'))
     .map((link) => (link.props as { accessibilityHint?: string }).accessibilityHint ?? '');
 }
 
 beforeEach(() => {
   client = createTestQueryClient();
+  mockPush.mockReset();
   mockAppEnv = 'development';
   mockCrashReportingOn = true;
   mockFlagState = { status: 'not ready' };
@@ -237,6 +243,17 @@ describe('HomeScreen (P6-03)', () => {
     expect(screen.getByRole('link', { name: 'See all new arrivals' }).props.accessibilityHint).toBe(
       '/collection/new-arrivals',
     );
+  });
+
+  it('opens the book page of a new arrival when its card is tapped (P6-05)', async () => {
+    await renderHome();
+
+    fireEvent.press(screen.getByTestId('book-card-open-new-3'));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/book/[handle]',
+      params: { handle: 'new-3' },
+    });
   });
 
   it('shows no cart or notify-me button until they are wired (D-081)', async () => {

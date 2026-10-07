@@ -1,6 +1,6 @@
-# Next task (proposal): P6-05, the book page
+# Next task (proposal): P6-06, search
 
-Status: proposal. P6-04 (Browse, "Books for Rent") is on branch `p6-04-browse`; see `CURRENT_STATUS.md`. P6-05 starts when the owner starts it.
+Status: proposal. P6-05 (the book page) is on branch `p6-05-book-page`; see `CURRENT_STATUS.md`. P6-06 starts when the owner starts it.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -17,39 +17,38 @@ Status: proposal. P6-04 (Browse, "Books for Rent") is on branch `p6-04-browse`; 
 | P6-01 (done, e378fa6) | The development store's sample catalogue (40 real books loaded by the architect) recorded in `SHOPIFY_INTEGRATION.md` and `TESTING.md`; `npm run check:dev-store` asserts it over the Storefront API; `filters` probed | D-068 to D-071 |
 | P6-02 (done, fa4c6c9) | Catalogue operations and hooks (`useCollectionBooks`, `useBookCard`), the `toBookCard` mapping, the book card, a development-only preview; `expo-image` and the Expo SDK 57 patch releases in one build (3c8bf273) | D-072 to D-074 |
 | P6-03 (done, f9c3212) | The Home screen and the collection screen: Home content in configuration, only collections that exist, a square white cover frame, offline and error states, stale-only focus refetch, no dead card buttons, recovery from a false "offline" | D-075 to D-082 |
-| P6-04 (branch `p6-04-browse`, PR open) | Browse: all books through the root `products` query, Age group and Series one at a time, "Available now" on by default (also on the collection screen), the website's sorts, lists that close on back and outside taps; the preview kept until Phase 8 | D-083 to D-089 |
-| P6-05 (proposed) | The book page | |
-| Later in Phase 6 | Search; the Genre filter (after the architect mirrors the live filters); the longer series list; the offline question, revisited in the last Phase 6 task (D-087) | |
+| P6-04 (done, a57774a) | Browse: all books through the root `products` query, Age group and Series one at a time, "Available now" on by default (also on the collection screen), the website's sorts, lists that close on back and outside taps; the preview kept until Phase 8 | D-083 to D-089 |
+| P6-05 (branch `p6-05-book-page`, PR open) | The book page from every card: cover, author, title, the sentence for a rented-out book only, prices with the "Rent" or "Rented Out" badge, the description as native text from untrusted HTML, genre chips; no rating (Phase 13); `liveStock`; a description sample in the preview | D-090 to D-094 |
+| P6-06 (proposed) | Search | |
+| Later in Phase 6 | The Genre filter (after the architect mirrors the live filters); the longer series list; the offline question, revisited in the last Phase 6 task (D-087) | |
 
-## Goal of P6-05
+## Goal of P6-06
 
-Tapping a book card opens its book page, so the cards on Home, Browse and the collection screen lead somewhere: cover, title, author, prices, availability, and the details the store records (`SHOPIFY_INTEGRATION.md`, "Product data the app reads"), following `PRODUCT_REQUIREMENTS.md` ("Screen layouts") and the live book page (D-037).
+A customer finds a book by title, author or series (`PRODUCT_REQUIREMENTS.md`: "Search with suggestions as you type"; "Search sits under Browse"; Home's header has a search button). Results use the book card and open the book page (P6-05).
 
 ## Proposed scope
 
-1. A stack screen by product handle, with the bottom inset (D-080), reading one book through a new typed operation and hook.
-2. Details from the metafields the app may read: genre labels, language, binding (`shopify.book-cover-type`), publisher, pages when present. **Never the ISBN** (damaged on the live store).
-3. Ratings from `reviews.rating` and `reviews.rating_count`, handling a rating without a count and a malformed rating (D-071).
-4. Availability: a book orderable at zero stock must never show an unavailable message (R8, D-073), unlike the live page.
-5. No "Add to Cart" or "Notify me" until Phase 8 and the notify-me task (D-081).
-6. Cards on Home, Browse and the collection screen open the page.
-7. Phone check on build 3c8bf273 if nothing native changes, with the standing step.
+1. A search screen opened from Home's header and from Browse, with a text field, suggestions while typing and a results grid of book cards (`BookGrid`, "Load more").
+2. Typed Storefront operations: `predictiveSearch` for suggestions and `search` (or the root `products` query) for results, checked against the saved `2026-10` schema and Shopify's documentation before building, with the version recorded.
+3. The query text is never logged, cached under a personal key or sent to analytics (`search` event: `term_length` and `result_count` only, if the owner wants it wired now).
+4. Offline, error and empty states as on the other catalogue screens (D-078, D-082).
+5. Phone check on build 3c8bf273 if nothing native changes, with the standing step.
 
 ## Questions for the owner and the architect
 
-1. Which details, in which order, and with which labels (the live page's wording)?
-2. Description: show Shopify's description as plain text, and how long?
-3. Ratings: stars and count, as on the live page, or the value only? What shows with a rating but no count?
-4. More than one image per book: show all, or the cover only?
-5. A book page for a product that no longer exists: wording ("This book is not available."?).
+1. What does the live website's search show: suggestions while typing (books only, or also collections and authors), and what does its results page show and in which order (architect, view only)?
+2. Does "Available now" apply to search results, on by default as on Browse?
+3. From how many letters do suggestions start, and how many show?
+4. Wording for no results.
+5. Wire the `search` analytics event now (consent is still required, D-048), or with the other catalogue events?
 
 ## Out of scope
 
+- The Genre filter and the longer series list (later Phase 6 tasks).
 - Cart and notify-me actions (Phase 8 and later).
-- Search and the Genre filter (later Phase 6 tasks).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P6-04)
+## Follow-ups (recorded, not part of P6-05)
 
 - **Release gate: analytics consent (from P4-04):** no build goes to any tester other than the owner until all of these hold (`TESTING.md`; D-048):
   - the consent request is built (Phase 7, at the placement the owner chooses between the two in D-048) and works;
@@ -89,9 +88,12 @@ Tapping a book card opens its book page, so the cards on Home, Browse and the co
 - **Phone checks in Phase 6:** use the named example books in `TESTING.md` ("Sample catalogue (P6-01)").
 - **From the live website (architect, view only, 7 October 2026; `SHOPIFY_AUDIT.md`), not built yet:**
   - **Genre filter:** the live store has Genre, tag and Service City filters configured; the development store has only Availability and Price. The architect mirrors the filter setup in the development store before the Genre filter task.
-  - **Book page:** it must not show an unavailable message for a book that can be ordered at zero stock (R8, D-073). The live book page does show one ("Currently not available as another junior reader is enjoying this book."); the owner knows.
-  - **Ratings:** the book page task reads `reviews.rating` and `reviews.rating_count`, handling a rating without a count and a malformed rating (D-071). The card shows none (D-073).
+  - **Book page:** done in P6-05: the app shows the website's sentence only for a book that cannot be ordered (D-090).
+  - **Ratings:** not on the book page (D-092). Phase 13 (reviews) reads `reviews.rating` and `reviews.rating_count`, handling a rating without a count and a malformed rating (D-071).
   - **Website cards** show no author and no stars; the app's card keeps the author (D-073).
-- **Book card preview** (D-074, D-088): kept until Phase 8, when customer screens draw the card's buttons.
+- **Book card preview** (D-074, D-088): kept until Phase 8, when customer screens draw the card's buttons. Since P6-05 it also holds the book page links and the description sample (D-094).
+- **Development store descriptions (architect, from P6-05's phone check):** all 42 are a single `<p>` with no `<br>` or `<strong>`, so their headings and bullets run together on the book page. Re-import them with the live markup if the development store's book pages should look like the live ones.
+- **Analytics events for catalogue screens (P6-05):** `view_collection` and `view_book` (`ANALYTICS.md`) are not wired; screen views are (D-053). Wire them in one task, with the owner's choice of timing.
+- **Book page in a release build:** the description and the full-width cover are checked on the development build only; include a long real description in the release-build list check (`TESTING.md`, "Release gate: list performance").
 - **Bottom inset:** Browse is a tab screen, so its tab bar already takes the inset, as on Home; any new stack screen adds it (D-080).
 - **Cold test start (P6-03, owner to decide):** with Jest's cache off, the first render in `account.test.tsx`, `tabs.test.tsx` and `BookCard.test.tsx` still takes 2.4 to 4.1 s (under the 5-second limit). A public-import touch does not move it (`CURRENT_STATUS.md`); no deep import is used without the owner's yes.

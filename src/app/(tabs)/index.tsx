@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAnalyticsConsent } from '@/analytics/consent';
 import { BookCard } from '@/components/BookCard';
+import { openBook } from '@/components/openBook';
 import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
 import { AgeChip, SeriesTile } from '@/components/CollectionLinks';
 import { NoDataState, OfflineNotice } from '@/components/ScreenMessage';
@@ -216,7 +217,7 @@ function NewArrivals({
       <View style={styles.grid}>
         {first.books.slice(0, count).map((book) => (
           <View key={book.id} style={styles.cell}>
-            <BookCard book={book} />
+            <BookCard book={book} onOpen={openBook} />
           </View>
         ))}
       </View>

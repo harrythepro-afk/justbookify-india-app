@@ -57,6 +57,10 @@ export const colors = {
   tile: palette.lightCream,
   tileBorder: palette.cream,
   onTile: palette.maroon,
+  /** A genre on the book page: a label, not a button, so it looks like a series tile (P6-05). */
+  genreChip: palette.lightCream,
+  genreChipBorder: palette.cream,
+  onGenreChip: palette.maroon,
   /** The outline of an age chip on the page background; its text is `link`. */
   chipBorder: palette.darkMaroon,
   /** The thin offline notice over saved books (D-078). */
@@ -91,6 +95,7 @@ export const textPairs: readonly { text: ColorRole; background: ColorRole }[] = 
   { text: 'onBanner', background: 'banner' },
   { text: 'onHero', background: 'hero' },
   { text: 'onTile', background: 'tile' },
+  { text: 'onGenreChip', background: 'genreChip' },
   { text: 'onNotice', background: 'notice' },
   { text: 'text', background: 'coverFallback' },
 ];
@@ -114,6 +119,11 @@ export const fontSize = {
   heading: Math.round(24 * HEADING_SCALE),
 } as const;
 
+/** Line heights for running text, such as a book's description (P6-05). */
+export const lineHeight = {
+  body: 24,
+} as const;
+
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -131,6 +141,14 @@ export const iconSize = {
   tab: 24,
   /** The book icon in a cover frame with no image. */
   coverFallback: 40,
+  /** The same on the book page's full-width cover (P6-05). */
+  pageCoverFallback: 72,
+} as const;
+
+/** Extra space between letters, in points. */
+export const letterSpacing = {
+  /** The author on the book page, in small capitals as on the website (P6-05). */
+  caps: 1,
 } as const;
 
 /** The smallest touch target, in points (WCAG 2.5.5 and both platforms' guidelines). */

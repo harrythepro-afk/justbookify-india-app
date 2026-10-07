@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BookCard } from '@/components/BookCard';
+import { openBook } from '@/components/openBook';
 import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
 import {
   ERROR_MESSAGE,
@@ -20,7 +21,8 @@ import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/them
  * A list of books in two columns with "Load more" (P6-03, D-080), shared by Browse and the
  * collection screen (P6-04), with the states of D-078: loading, offline or error with "Try
  * again" while there is nothing to show, and the offline notice over saved books. Every "Try
- * again", and "Load more" after a failed page, re-reads the network first (D-082).
+ * again", and "Load more" after a failed page, re-reads the network first (D-082). A card opens
+ * its book page (P6-05).
  */
 export function BookGrid({
   books,
@@ -107,7 +109,7 @@ function bookKey(book: BookCardData): string {
 function renderBook({ item }: { readonly item: BookCardData }) {
   return (
     <View style={styles.cell}>
-      <BookCard book={item} />
+      <BookCard book={item} onOpen={openBook} />
     </View>
   );
 }

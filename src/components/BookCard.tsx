@@ -1,22 +1,19 @@
-import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { Image } from 'expo-image';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { BookCard as BookCardData } from '@/shopify/hooks/catalogue';
-import {
-  colors,
-  coverAspectRatio,
-  fonts,
-  fontSize,
-  iconSize,
-  minTouchTarget,
-  radius,
-  spacing,
-} from '@/theme/tokens';
+import { colors, fonts, fontSize, iconSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
+
+import { BookCover } from './BookCover';
 
 type Props = {
   readonly book: BookCardData;
+  /**
+   * Called with the book when the card's cover, title, author or prices are tapped: the book
+   * page opens (P6-05). Without it, that part of the card is not a link. Pass a stable function,
+   * so the memoised card does not redraw.
+   */
+  readonly onOpen?: (book: BookCardData) => void;
   /**
    * Called with the book when "Add to Cart" is tapped. The cart wires it (Phase 8). Without it,
    * the button is not drawn: no customer screen shows a button that does nothing (D-081).
@@ -44,51 +41,48 @@ export function bookCardSummary(book: BookCardData): string {
  * D-073): cover, title on one line, author, the rental price in bold with the retail price struck
  * through, and "Add to Cart". A book that cannot be ordered has a "Rented Out" badge on its cover
  * and "Notify me" instead. A book orderable at zero stock looks exactly like one in stock. A
- * button is drawn only when its action is passed (D-081). Memoised: a long list re-renders a card
- * only when its book or actions change (P6-03 phone check, slow-list warning).
+ * button is drawn only when its action is passed (D-081). With `onOpen`, the cover, title, author
+ * and prices are one link to the book page (P6-05). Memoised: a long list re-renders a card only
+ * when its book or actions change (P6-03 phone check, slow-list warning).
  */
-export const BookCard = memo(function BookCard({ book, onAddToCart, onNotifyMe }: Props) {
+export const BookCard = memo(function BookCard({ book, onOpen, onAddToCart, onNotifyMe }: Props) {
+  const summary = (
+    <>
+      <BookCover book={book} iconSize={iconSize.coverFallback} testID="book-card-cover">
+        {!book.orderable && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>Rented Out</Text>
+          </View>
+        )}
+      </BookCover>
+      <Text numberOfLines={1} style={styles.title}>
+        {book.title}
+      </Text>
+      <Text numberOfLines={1} style={styles.author}>
+        {book.author}
+      </Text>
+      <View style={styles.prices}>
+        <Text style={styles.price}>{book.price}</Text>
+        {book.retailPrice !== null && <Text style={styles.retailPrice}>{book.retailPrice}</Text>}
+      </View>
+    </>
+  );
   return (
     <View style={styles.card}>
-      <View accessible accessibilityLabel={bookCardSummary(book)}>
-        <View style={styles.coverFrame}>
-          {book.cover === null ? (
-            <View
-              accessibilityLabel={book.title}
-              style={styles.coverFallback}
-              testID="book-card-cover-fallback"
-            >
-              <Ionicons color={colors.text} name="book-outline" size={iconSize.coverFallback} />
-            </View>
-          ) : (
-            <Image
-              accessibilityLabel={book.cover.altText ?? book.title}
-              cachePolicy="memory-disk"
-              contentFit="contain"
-              recyclingKey={book.id}
-              source={{ uri: book.cover.url }}
-              style={StyleSheet.absoluteFill}
-              testID="book-card-cover"
-              transition={150}
-            />
-          )}
-          {!book.orderable && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>Rented Out</Text>
-            </View>
-          )}
+      {onOpen === undefined ? (
+        <View accessible accessibilityLabel={bookCardSummary(book)}>
+          {summary}
         </View>
-        <Text numberOfLines={1} style={styles.title}>
-          {book.title}
-        </Text>
-        <Text numberOfLines={1} style={styles.author}>
-          {book.author}
-        </Text>
-        <View style={styles.prices}>
-          <Text style={styles.price}>{book.price}</Text>
-          {book.retailPrice !== null && <Text style={styles.retailPrice}>{book.retailPrice}</Text>}
-        </View>
-      </View>
+      ) : (
+        <Pressable
+          accessibilityLabel={bookCardSummary(book)}
+          accessibilityRole="link"
+          onPress={() => onOpen(book)}
+          testID={`book-card-open-${book.handle}`}
+        >
+          {summary}
+        </Pressable>
+      )}
       {book.orderable
         ? onAddToCart !== undefined && (
             <Pressable
@@ -116,18 +110,6 @@ export const BookCard = memo(function BookCard({ book, onAddToCart, onNotifyMe }
 
 const styles = StyleSheet.create({
   card: { flex: 1, backgroundColor: colors.background },
-  coverFrame: {
-    aspectRatio: coverAspectRatio,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-    backgroundColor: colors.coverFrame,
-  },
-  coverFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.coverFallback,
-  },
   badge: {
     position: 'absolute',
     top: spacing.sm,

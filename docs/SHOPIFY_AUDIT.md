@@ -103,6 +103,15 @@ Recorded in P6-04 from the architect's reading of the website's "Books for Rent"
 - **Sort options**, in the website's order and wording: Featured; Most relevant; Best selling; Alphabetically, A-Z; Alphabetically, Z-A; Price, low to high; Price, high to low; Date, old to new; Date, new to old. The app leaves out "Most relevant" and offers "Featured" only inside a group (D-085).
 - **Filters offered:** Availability, Price, Genre, "More filters" (tags) and Service City. The app has Age group, Series and "Available now" in P6-04; Genre waits for its own task.
 
+### Live book page, architect's view (8 October 2026, view only)
+
+Recorded in P6-05 from the architect's reading of the live page of `harry-potter-and-the-half-blood-prince-book-6`. Nothing on the live store was changed or read through an API. The app's book page follows it, with the differences in D-090 to D-092.
+
+- **In order:** the author in small capitals; the title; the sentence "Currently not available as another junior reader is enjoying this book."; the retail price struck through and the rental price with a green "Rent" badge; "Shipping calculated at checkout."; "Add to Cart" and "Buy it now"; the description; then "Genre:" with one chip per genre.
+- **One image.** No rating, no review section, and no language, publisher, pages, binding or ISBN.
+- **The description** is about 750 characters of HTML using `p`, `strong`, `br` and `span`: bold headings ("Perfect for readers, who:", "Why You'll Love It:"), bullet lines starting with "•", and lines starting with the emoji ✅ and ❌.
+- **The app differs** (owner and architect, P6-05): it leaves out "Shipping calculated at checkout." and, until Phase 8, the buttons (D-081); it shows the sentence only for a book that cannot be ordered, and the "Rent" badge for a book orderable at zero stock (R8, D-073); it puts a "Rented Out" badge in the price row for a rented-out book (D-090).
+
 ## Orders and rentals
 
 - A rental is an order. Staff mark delivery as a fulfilment and pickup as a return. About 2,930 orders are fulfilled and 2,330 are returned.

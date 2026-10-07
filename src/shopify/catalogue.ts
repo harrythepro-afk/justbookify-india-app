@@ -2,18 +2,22 @@
  * Catalogue reads for the book card (P6-02): a collection's books, page by page, by handle
  * (D-068), and one book by handle for the development preview; and for Home (P6-03), the handles
  * of every published collection; and for Browse (P6-04), all books, page by page, through the root
- * `products` query (D-083), and a collection's books with "Available now" and a sort. All go through the Storefront client (D-056), are typed by code
- * generation (D-054) and select no personal field and no rating (the card shows none, D-073).
+ * `products` query (D-083), and a collection's books with "Available now" and a sort; and for the
+ * book page (P6-05), one book with its description and genres. All go through the Storefront
+ * client (D-056), are typed by code generation (D-054) and select no personal field and no
+ * rating (D-073, D-092).
  *
- * The three book operations select the same product fields. They cannot share a fragment, because
- * an operation holds no `${}` interpolation (D-054); `toBookCard` takes the CollectionBooks product
- * type, so the type check fails if BookCardByHandle or AllBooks stops matching it.
+ * The four book operations select the same product fields (BookPage adds its own). They cannot
+ * share a fragment, because an operation holds no `${}` interpolation (D-054); `toBookCard` takes
+ * the CollectionBooks product type, so the type check fails if BookCardByHandle, AllBooks or
+ * BookPage stops matching it.
  */
 
 import { reportUnexpectedDataError } from '@/crashReporting/sentry';
 import { getStoreConfig, type BookSort } from '@/config';
 
 import { toBookCard, type BookCard, type BookCardProduct } from './bookCard';
+import { toBookPage, type BookPage } from './bookPage';
 import { storefrontQuery } from './client';
 import type { CollectionHandlesQuery } from './generated/storefront.generated';
 import { allBooksSort, collectionSort } from './sort';
@@ -163,6 +167,57 @@ query BookCardByHandle($handle: String!, $country: CountryCode, $language: Langu
   }
 }` as const;
 
+/**
+ * One book's page (P6-05, D-090): the card's fields, a larger cover, the description as HTML
+ * (shown as native text, D-091) and the genre labels. The genre metafield holds `shopify--genre`
+ * metaobjects, whose `label` field is the name the website shows. No rating (D-092), and no
+ * language, publisher, pages, binding or ISBN (owner, answer 1).
+ */
+export const BOOK_PAGE_QUERY = `#graphql
+query BookPage($handle: String!, $country: CountryCode, $language: LanguageCode)
+@inContext(country: $country, language: $language) {
+  product(handle: $handle) {
+    id
+    handle
+    title
+    vendor
+    descriptionHtml
+    featuredImage {
+      url(transform: { maxWidth: 1200 })
+      width
+      height
+      altText
+    }
+    variants(first: 1) {
+      nodes {
+        id
+        availableForSale
+        currentlyNotInStock
+        price {
+          amount
+          currencyCode
+        }
+        compareAtPrice {
+          amount
+          currencyCode
+        }
+      }
+    }
+    genre: metafield(namespace: "shopify", key: "genre") {
+      references(first: 10) {
+        nodes {
+          ... on Metaobject {
+            type
+            label: field(key: "label") {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+}` as const;
+
 /** The largest page Shopify allows. One page is expected; the loop follows `pageInfo` anyway. */
 const COLLECTION_HANDLES_PAGE_SIZE = 250;
 
@@ -222,11 +277,14 @@ let reportedBookWithoutVariant = false;
 function cardOrNothing(product: BookCardProduct): BookCard[] {
   const card = toBookCard(product, getStoreConfig());
   if (card !== null) return [card];
-  if (!reportedBookWithoutVariant) {
-    reportedBookWithoutVariant = true;
-    reportUnexpectedDataError(BOOK_WITHOUT_VARIANT);
-  }
+  reportBookWithoutVariant();
   return [];
+}
+
+function reportBookWithoutVariant(): void {
+  if (reportedBookWithoutVariant) return;
+  reportedBookWithoutVariant = true;
+  reportUnexpectedDataError(BOOK_WITHOUT_VARIANT);
 }
 
 /** For tests: lets the once-per-session report fire again. */
@@ -327,4 +385,24 @@ export async function fetchBookCard(options: {
   const product = data.product;
   if (product === null || product === undefined) return null;
   return cardOrNothing(product)[0] ?? null;
+}
+
+/**
+ * One book's page, by handle (P6-05), or null when no such book is published to the app's
+ * channel. A book without a variant is a data fault: reported once per session, like the card,
+ * and shown as not available.
+ */
+export async function fetchBook(options: {
+  readonly handle: string;
+  readonly signal?: AbortSignal;
+}): Promise<BookPage | null> {
+  const data = await storefrontQuery(BOOK_PAGE_QUERY, {
+    variables: { handle: options.handle },
+    signal: options.signal,
+  });
+  const product = data.product;
+  if (product === null || product === undefined) return null;
+  const page = toBookPage(product, getStoreConfig());
+  if (page === null) reportBookWithoutVariant();
+  return page;
 }

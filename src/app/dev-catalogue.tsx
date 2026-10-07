@@ -1,12 +1,16 @@
 import { Redirect } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookCard } from '@/components/BookCard';
+import { openBook } from '@/components/openBook';
+import { RichText } from '@/components/RichText';
 import {
   DEV_CATALOGUE_COLLECTION,
   DEV_CATALOGUE_EXAMPLES,
+  DEV_DESCRIPTION_SAMPLE_HTML,
+  DEV_MISSING_BOOK_HANDLE,
   getAppEnvironment,
   getStoreConfigStatus,
   type DevCatalogueExample,
@@ -14,6 +18,7 @@ import {
 import { StorefrontError } from '@/shopify/errors';
 import {
   CatalogueDataError,
+  parseDescriptionHtml,
   useBookCard,
   useCollectionBooks,
   type BookCard as BookCardData,
@@ -28,6 +33,7 @@ function errorMessage(error: unknown): string {
 }
 
 type CardActions = {
+  readonly onOpen: (book: BookCardData) => void;
   readonly onAddToCart: (book: BookCardData) => void;
   readonly onNotifyMe: (book: BookCardData) => void;
 };
@@ -35,7 +41,9 @@ type CardActions = {
 /**
  * Development-only preview of the book card (P6-02, D-074): the development store's named
  * example books, and one collection paged through the catalogue hook. Any other build is sent
- * back to the start screen. The buttons only change the status line.
+ * back to the start screen. The buttons only change the status line. Cards open their book pages;
+ * the "Book page" section opens a missing book and shows a description shaped like the live
+ * store's (P6-05, D-094).
  */
 export default function DevCatalogueScreen() {
   if (getAppEnvironment() !== 'development') return <Redirect href="/" />;
@@ -47,6 +55,7 @@ function DevCatalogue() {
   const [status, setStatus] = useState('No button tapped yet.');
   const configured = getStoreConfigStatus() === 'configured';
   const actions: CardActions = {
+    onOpen: openBook,
     onAddToCart: (book) => setStatus(`Add to Cart tapped: ${book.title}`),
     onNotifyMe: (book) => setStatus(`Notify me tapped: ${book.title}`),
   };
@@ -69,6 +78,7 @@ function DevCatalogue() {
         <Text style={styles.status}>Store configuration: not configured</Text>
       ) : (
         <>
+          <BookPagePreview />
           <Text accessibilityRole="header" style={styles.section}>
             Named examples
           </Text>
@@ -81,6 +91,26 @@ function DevCatalogue() {
         </>
       )}
     </ScrollView>
+  );
+}
+
+function BookPagePreview() {
+  const sample = useMemo(() => parseDescriptionHtml(DEV_DESCRIPTION_SAMPLE_HTML), []);
+  return (
+    <>
+      <Text accessibilityRole="header" style={styles.section}>
+        Book page
+      </Text>
+      <Pressable
+        accessibilityRole="link"
+        onPress={() => openBook({ handle: DEV_MISSING_BOOK_HANDLE })}
+        style={styles.loadMore}
+      >
+        <Text style={styles.loadMoreText}>Open a missing book</Text>
+      </Pressable>
+      <Text style={[styles.caption, styles.sampleCaption]}>Description sample</Text>
+      <RichText blocks={sample} testID="dev-description-sample" />
+    </>
   );
 }
 
@@ -193,6 +223,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.xs,
   },
+  sampleCaption: { marginTop: spacing.lg },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.sm },
   cell: { width: '50%', padding: spacing.sm },
   loadMore: {
