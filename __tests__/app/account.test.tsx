@@ -1,9 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { ScrollView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { AnalyticsConsentState } from '@/analytics/consent';
 import AccountScreen from '@/app/(tabs)/account';
+
+// React Native loads ScrollView's module tree on first access, which takes several seconds on a
+// cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
+void ScrollView;
 
 let mockConsent: AnalyticsConsentState = { consent: 'not asked', busy: false, saveFailed: false };
 const mockGrant = jest.fn();

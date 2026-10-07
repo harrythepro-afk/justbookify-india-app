@@ -1,6 +1,6 @@
 # Next task (proposal): P6-03, the Home screen
 
-Status: proposal. P6-02 (catalogue data hooks and the book card) is on branch `p6-02-book-card`, PR #15, awaiting review: local checks, the APK permission check and the phone check passed (`CURRENT_STATUS.md`). P6-03 starts when the owner starts it.
+Status: in progress on branch `p6-03-home`, started by the owner on 7 October 2026 with the answers below. P6-02 (catalogue data hooks and the book card) is merged as `fa4c6c9` (PR #15).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -15,8 +15,8 @@ Status: proposal. P6-02 (catalogue data hooks and the book card) is on branch `p
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P6-01 (done, e378fa6) | The development store's sample catalogue (40 real books loaded by the architect) recorded in `SHOPIFY_INTEGRATION.md` and `TESTING.md`; `npm run check:dev-store` asserts it over the Storefront API; `filters` probed | D-068 to D-071 |
-| P6-02 (PR #15, awaiting review) | Catalogue operations and hooks (`useCollectionBooks`, `useBookCard`), the `toBookCard` mapping, the book card, a development-only preview; `expo-image` and the Expo SDK 57 patch releases in one build (3c8bf273) | D-072 to D-074 |
-| P6-03 (proposed) | The Home screen | Records for the Home handles and the offline message |
+| P6-02 (done, fa4c6c9) | Catalogue operations and hooks (`useCollectionBooks`, `useBookCard`), the `toBookCard` mapping, the book card, a development-only preview; `expo-image` and the Expo SDK 57 patch releases in one build (3c8bf273) | D-072 to D-074 |
+| P6-03 (in progress) | The Home screen | Records for the Home handles and the offline message |
 
 ## Goal of P6-03
 

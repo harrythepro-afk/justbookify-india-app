@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { ScrollView } from 'react-native';
 
 import DevCatalogueScreen from '@/app/dev-catalogue';
 import { DEV_CATALOGUE_EXAMPLES } from '@/config/devCatalogue';
@@ -14,6 +15,10 @@ import {
   tearDownQueryClient,
   withQueryClient,
 } from '../helpers/queryClient';
+
+// React Native loads ScrollView's module tree on first access, which takes several seconds on a
+// cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
+void ScrollView;
 
 let mockAppEnv = 'development';
 let mockStoreStatus: StoreConfigStatus = 'configured';

@@ -1,4 +1,5 @@
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { ScrollView } from 'react-native';
 
 import RootLayout from '@/app/_layout';
 import TabLayout from '@/app/(tabs)/_layout';
@@ -7,6 +8,10 @@ import BrowseScreen from '@/app/(tabs)/browse';
 import CartScreen from '@/app/(tabs)/cart';
 import HomeScreen from '@/app/(tabs)/index';
 import MyBooksScreen from '@/app/(tabs)/my-books';
+
+// React Native loads ScrollView's module tree on first access, which takes several seconds on a
+// cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
+void ScrollView;
 
 let mockAppEnv = 'development';
 
