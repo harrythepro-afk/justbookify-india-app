@@ -30,7 +30,7 @@ Values in R2, R3 and R4 are read from configuration, because the store owner can
 | Home | Series, authors, age groups and new arrivals |
 | Browse | Filter by age group, genre, series, availability and price; sort |
 | Search | Search with suggestions as you type |
-| Book page | Cover, rental price beside retail price, author, genre, star rating |
+| Book page | Cover, rental price beside retail price, author, genre, description (rating with reviews in Phase 13, D-092) |
 | Reviews | Read reviews; write one after renting the book |
 | Recommendations | A short quiz on age and genres, and "more like this" on book pages |
 | Cart | The order cap, the free-delivery hint and a pincode check, all before checkout |
@@ -54,7 +54,7 @@ Not planned: children's profiles with names or birth dates, advertising trackers
 | Home | Sees series, authors, age groups and new arrivals | No |
 | Browse | Filters and sorts the catalogue | No |
 | Search | Finds a book by title, author or series | No |
-| Book detail | Reads about a book, sees price and rating, adds it to the cart | No |
+| Book detail | Reads about a book, sees its price, adds it to the cart (rating with reviews in Phase 13, D-092) | No |
 | Reviews | Reads reviews for a book | No |
 | Recommendation quiz | Answers a few questions and gets a book list | No |
 | Cart | Reviews the selection, sees fees and the cap, enters a pincode | No |
@@ -84,6 +84,7 @@ Approved by the owner on 3 October 2026 as the target for later phases (D-037).
 - **Navigation:** five tabs, each with an icon and a label: Home, Browse, Cart, My Books, Account. Search sits under Browse. My Books holds books at home, orders and returns, and asks for login when the customer is signed out. Account holds profile, addresses, notification settings and help.
 - **Home:** header with the store name and a search button. A banner with a short headline, one line of text and a "Books for Rent" button. A "Popular series" row. A "Browse by age" row of chips. A "New arrivals" grid of book cards. It mirrors the website's home page.
 - **Book card, used everywhere:** cover image, title on one line, author, rental price in bold with the retail price struck through beside it, and an "Add to Cart" button. A book that cannot be ordered shows a "Rented Out" badge on the cover and a "Notify me" button instead.
+- **Book page** (P6-05, D-090): in the live page's order, the cover, the author in small capitals, the title, the website's sentence "Currently not available as another junior reader is enjoying this book." for a rented-out book only, the retail price struck through and the rental price with a green "Rent" badge ("Rented Out" when the book cannot be ordered), the full description as native text (D-091), and "Genre" with one chip per genre. A book orderable at zero stock has the "Rent" badge and never the sentence. No rating (Phase 13), no other details, and no cart or notify-me button until Phase 8 (D-081).
 - **Browse, titled "Books for Rent":** three filter buttons (Age group, Genre, Series), an "Available now" toggle, a sort control, and a two-column grid of book cards. P6-04 builds Age group and Series, one group at a time, "Available now" on by default and the website's sorts; the Genre button comes with the Genre filter task (D-083 to D-086).
 - **My Books:** three segments (At home, Orders, Returns). At home shows a summary card with the number of books and the due date, the line "We collect these when your next order arrives.", a list of the books with their delivery date, a "Request return pickup" button and a "Choose your next books" link.
 

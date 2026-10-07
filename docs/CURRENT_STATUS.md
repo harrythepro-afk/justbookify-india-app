@@ -328,6 +328,17 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
   - **Interruption:** at 00:55, before the tap on "Harry Potter", the focus check found another app in front (a phone-call icon had appeared in the status bar): no input was sent, the screenshot taken in the same command was deleted unviewed, and the check stopped. The owner brought JustBookify back to Browse; the check resumed at step 5 after a new focus check. The app's tools recorded the interruption as background 00:56:23 to 00:56:45, online throughout. Do Not Disturb did not stop the call; the owner may check its call setting.
   - **adb commands:** `devices`; `reverse tcp:8081 tcp:8081` and `reverse --remove tcp:8081`; `monkey` to launch (twice: start, and the return after the background step); the focus check before every input; `input tap`; `input swipe`; `input keyevent KEYCODE_BACK` twice (step 7, and once to leave the preview for Home's tools in step 10); `exec-out screencap` (JustBookify only, all deleted afterwards); `logcat -d --pid=` filtered to the app. **One command outside the permission:** `shell wm size` (read-only, the screen size) at the start; recorded, not repeated. The Expo CLI's `node` process kept port 8081 after Metro stopped and was stopped by its process ID.
 
+- P6-05 (branch `p6-05-book-page`), 8 October 2026: the book page.
+  - Housekeeping (first commit): P6-04 recorded as merged (`a57774a`, PR #17).
+  - Live book page recorded in `SHOPIFY_AUDIT.md` (architect, 8 October 2026, view only, `harry-potter-and-the-half-blood-prince-book-6`): the order, one image, no rating or other details, and the description's HTML shape.
+  - Data layer: the `BookPage` operation (the card's fields, a 1200-pixel cover, `descriptionHtml`, the `shopify.genre` labels; no other metafield, no rating), `toBookPage`, `fetchBook` and `useBook` with the `liveStock` preset (D-093). `parseDescriptionHtml` turns the untrusted description HTML into native text blocks with a small iterative tokenizer, no package and no web view (D-091).
+  - Screen: `src/app/book/[handle].tsx` in the live page's order, the sentence for a rented-out book only, the "Rent" or "Rented Out" badge in the price row, the description, genre chips, no rating or buttons (D-090, D-092); "This book is not available." for a missing book. `BookCover` is shared with the card; `BookCard` takes `onOpen`, and Home, Browse, the collection screen and the preview open the page (D-093).
+  - Development preview: "Open a missing book" and a description sample shaped like the live one (D-094).
+  - `npm run check:dev-store` also reads the named book the way the page does: 2 genre labels, a 1-block plain description, and null for `no-such-book-p6-05` (8 October 2026).
+  - Ratings move to Phase 13 (D-092); `PRODUCT_REQUIREMENTS.md`'s scope and screen rows amended.
+  - Checks: lint, format check, type check, `codegen:check`, tests (887, `npm run test:ci`) and audit gate pass locally. No native change, so no new build: the phone check uses build 3c8bf273.
+  - Phone check: not yet run (needs the owner's yes).
+
 ## What works
 
 - `npm run lint`, `format:check`, `typecheck`, `test` (86 tests) and `audit:gate` pass on `main` after P3-02. `npx expo-doctor` passes 21 of 21 checks.
@@ -371,6 +382,8 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
 - npm 11 on this machine skips package install scripts it has not been told to allow, including `@sentry/cli`'s postinstall. `@sentry/cli` 3.x ships its binary as optional platform packages, so it is still installed; `@sentry/bundler-plugins` also brings `@sentry/cli` 2.58.6, which the React Native build does not use.
 
 ## Last passing build
+
+Branch `p6-05-book-page` (P6-05), 8 October 2026: lint, format check, type check, `codegen:check`, tests (887, `npm run test:ci`) and audit gate pass locally; `npm run check:dev-store` passes. Android development build **3c8bf273** runs it (no native change).
 
 `main` at `e378fa6` (P6-01, PR #14), 7 October 2026. On the branch before the merge: lint, format check, type check, tests (558, `npm run test:ci`) and audit gate pass locally; `npm run check:dev-store` passes against the development store with the sample catalogue. No app code changed, so no new build; Android development build **022646a4** still runs `main`.
 

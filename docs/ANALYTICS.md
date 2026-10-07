@@ -43,7 +43,7 @@ Event data is kept for 14 months in each Google Analytics property, with "Reset 
 - **IDs** come from `analyticsProductId()`, `analyticsCollectionId()` and `analyticsOrderId()`. Each takes a Shopify GID and keeps the numeric part.
 - **Fixed codes** (filter types, stages, error codes, channels) come from `analyticsToken()`: lowercase snake case, starting with a letter. Free text does not type-check.
 - **The guard** (`src/analytics/guard.ts`) checks every event again and drops the whole event if any parameter fails. Sentry is told which event and parameter, never the value.
-- **Screens** are named by their file route with groups removed: `index`, `browse`, `cart`, `my-books`, `account`, `dev-checkout`, and later `book/[id]`. Never the address or its parameters.
+- **Screens** are named by their file route with groups removed: `index`, `browse`, `cart`, `my-books`, `account`, `dev-checkout`, `dev-catalogue`, `collection/[handle]`, `book/[handle]` (P6-05). Never the address or its parameters.
 - `app_open` fires with `source` `cold_start` or `foreground`. The phases that build the other screens wire their events.
 - Nothing is sent under Jest, or before or without consent.
 
