@@ -1,4 +1,4 @@
-import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { cleanup, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { ScrollView } from 'react-native';
 
 import RootLayout from '@/app/_layout';
@@ -9,6 +9,7 @@ import CartScreen from '@/app/(tabs)/cart';
 import HomeScreen from '@/app/(tabs)/index';
 import MyBooksScreen from '@/app/(tabs)/my-books';
 import CollectionScreen from '@/app/collection/[handle]';
+import { appQueryClient } from '@/query/queryClient';
 
 // React Native loads ScrollView's module tree on first access, which takes several seconds on a
 // cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
@@ -98,8 +99,12 @@ describe('tab navigation', () => {
     mockAppEnv = 'development';
   });
 
-  // renderRouter switches to fake timers.
-  afterEach(() => {
+  // renderRouter switches to fake timers. Home reads the catalogue into the app's own cache, so
+  // the screens are unmounted and that cache emptied, in that order: a query left without a
+  // screen keeps a 30-minute removal timer that would hold Jest open.
+  afterEach(async () => {
+    await cleanup();
+    appQueryClient.clear();
     jest.useRealTimers();
   });
 

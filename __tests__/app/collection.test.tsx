@@ -1,6 +1,6 @@
 import { onlineManager, type QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { ScrollView, StyleSheet } from 'react-native';
+import { FlatList, ScrollView, StyleSheet } from 'react-native';
 
 import CollectionScreen from '@/app/collection/[handle]';
 import { toBookCard, type BookCard } from '@/shopify/bookCard';
@@ -13,7 +13,9 @@ import { SAFE_AREA, withScreen } from '../helpers/screen';
 
 // React Native loads ScrollView's module tree on first access, which takes several seconds on a
 // cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
+// The screen's FlatList is loaded the same way.
 void ScrollView;
+void FlatList;
 
 let mockParams: { handle?: string | string[] } = { handle: 'junior-readers' };
 let mockHeaderTitle: string | undefined;

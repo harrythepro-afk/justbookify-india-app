@@ -240,6 +240,30 @@ Shown on 7 October 2026: removing `currentlyNotInStock` from `BookCardByHandle` 
 5. Covers load. (Reuse from expo-image's disk cache after a cold start cannot be observed: the query cache is in memory only, so a cold start reads Shopify again before any card appears. P6-02 recorded this as not observable.)
 6. The app's own log shows no crash and no JavaScript error.
 
+### Home and the collection screen (P6-03)
+
+Unit tests; the Storefront client or the catalogue fetchers are mocked and nothing reaches a store:
+- `__tests__/config/home.test.ts`: the 15 series and 5 age groups in the website's order with their labels, `ella-dairies` labelled "Ella Diaries", 6 new arrivals, the banner wording, unique handles (D-075).
+- `__tests__/shopify/catalogue.test.ts` and `operations.test.ts`: the handle listing is one request of 250 with the cancel signal, follows `pageInfo`, stops on a missing cursor, and selects handles only (no image) (D-076).
+- `__tests__/query/screenFocus.test.tsx`: no refetch on the first focus; a later focus refetches stale data, leaves fresh data alone and touches no other query; an equal key on re-render does not re-run (D-079). Shown on 7 October 2026: without `stale: true` the fresh-data test fails.
+- `__tests__/components/catalogueViewState.test.ts`: data wins; loading; offline by the signal or by `no-network`; any other failure is an error; the notice only over saved data (D-078).
+- `__tests__/components/BookCard.test.tsx` and `__tests__/theme/tokens.test.ts`: no button without its action, the badge kept (D-081); square white frame, cream only for no cover (D-077); every new text colour pair at 4.5:1.
+- `__tests__/app/home.test.tsx`: store name and banner; no search button; only the development store's 5 series in order, Tintin shown, "All series" last, the 5 age chips; 6 of 8 new arrivals and "See all"; "New arrivals" hidden when missing or empty; no tile before the handles are known; offline with nothing saved, the notice over saved books, `no-network` while "online", the error and "Try again", one part failed; development tools on development builds only.
+- `__tests__/app/collection.test.tsx`: handle and header title; two columns in Shopify's order; 20 then 26 with "Load more"; a failed page keeps the button as the retry; empty, not found and a malformed handle; offline, notice and error; the bottom inset.
+- `__tests__/app/tabs.test.tsx`, with the real router: "Books for Rent" and "All series" open Browse; a series tile opens `/collection/tintin-series` and its empty state.
+
+**Phone check** (development build 3c8bf273, JavaScript from Metro, owner's phone, under `CLAUDE.md`'s phone check rules; swipes need the owner's yes, asked up front):
+1. Home shows the store name, the banner, the 5 development-store series in order (Wimpy Kid, Harry Potter, Tintin, Geronimo Stilton, Read It Yourself) and "All series", the 5 age chips, and New arrivals with 5 books. No search button, no cart or notify-me button.
+2. Covers fill a square white frame with no bands; `peter-and-the-wolf-read-it-yourself` (no cover) shows cream with the book icon.
+3. Price text reads exactly as in P6-02 ("₹74" style, no space).
+4. The Tintin tile opens its collection with "No books here yet."; back returns to Home.
+5. The "9-10 years" chip opens `junior-readers`: 20 books, then 26 after "Load more"; the last row clears Android's navigation bar.
+6. "Books for Rent" and "All series" open Browse.
+7. Home's last row clears the tab bar (the tab bar takes the bottom inset; Home adds none).
+8. Airplane mode (the owner switches it): the notice "You're offline. Showing saved books." over the books on Home.
+9. Foreground refetch with real data, on `one-of-us-2-next` (in `new-arrivals` while its stock is 1): with the app in the background, the owner sets its stock to 0 in the development store; after **more than 5 minutes** (the `catalogue` preset's freshness) the app returns to the foreground and New arrivals shows 4 books. The owner sets the stock back to 1 and `npm run check:dev-store` must pass again.
+10. The app's own log shows no crash and no JavaScript error.
+
 ## Edge cases
 
 | Case | Expected behaviour |
