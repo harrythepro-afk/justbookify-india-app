@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookGrid } from '@/components/BookGrid';
-import { BookListControls } from '@/components/BookListControls';
+import { bookSortOptions, BookListControls } from '@/components/BookListControls';
 import { emptyMessageFor, NOT_FOUND_MESSAGE, ScreenMessage } from '@/components/ScreenMessage';
 import { effectiveSort, type BookSort } from '@/config';
 import { useCollectionBooks } from '@/shopify/hooks/catalogue';
@@ -67,10 +67,10 @@ function Collection({ handle }: { readonly handle: string }) {
       {header}
       <BookListControls
         available={available}
-        inGroup
         onAvailableChange={setAvailable}
         onSort={setChosenSort}
         sort={sort}
+        sortOptions={bookSortOptions(true)}
       />
       <BookGrid
         books={books}

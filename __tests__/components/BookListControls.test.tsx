@@ -2,7 +2,8 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Modal, ScrollView, Switch } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { BookListControls, ListPicker } from '@/components/BookListControls';
+import { bookSortOptions, BookListControls, ListPicker } from '@/components/BookListControls';
+import { SEARCH_CONTENT } from '@/config';
 
 import { SAFE_AREA } from '../helpers/screen';
 
@@ -84,10 +85,10 @@ describe('BookListControls (P6-04)', () => {
       <SafeAreaProvider initialMetrics={SAFE_AREA}>
         <BookListControls
           available
-          inGroup={inGroup}
           onAvailableChange={onAvailableChange}
           onSort={jest.fn()}
           sort="title-ascending"
+          sortOptions={bookSortOptions(inGroup)}
         />
       </SafeAreaProvider>,
     );
@@ -111,5 +112,41 @@ describe('BookListControls (P6-04)', () => {
 
     expect(screen.queryByRole('button', { name: 'Featured' })).not.toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Best selling' })).toBeOnTheScreen();
+  });
+
+  it('offers Featured first inside a group', async () => {
+    await renderControls(true);
+    await fireEvent.press(screen.getByRole('button', { name: 'Sort, Alphabetically, A-Z' }));
+
+    expect(screen.getByRole('button', { name: 'Featured' })).toBeOnTheScreen();
+    expect(bookSortOptions(true)[0]).toEqual({ value: 'featured', label: 'Featured' });
+  });
+
+  it('offers only the sorts a screen passes, such as search’s three (P6-06)', async () => {
+    const onSort = jest.fn();
+    await render(
+      <SafeAreaProvider initialMetrics={SAFE_AREA}>
+        <BookListControls
+          available={false}
+          onAvailableChange={jest.fn()}
+          onSort={onSort}
+          sort="relevance"
+          sortOptions={SEARCH_CONTENT.sortOptions.map((option) => ({
+            value: option.sort,
+            label: option.label,
+          }))}
+        />
+      </SafeAreaProvider>,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Sort, Relevance' }));
+
+    for (const name of ['Relevance', 'Price, low to high', 'Price, high to low']) {
+      expect(screen.getByRole('button', { name })).toBeOnTheScreen();
+    }
+    expect(screen.queryByRole('button', { name: 'Featured' })).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Best selling' })).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Price, high to low' }));
+    expect(onSort).toHaveBeenCalledWith('price-descending');
   });
 });

@@ -1,6 +1,6 @@
 import { onlineManager, type QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { FlatList, Modal, ScrollView, Switch } from 'react-native';
+import { FlatList, Modal, ScrollView, StyleSheet, Switch } from 'react-native';
 
 import BrowseScreen from '@/app/(tabs)/browse';
 import { toBookCard, type BookCard } from '@/shopify/bookCard';
@@ -365,4 +365,18 @@ describe('Browse, "Books for Rent" (P6-04)', () => {
     expect(await screen.findByText('This collection is not available.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Clear, show all books' })).toBeOnTheScreen();
   });
+});
+
+it('has a search button named "Search", at least 44 points square, that opens search (P6-06)', async () => {
+  await renderScreen();
+  const button = screen.getByRole('button', { name: 'Search' });
+  const style = StyleSheet.flatten(button.props.style as object) as {
+    minWidth?: number;
+    minHeight?: number;
+  };
+
+  expect(style.minWidth).toBeGreaterThanOrEqual(44);
+  expect(style.minHeight).toBeGreaterThanOrEqual(44);
+  await fireEvent.press(button);
+  expect(mockPush).toHaveBeenCalledWith('/search');
 });
