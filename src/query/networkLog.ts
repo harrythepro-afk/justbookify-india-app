@@ -4,12 +4,15 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * Development builds only: what the platform says about the network, so a wrong "offline" can
- * be traced on the phone (P6-03 phone check). It keeps the last change event, and a fresh read
- * the moment the app returns to the foreground and another a few seconds later. Nothing here
- * changes what the app does, and nothing personal is kept.
+ * be traced on the phone (P6-03 phone check). It keeps the last change events, when the app
+ * went to the background and came back, and a fresh read the moment the app returns to the
+ * foreground and another a few seconds later. Nothing here changes what the app does, and nothing
+ * personal is kept.
  */
 
 export const LATER_READ_DELAY_MS = 3_000;
+/** How many change events are kept, newest first. */
+export const KEPT_EVENTS = 10;
 
 export type NetworkReading = {
   /** Local time of day, "hh:mm:ss". */
@@ -20,15 +23,18 @@ export type NetworkReading = {
 };
 
 export type NetworkLog = {
-  readonly lastEvent: NetworkReading | null;
+  /** The last change events from the platform, newest first. */
+  readonly events: readonly NetworkReading[];
   readonly backgroundAt: string | null;
+  readonly returnAt: string | null;
   readonly readOnReturn: NetworkReading | null;
   readonly readLater: NetworkReading | null;
 };
 
 const EMPTY: NetworkLog = {
-  lastEvent: null,
+  events: [],
   backgroundAt: null,
+  returnAt: null,
   readOnReturn: null,
   readLater: null,
 };
@@ -65,13 +71,16 @@ async function read(): Promise<NetworkReading | null> {
 /** Starts recording; returns a function that stops and forgets. */
 export function startNetworkLog(): () => void {
   let laterTimer: ReturnType<typeof setTimeout> | undefined;
-  const events = Network.addNetworkStateListener((state) => update({ lastEvent: reading(state) }));
+  const events = Network.addNetworkStateListener((state) =>
+    update({ events: [reading(state), ...log.events].slice(0, KEPT_EVENTS) }),
+  );
   const appState = AppState.addEventListener('change', (status) => {
     if (status === 'background') {
       update({ backgroundAt: timeOfDay() });
       return;
     }
     if (status !== 'active') return;
+    update({ returnAt: timeOfDay() });
     void read().then((value) => update({ readOnReturn: value }));
     clearTimeout(laterTimer);
     laterTimer = setTimeout(() => {

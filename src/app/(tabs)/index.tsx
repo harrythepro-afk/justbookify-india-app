@@ -246,10 +246,19 @@ function ConnectionStatus() {
   return (
     <>
       <Text style={styles.note}>Query cache: {isOffline ? 'offline' : 'online'}</Text>
-      <Text style={styles.note}>Network event: {describeReading(log.lastEvent)}</Text>
       <Text style={styles.note}>To background: {log.backgroundAt ?? 'none'}</Text>
+      <Text style={styles.note}>Back to the foreground: {log.returnAt ?? 'none'}</Text>
       <Text style={styles.note}>Read on return: {describeReading(log.readOnReturn)}</Text>
       <Text style={styles.note}>Read 3 s later: {describeReading(log.readLater)}</Text>
+      <Text style={styles.note}>
+        Network events, newest first: {log.events.length === 0 ? 'none' : ''}
+      </Text>
+      {log.events.map((event, index) => (
+        // Events have no identity of their own; their place in the list is enough here.
+        <Text key={index} style={styles.note}>
+          {describeReading(event)}
+        </Text>
+      ))}
     </>
   );
 }

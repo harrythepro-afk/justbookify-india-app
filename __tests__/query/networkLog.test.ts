@@ -4,6 +4,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 import {
   describeReading,
+  KEPT_EVENTS,
   LATER_READ_DELAY_MS,
   startNetworkLog,
   useNetworkLog,
@@ -53,20 +54,36 @@ async function settle() {
   });
 }
 
-it('keeps the last network event', async () => {
+it('keeps the network events, newest first', async () => {
   stop = startNetworkLog();
   const { result } = await renderHook(() => useNetworkLog());
 
   await act(async () => {
     mockNetworkListener?.(OFFLINE);
   });
-
-  expect(result.current.lastEvent).toEqual({
-    at: '11:22:31',
-    isConnected: false,
-    isInternetReachable: false,
-    type: 'NONE',
+  jest.setSystemTime(new Date(2026, 9, 7, 11, 22, 40));
+  await act(async () => {
+    mockNetworkListener?.(ONLINE);
   });
+
+  expect(result.current.events).toEqual([
+    { at: '11:22:40', isConnected: true, isInternetReachable: true, type: 'WIFI' },
+    { at: '11:22:31', isConnected: false, isInternetReachable: false, type: 'NONE' },
+  ]);
+});
+
+it(`keeps only the last ${KEPT_EVENTS} events`, async () => {
+  stop = startNetworkLog();
+  const { result } = await renderHook(() => useNetworkLog());
+
+  await act(async () => {
+    for (let index = 0; index < KEPT_EVENTS + 3; index += 1) {
+      mockNetworkListener?.(index === KEPT_EVENTS + 2 ? OFFLINE : ONLINE);
+    }
+  });
+
+  expect(result.current.events).toHaveLength(KEPT_EVENTS);
+  expect(result.current.events[0]?.isConnected).toBe(false);
 });
 
 it('notes when the app goes to the background', async () => {
@@ -91,6 +108,7 @@ it('reads the network on return, and again a few seconds later', async () => {
   });
   await settle();
 
+  expect(result.current.returnAt).toBe('11:22:31');
   expect(result.current.readOnReturn?.isConnected).toBe(false);
   expect(result.current.readLater).toBeNull();
 
@@ -130,7 +148,7 @@ it('stops listening and forgets when stopped', async () => {
 
   expect(mockRemoveNetwork).toHaveBeenCalledTimes(1);
   expect(mockRemoveAppState).toHaveBeenCalledTimes(1);
-  expect(result.current.lastEvent).toBeNull();
+  expect(result.current.events).toEqual([]);
 });
 
 it('describes a reading on one line', () => {

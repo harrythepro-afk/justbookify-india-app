@@ -490,8 +490,9 @@ describe('HomeScreen development tools', () => {
     await renderHome();
 
     expect(screen.getByText('Query cache: online')).toBeOnTheScreen();
-    expect(screen.getByText('Network event: none')).toBeOnTheScreen();
     expect(screen.getByText('To background: none')).toBeOnTheScreen();
+    expect(screen.getByText('Back to the foreground: none')).toBeOnTheScreen();
+    expect(screen.getByText('Network events, newest first: none')).toBeOnTheScreen();
     expect(screen.getByText('Read on return: none')).toBeOnTheScreen();
     expect(screen.getByText('Read 3 s later: none')).toBeOnTheScreen();
   });
@@ -512,7 +513,7 @@ describe('HomeScreen development tools', () => {
     await renderHome();
 
     expect(
-      screen.queryByText(/^Query cache:|^Network event:|^Read on return:/),
+      screen.queryByText(/^Query cache:|^Network events|^Read on return:/),
     ).not.toBeOnTheScreen();
   });
 
