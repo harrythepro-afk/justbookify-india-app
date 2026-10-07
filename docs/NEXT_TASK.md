@@ -1,6 +1,6 @@
-# Next task: P6-06, search
+# Next task (proposal): P6-07, the Genre filter and the longer series list
 
-Status: in progress on branch `p6-06-search` (plan accepted by the owner on 8 October 2026). P6-05 (the book page) is merged (`1876ac1`, PR #18).
+Status: proposal. P6-06 (search) is on branch `p6-06-search`, PR #19; see `CURRENT_STATUS.md`. P6-07 starts when the owner starts it, and only after the architect has mirrored the live store's filters in the development store (follow-up "Genre filter" below).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -19,36 +19,38 @@ Status: in progress on branch `p6-06-search` (plan accepted by the owner on 8 Oc
 | P6-03 (done, f9c3212) | The Home screen and the collection screen: Home content in configuration, only collections that exist, a square white cover frame, offline and error states, stale-only focus refetch, no dead card buttons, recovery from a false "offline" | D-075 to D-082 |
 | P6-04 (done, a57774a) | Browse: all books through the root `products` query, Age group and Series one at a time, "Available now" on by default (also on the collection screen), the website's sorts, lists that close on back and outside taps; the preview kept until Phase 8 | D-083 to D-089 |
 | P6-05 (done, 1876ac1) | The book page from every card: cover, author, title, the sentence for a rented-out book only, prices with the "Rent" or "Rented Out" badge, the description as native text from untrusted HTML, genre chips; no rating (Phase 13); `liveStock`; a description sample in the preview | D-090 to D-094 |
-| P6-06 (in progress, branch `p6-06-search`) | Search: Storefront `search` (books only, partial last word), results as you type from 3 letters or the search key from 2, "Available now" off (`LAST`/`HIDE`), Relevance and the two price sorts, the count line and the website's no-results line, earlier results kept while a new term loads; the term never logged, sent to analytics or reported; the standing phone-check permission | D-095 to D-098 |
-| Later in Phase 6 | The Genre filter (after the architect mirrors the live filters); the longer series list; the offline question, revisited in the last Phase 6 task (D-087) | |
+| P6-06 (branch `p6-06-search`, PR #19) | Search: Storefront `search` (books only, partial last word), results as you type from 3 letters or the search key from 2, "Available now" off (`LAST`/`HIDE`), Relevance and the two price sorts, the count line and the website's no-results line, earlier results kept while a new term loads; the term never logged, sent to analytics or reported; the standing phone-check permission; one guard against double taps for every in-app open; a clear button | D-095 to D-099 |
+| P6-07 (proposed) | The Genre filter and the longer series list | |
+| Later in Phase 6 | The catalogue analytics events (`view_collection`, `view_book`, `search`) in one task; the last Phase 6 task: the offline question (D-087) and the description-table fix | |
 
-## Goal of P6-06
+## Goal of P6-07
 
-A customer finds a book by title, author or series (`PRODUCT_REQUIREMENTS.md`: "Search with suggestions as you type"; "Search sits under Browse"; Home's header has a search button). Results use the book card and open the book page (P6-05).
+Browse offers Genre as the website does (`PRODUCT_REQUIREMENTS.md`, Browse: "Filter by age group, genre, series, availability and price"; `SHOPIFY_AUDIT.md`, live "Books for Rent": Availability, Price, Genre, "More filters", Service City), and the Series list holds the architect's longer list instead of Home's 15 (D-084).
 
 ## Proposed scope
 
-1. A search screen opened from Home's header and from Browse, with a text field, suggestions while typing and a results grid of book cards (`BookGrid`, "Load more").
-2. Typed Storefront operations: `predictiveSearch` for suggestions and `search` (or the root `products` query) for results, checked against the saved `2026-10` schema and Shopify's documentation before building, with the version recorded.
-3. The query text is never logged, cached under a personal key or sent to analytics (`search` event: `term_length` and `result_count` only, if the owner wants it wired now).
-4. Offline, error and empty states as on the other catalogue screens (D-078, D-082).
-5. Phone check on build 3c8bf273 if nothing native changes, with the standing step.
+1. **Gate before building:** on the development store, read the Storefront `filters` on a collection and on search after the architect's mirroring, and record which Genre filter Shopify offers (its id, type and values) against the saved `2026-10` schema and Shopify's documentation. If Genre is not offered as a Storefront filter, stop and ask (D-068: never parse tags or `productType`).
+2. A Genre button on Browse, one genre at a time, combined with "Available now" and the sort as the website allows; the same on the collection screen if the owner wants it.
+3. The longer series list in configuration (`src/config/browse.ts`), only series that exist in the store (D-076).
+4. `npm run check:dev-store` asserts the Genre filter's values and one genre's count.
+5. Phone check on build 3c8bf273 if nothing native changes, under the standing permission (D-095), with the standing background step.
 
 ## Questions for the owner and the architect
 
-1. What does the live website's search show: suggestions while typing (books only, or also collections and authors), and what does its results page show and in which order (architect, view only)?
-2. Does "Available now" apply to search results, on by default as on Browse?
-3. From how many letters do suggestions start, and how many show?
-4. Wording for no results.
-5. Wire the `search` analytics event now (consent is still required, D-048), or with the other catalogue events?
+1. Has the development store's filter setup been mirrored from the live store (Genre, tag, Service City)? Which of these does the app offer: Genre only, or also "More filters" (tags) and Service City?
+2. Genre: one at a time (like Age group and Series) or several at once (the website's checkbox list)?
+3. Does Genre combine with an age group or series already chosen, or replace it (D-084 allows one group at a time)?
+4. The longer series list: handles and labels in the website's order (architect).
+5. Does search get the Genre filter too, or stay with "Available now" and the sort (D-096)?
 
 ## Out of scope
 
-- The Genre filter and the longer series list (later Phase 6 tasks).
+- The catalogue analytics events (a later Phase 6 task, with the owner's choice of timing).
+- The offline question and the description-table fix (the last Phase 6 task).
 - Cart and notify-me actions (Phase 8 and later).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P6-05)
+## Follow-ups (recorded, not part of P6-06)
 
 - **Release gate: analytics consent (from P4-04):** no build goes to any tester other than the owner until all of these hold (`TESTING.md`; D-048):
   - the consent request is built (Phase 7, at the placement the owner chooses between the two in D-048) and works;
@@ -92,7 +94,7 @@ A customer finds a book by title, author or series (`PRODUCT_REQUIREMENTS.md`: "
   - **Ratings:** not on the book page (D-092). Phase 13 (reviews) reads `reviews.rating` and `reviews.rating_count`, handling a rating without a count and a malformed rating (D-071).
   - **Website cards** show no author and no stars; the app's card keeps the author (D-073).
 - **Book card preview** (D-074, D-088): kept until Phase 8, when customer screens draw the card's buttons. Since P6-05 it also holds the book page links and the description sample (D-094).
-- **Double tap opens the book page twice (P6-06 phone check, 8 October 2026):** two taps on one card in one adb command, then one Back press, left a second copy of the book page on screen. It affects every list that opens the book page (Home, Browse, the collection screen, search, the preview), because `openBook` (`src/components/openBook.ts`) pushes `/book/[handle]` on every call. Proposed fix, not built (owner's yes needed): `openBook` ignores a second call within about 600 ms of the first, with a unit test for two quick calls and one call after the pause, and the double-tap step repeated on the phone. Alternative: Expo Router's `router.navigate` or a per-screen "opening" flag; to be checked against Expo Router's documentation before choosing.
+- **Double tap (P6-06 phone check, fixed in PR #19, D-099):** a book card and the search button opened their screen twice on a fast double tap. One guard for every in-app open now ignores a second open within 0.5 seconds.
 - **Description tables (architect's review of PR #18):** cells in one table row run together with no space ("AB"). Fix in the last Phase 6 task, with a test.
 - **Development store descriptions (architect's review of PR #18):** all 42 are a single `<p>` with no `<br>` or `<strong>`, so their headings and bullets run together on the book page. No re-import now. Before the release-build check, the owner pastes full descriptions into a few books in the development admin.
 - **Analytics events for catalogue screens (P6-05):** `view_collection` and `view_book` (`ANALYTICS.md`) are not wired; screen views are (D-053). Wire them in one task, with the owner's choice of timing.

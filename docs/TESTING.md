@@ -360,7 +360,16 @@ Unit tests; the Storefront client or the catalogue fetchers are mocked and nothi
 9. Standing step (D-082, D-087): more than 5 minutes in the background on the results, then back: no false offline notice; the term and the results kept.
 10. The app's own log: no crash and no JavaScript error; harry, dahl and zzqxv appear nowhere in it.
 
-Run on 8 October 2026: steps 1 to 5 and 7 to 10 passed; **step 6 found that a double tap opens the book page twice** (recorded, not fixed; `NEXT_TASK.md`). In step 10, "harry" appears only in Glide's debug lines naming cover image files on Shopify's CDN (`harry-potter-and-the-…`), never as the typed term; dahl and zzqxv 0. Details in `CURRENT_STATUS.md`.
+Run on 8 October 2026: steps 1 to 5 and 7 to 10 passed; **step 6 found that a double tap opens the book page twice**, fixed in the same pull request (D-099, below).
+
+**Double tap and the clear button (architect's review of PR #19, D-099).** Unit tests:
+- `__tests__/navigation/openGuard.test.tsx`, with fake timers: `openScreen` ignores a second open at 499 ms and opens at 500 ms; any second open inside the window is ignored, whichever control it comes from; push by default, navigate when asked; a clock moved back never blocks. For each kind of control: a book card (double tap opens once; another card after Back and the window opens; a different book later opens), the search button, a series tile and an age chip (both `Link`s, through `guardLinkPress`, with `Link` mocked as its source behaves): a second open inside the window ignored, one after it works. `guardLinkPress` prevents the default only inside the window. Shown: with the guard switched off, 7 of the 11 tests fail.
+- `__tests__/app/search.test.tsx`: the clear button only while the field has text, named "Clear search", at least 44 points; it empties the field, brings back the hint, hides the results, focuses the field again (the keyboard stays) and never dismisses the keyboard (shown: without the focus call, that test fails); it stops a search waiting for the pause, and the next term searches.
+- `jest.setup.ts` clears the guard after each test; it loads the guard only after the test, so the test file's own `expo-router` mock applies.
+
+**Phone check before the fix** (8 October 2026, 04:54 to 04:56 IST, standing permission, Do Not Disturb on): a fast double tap (two taps in one adb command), then Back: book card on Home, **opened twice**; search button on Home, **opened twice** (three Back presses back to Home: the keyboard, then each Search); series tile ("Wimpy Kid") and age chip ("6-8 years"), **once**.
+
+**Short phone check after the fix:** a double tap on a book card, on the search button and on a series tile, each followed by Back: back where the tap was made; type "harry", tap the clear button: the hint is back; type "dahl": "3 results". No screenshot while the keyboard shows. **Passed on 8 October 2026, 05:23 to 05:25 IST** (commit `4b964d7`; details in `CURRENT_STATUS.md`). In step 10, "harry" appears only in Glide's debug lines naming cover image files on Shopify's CDN (`harry-potter-and-the-…`), never as the typed term; dahl and zzqxv 0. Details in `CURRENT_STATUS.md`.
 
 ### Release gate: list performance (P6-03)
 
