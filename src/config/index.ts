@@ -15,6 +15,8 @@ export {
 export {
   DEV_CATALOGUE_COLLECTION,
   DEV_CATALOGUE_EXAMPLES,
+  DEV_DESCRIPTION_SAMPLE_HTML,
+  DEV_MISSING_BOOK_HANDLE,
   type DevCatalogueExample,
 } from './devCatalogue';
 export { getAppEnvironment, getEnvironmentLabel } from './environment';
