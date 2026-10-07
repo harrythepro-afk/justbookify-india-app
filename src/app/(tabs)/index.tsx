@@ -17,6 +17,7 @@ import {
 } from '@/config';
 import { isCrashReportingOn, sendTestError, triggerTestNativeCrash } from '@/crashReporting/sentry';
 import { useFeatureFlags } from '@/featureFlags/session';
+import { describeReading, useNetworkLog } from '@/query/QueryProvider';
 import { useCollectionBooks, useCollectionHandles, useIsOffline } from '@/shopify/hooks/catalogue';
 import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
 
@@ -196,7 +197,9 @@ function NewArrivals({
   return (
     <>
       <View style={styles.sectionRow}>
-        <SectionHeading>New arrivals</SectionHeading>
+        <Text accessibilityRole="header" style={styles.sectionInRow}>
+          New arrivals
+        </Text>
         <Link asChild href={collectionHref(handle)}>
           <Pressable accessibilityLabel="See all new arrivals" accessibilityRole="link">
             <Text style={styles.seeAll}>See all</Text>
@@ -228,7 +231,26 @@ function DevelopmentTools() {
       <CrashReportingTestControls />
       <FeatureFlagStatus />
       <AnalyticsStatus />
+      <ConnectionStatus />
     </View>
+  );
+}
+
+/**
+ * Development builds only: whether the query cache counts the phone as online (D-064), and what
+ * the platform last said about the network, so a wrong "offline" can be traced on the phone.
+ */
+function ConnectionStatus() {
+  const isOffline = useIsOffline();
+  const log = useNetworkLog();
+  return (
+    <>
+      <Text style={styles.note}>Query cache: {isOffline ? 'offline' : 'online'}</Text>
+      <Text style={styles.note}>Network event: {describeReading(log.lastEvent)}</Text>
+      <Text style={styles.note}>To background: {log.backgroundAt ?? 'none'}</Text>
+      <Text style={styles.note}>Read on return: {describeReading(log.readOnReturn)}</Text>
+      <Text style={styles.note}>Read 3 s later: {describeReading(log.readLater)}</Text>
+    </>
   );
 }
 
@@ -350,7 +372,15 @@ const styles = StyleSheet.create({
     fontSize: fontSize.title,
     color: colors.text,
   },
-  sectionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  // The heading and "See all" share one row, centred on each other.
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
+  },
+  sectionInRow: { fontFamily: fonts.heading, fontSize: fontSize.title, color: colors.text },
   // Vertical padding brings the link's touch target to the 44-point minimum.
   seeAll: { ...linkText, paddingVertical: spacing.md },
   // The row runs to the screen's edges while its first tile lines up with the text.

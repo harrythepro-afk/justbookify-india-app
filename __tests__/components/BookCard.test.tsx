@@ -157,6 +157,11 @@ describe('without actions (owner, P6-03)', () => {
   });
 });
 
+// A long list re-renders a card only when its props change (P6-03 phone check, slow-list warning).
+it('is memoised', () => {
+  expect((BookCard as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+});
+
 describe('accessibility', () => {
   it('summarises the card for a screen reader', () => {
     expect(bookCardSummary(card(EXAMPLES.rentedOut()))).toBe(

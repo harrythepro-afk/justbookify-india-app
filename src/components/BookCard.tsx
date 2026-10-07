@@ -1,5 +1,6 @@
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { BookCard as BookCardData } from '@/shopify/hooks/catalogue';
@@ -43,9 +44,10 @@ export function bookCardSummary(book: BookCardData): string {
  * D-073): cover, title on one line, author, the rental price in bold with the retail price struck
  * through, and "Add to Cart". A book that cannot be ordered has a "Rented Out" badge on its cover
  * and "Notify me" instead. A book orderable at zero stock looks exactly like one in stock. A
- * button is drawn only when its action is passed (D-081).
+ * button is drawn only when its action is passed (D-081). Memoised: a long list re-renders a card
+ * only when its book or actions change (P6-03 phone check, slow-list warning).
  */
-export function BookCard({ book, onAddToCart, onNotifyMe }: Props) {
+export const BookCard = memo(function BookCard({ book, onAddToCart, onNotifyMe }: Props) {
   return (
     <View style={styles.card}>
       <View accessible accessibilityLabel={bookCardSummary(book)}>
@@ -110,7 +112,7 @@ export function BookCard({ book, onAddToCart, onNotifyMe }: Props) {
           )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: { flex: 1, backgroundColor: colors.background },

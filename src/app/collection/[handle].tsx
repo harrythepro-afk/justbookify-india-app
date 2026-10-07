@@ -86,7 +86,7 @@ function Collection({ handle }: { readonly handle: string }) {
         testID="collection-books"
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + spacing.xl }]}
         data={books}
-        keyExtractor={(book) => book.id}
+        keyExtractor={bookKey}
         ListEmptyComponent={<ScreenMessage message={EMPTY_MESSAGE} />}
         ListFooterComponent={
           <LoadMore
@@ -97,13 +97,22 @@ function Collection({ handle }: { readonly handle: string }) {
           />
         }
         numColumns={2}
-        renderItem={({ item }: { item: BookCardData }) => (
-          <View style={styles.cell}>
-            <BookCard book={item} />
-          </View>
-        )}
+        renderItem={renderBook}
         style={styles.screen}
       />
+    </View>
+  );
+}
+
+// Defined once, so the list does not see a new function on every render (slow-list warning).
+function bookKey(book: BookCardData): string {
+  return book.id;
+}
+
+function renderBook({ item }: { readonly item: BookCardData }) {
+  return (
+    <View style={styles.cell}>
+      <BookCard book={item} />
     </View>
   );
 }

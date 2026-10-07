@@ -486,6 +486,36 @@ describe('HomeScreen development tools', () => {
     expect(screen.getByText(line)).toBeOnTheScreen();
   });
 
+  it('shows whether the query cache counts the phone as online, and the network log', async () => {
+    await renderHome();
+
+    expect(screen.getByText('Query cache: online')).toBeOnTheScreen();
+    expect(screen.getByText('Network event: none')).toBeOnTheScreen();
+    expect(screen.getByText('To background: none')).toBeOnTheScreen();
+    expect(screen.getByText('Read on return: none')).toBeOnTheScreen();
+    expect(screen.getByText('Read 3 s later: none')).toBeOnTheScreen();
+  });
+
+  it('says the query cache counts the phone as offline', async () => {
+    await renderHome();
+
+    await act(async () => {
+      onlineManager.setOnline(false);
+    });
+
+    expect(await screen.findByText('Query cache: offline')).toBeOnTheScreen();
+  });
+
+  it.each(['staging', 'production'])('shows no connection lines on a %s build', async (env) => {
+    mockAppEnv = env;
+
+    await renderHome();
+
+    expect(
+      screen.queryByText(/^Query cache:|^Network event:|^Read on return:/),
+    ).not.toBeOnTheScreen();
+  });
+
   it.each(['staging', 'production'])('shows no analytics line on a %s build', async (env) => {
     mockAppEnv = env;
 
