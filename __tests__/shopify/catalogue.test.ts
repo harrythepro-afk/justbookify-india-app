@@ -5,7 +5,9 @@ import {
   fetchBookCard,
   fetchCollectionBooksPage,
   fetchCollectionHandles,
+  fetchSearchPage,
   resetCatalogueReportsForTests,
+  SEARCH_BOOKS_QUERY,
 } from '@/shopify/catalogue';
 
 import { bookPageProduct, bookProduct, EXAMPLES, genre } from '../helpers/catalogue';
@@ -235,6 +237,147 @@ describe('fetchAllBooksPage (D-083)', () => {
     });
 
     expect(page.nextCursor).toBeNull();
+  });
+});
+
+describe('fetchSearchPage (P6-06, D-096)', () => {
+  function searchResponse(
+    nodes: unknown[],
+    totalCount: number,
+    pageInfo: { hasNextPage: boolean; endCursor: string | null } = {
+      hasNextPage: false,
+      endCursor: null,
+    },
+  ) {
+    return { search: { totalCount, pageInfo, nodes } };
+  }
+
+  const product = (node: Record<string, unknown>) => ({ __typename: 'Product', ...node });
+
+  it('reads one page of 20 books by relevance, rented-out books last, with the cancel signal', async () => {
+    mockQuery.mockResolvedValue(searchResponse([], 0));
+    const signal = new AbortController().signal;
+
+    await fetchSearchPage({
+      term: 'harry',
+      after: null,
+      search: { available: false, sort: 'relevance' },
+      signal,
+    });
+
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('query SearchBooks('), {
+      variables: {
+        query: 'harry',
+        first: 20,
+        after: null,
+        sortKey: 'RELEVANCE',
+        reverse: false,
+        unavailableProducts: 'LAST',
+      },
+      signal,
+    });
+  });
+
+  it('hides rented-out books with "Available now" on, and sends the price sort', async () => {
+    mockQuery.mockResolvedValue(searchResponse([], 0));
+
+    await fetchSearchPage({
+      term: 'harry',
+      after: 'cursor-1',
+      search: { available: true, sort: 'price-descending' },
+    });
+
+    expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
+      query: 'harry',
+      first: 20,
+      after: 'cursor-1',
+      sortKey: 'PRICE',
+      reverse: true,
+      unavailableProducts: 'HIDE',
+    });
+  });
+
+  it('searches books only, matching the last word partly, as the website does', () => {
+    expect(SEARCH_BOOKS_QUERY).toMatch(/types: \[PRODUCT\]/);
+    expect(SEARCH_BOOKS_QUERY).toMatch(/prefix: LAST/);
+    expect(SEARCH_BOOKS_QUERY).not.toMatch(/predictiveSearch|ARTICLE|PAGE/);
+  });
+
+  it('sends an untrusted term only as a variable, exactly as given', async () => {
+    mockQuery.mockResolvedValue(searchResponse([], 0));
+    const terms = ['"harry"', 'title:harry', '-harry', 'harry 😀', '") { id } #', 'a'.repeat(100)];
+
+    for (const term of terms) {
+      await fetchSearchPage({ term, after: null, search: { available: false, sort: 'relevance' } });
+    }
+
+    expect(mockQuery.mock.calls.map((call) => call[1].variables.query)).toEqual(terms);
+    for (const call of mockQuery.mock.calls) expect(call[0]).toBe(SEARCH_BOOKS_QUERY);
+  });
+
+  it('maps the books with Shopify’s count and the next cursor, keeping only books', async () => {
+    mockQuery.mockResolvedValue(
+      searchResponse(
+        [
+          product(EXAMPLES.orderableAtZeroStock()),
+          { __typename: 'Article' },
+          { __typename: 'Page' },
+          product(EXAMPLES.rentedOut()),
+        ],
+        27,
+        { hasNextPage: true, endCursor: 'cursor-2' },
+      ),
+    );
+
+    const page = await fetchSearchPage({
+      term: 'harry',
+      after: null,
+      search: { available: false, sort: 'relevance' },
+    });
+
+    expect(page.totalCount).toBe(27);
+    expect(page.nextCursor).toBe('cursor-2');
+    expect(page.books.map((book) => [book.handle, book.availability])).toEqual([
+      ['harry-potter-and-the-deathly-hallows-book-7', 'orderable-at-zero-stock'],
+      ['the-gruffalo', 'rented-out'],
+    ]);
+  });
+
+  it('gives no next cursor on the last page', async () => {
+    mockQuery.mockResolvedValue(searchResponse([], 0, { hasNextPage: false, endCursor: 'c' }));
+
+    const page = await fetchSearchPage({
+      term: 'zzqxv',
+      after: null,
+      search: { available: true, sort: 'relevance' },
+    });
+
+    expect(page).toEqual({ books: [], totalCount: 0, nextCursor: null });
+  });
+
+  it('leaves out a book without a variant and reports it by code only', async () => {
+    mockQuery.mockResolvedValue(searchResponse([product(bookProduct({ noVariant: true }))], 1));
+
+    const page = await fetchSearchPage({
+      term: 'harry',
+      after: null,
+      search: { available: false, sort: 'relevance' },
+    });
+
+    expect(page.books).toEqual([]);
+    expect(mockReportUnexpected).toHaveBeenCalledWith('catalogue/book-without-variant');
+  });
+
+  it('passes a failure on to the cache', async () => {
+    mockQuery.mockRejectedValue(new Error('down'));
+
+    await expect(
+      fetchSearchPage({
+        term: 'harry',
+        after: null,
+        search: { available: false, sort: 'relevance' },
+      }),
+    ).rejects.toThrow('down');
   });
 });
 

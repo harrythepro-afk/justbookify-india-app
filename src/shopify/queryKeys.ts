@@ -1,4 +1,4 @@
-import type { BookListOptions } from './catalogue';
+import type { BookListOptions, SearchOptions } from './catalogue';
 
 /**
  * Cache keys for Storefront API data, all under the `storefront` root (D-061), so
@@ -22,5 +22,8 @@ export const storefrontKeys = {
     bookCard: (handle: string) => [...storefrontKeys.all, 'catalogue', 'bookCard', handle] as const,
     book: (handle: string) => [...storefrontKeys.all, 'catalogue', 'book', handle] as const,
     collectionHandles: () => [...storefrontKeys.all, 'catalogue', 'collectionHandles'] as const,
+    // The term is held in the in-memory cache only, like every other key (D-059, D-097).
+    search: (term: string, search: SearchOptions) =>
+      [...storefrontKeys.all, 'catalogue', 'search', term, search] as const,
   },
 };

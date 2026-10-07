@@ -3,24 +3,24 @@
  * (D-068), and one book by handle for the development preview; and for Home (P6-03), the handles
  * of every published collection; and for Browse (P6-04), all books, page by page, through the root
  * `products` query (D-083), and a collection's books with "Available now" and a sort; and for the
- * book page (P6-05), one book with its description and genres. All go through the Storefront
- * client (D-056), are typed by code generation (D-054) and select no personal field and no
- * rating (D-073, D-092).
+ * book page (P6-05), one book with its description and genres; and for search (P6-06), one page
+ * of the books matching a term. All go through the Storefront client (D-056), are typed by code
+ * generation (D-054) and select no personal field and no rating (D-073, D-092).
  *
- * The four book operations select the same product fields (BookPage adds its own). They cannot
+ * The five book operations select the same product fields (BookPage adds its own). They cannot
  * share a fragment, because an operation holds no `${}` interpolation (D-054); `toBookCard` takes
- * the CollectionBooks product type, so the type check fails if BookCardByHandle, AllBooks or
- * BookPage stops matching it.
+ * the CollectionBooks product type, so the type check fails if BookCardByHandle, AllBooks,
+ * SearchBooks or BookPage stops matching it.
  */
 
 import { reportUnexpectedDataError } from '@/crashReporting/sentry';
-import { getStoreConfig, type BookSort } from '@/config';
+import { getStoreConfig, type BookSort, type SearchSort } from '@/config';
 
 import { toBookCard, type BookCard, type BookCardProduct } from './bookCard';
 import { toBookPage, type BookPage } from './bookPage';
 import { storefrontQuery } from './client';
 import type { CollectionHandlesQuery } from './generated/storefront.generated';
-import { allBooksSort, collectionSort } from './sort';
+import { allBooksSort, collectionSort, searchSort } from './sort';
 
 /** Books per page. `junior-readers` (26 books) takes two pages. */
 export const CATALOGUE_PAGE_SIZE = 20;
@@ -125,6 +125,73 @@ query AllBooks(
           compareAtPrice {
             amount
             currencyCode
+          }
+        }
+      }
+    }
+  }
+}` as const;
+
+/**
+ * The books matching a search term (P6-06, D-096): Storefront's `search`, books only (no articles
+ * or pages), with a partial match on the last word as on the website (`prefix: LAST`), 20 at a
+ * time, and Shopify's `totalCount` for the count line. `$unavailableProducts` is LAST with
+ * "Available now" off (rented-out books after the others; with a price sort only among books of
+ * the same price, D-096) and HIDE with it on: exactly the `availableForSale` books, checked on the
+ * development store (`npm run check:dev-store`). The term is only ever a variable.
+ */
+export const SEARCH_BOOKS_QUERY = `#graphql
+query SearchBooks(
+  $query: String!
+  $first: Int!
+  $after: String
+  $sortKey: SearchSortKeys
+  $reverse: Boolean
+  $unavailableProducts: SearchUnavailableProductsType
+  $country: CountryCode
+  $language: LanguageCode
+) @inContext(country: $country, language: $language) {
+  search(
+    query: $query
+    types: [PRODUCT]
+    prefix: LAST
+    first: $first
+    after: $after
+    sortKey: $sortKey
+    reverse: $reverse
+    unavailableProducts: $unavailableProducts
+  ) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      __typename
+      ... on Product {
+        id
+        handle
+        title
+        vendor
+        featuredImage {
+          url(transform: { maxWidth: 600 })
+          width
+          height
+          altText
+        }
+        variants(first: 1) {
+          nodes {
+            id
+            availableForSale
+            currentlyNotInStock
+            price {
+              amount
+              currencyCode
+            }
+            compareAtPrice {
+              amount
+              currencyCode
+            }
           }
         }
       }
@@ -250,6 +317,18 @@ query CollectionHandles(
  */
 export type BookListOptions = { readonly available: boolean; readonly sort: BookSort };
 
+/** How a search is read (D-096): "Available now" and the sort. */
+export type SearchOptions = { readonly available: boolean; readonly sort: SearchSort };
+
+/** One page of a search. */
+export type SearchBooksPage = {
+  readonly books: readonly BookCard[];
+  /** Shopify's count of every matching book, up to 1,000. */
+  readonly totalCount: number;
+  /** The cursor for the next page, or null on the last page. */
+  readonly nextCursor: string | null;
+};
+
 /** One page of all books. */
 export type AllBooksPage = {
   readonly books: readonly BookCard[];
@@ -350,6 +429,35 @@ export async function fetchAllBooksPage(options: {
   const { pageInfo, nodes } = data.products;
   return {
     books: nodes.flatMap(cardOrNothing),
+    nextCursor: pageInfo.hasNextPage ? (pageInfo.endCursor ?? null) : null,
+  };
+}
+
+/**
+ * One page of the books matching `term` (P6-06, D-096), which the caller has already cleaned
+ * (`cleanSearchTerm`). Only books are kept, should Shopify send anything else.
+ */
+export async function fetchSearchPage(options: {
+  readonly term: string;
+  readonly after: string | null;
+  readonly search: SearchOptions;
+  readonly signal?: AbortSignal;
+}): Promise<SearchBooksPage> {
+  const { search } = options;
+  const data = await storefrontQuery(SEARCH_BOOKS_QUERY, {
+    variables: {
+      query: options.term,
+      first: CATALOGUE_PAGE_SIZE,
+      after: options.after,
+      ...searchSort(search.sort),
+      unavailableProducts: search.available ? 'HIDE' : 'LAST',
+    },
+    signal: options.signal,
+  });
+  const { pageInfo, nodes, totalCount } = data.search;
+  return {
+    books: nodes.flatMap((node) => (node.__typename === 'Product' ? cardOrNothing(node) : [])),
+    totalCount,
     nextCursor: pageInfo.hasNextPage ? (pageInfo.endCursor ?? null) : null,
   };
 }

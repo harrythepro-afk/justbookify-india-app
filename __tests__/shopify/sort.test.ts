@@ -1,5 +1,5 @@
-import { BROWSE_CONTENT, type BookSort } from '@/config';
-import { allBooksSort, collectionSort } from '@/shopify/sort';
+import { BROWSE_CONTENT, SEARCH_CONTENT, type BookSort } from '@/config';
+import { allBooksSort, collectionSort, searchSort } from '@/shopify/sort';
 
 // D-085: each option to its Storefront sort key, per kind of read (saved `2026-10` schema).
 const TABLE: readonly [BookSort, string | null, string, boolean][] = [
@@ -26,4 +26,19 @@ it.each(TABLE)('maps %s: all books %s, a group %s, reverse %s', (sort, all, grou
 
 it('reads all books A-Z if Featured ever arrives there, as all books are no collection', () => {
   expect(allBooksSort('featured')).toEqual({ sortKey: 'TITLE', reverse: false });
+});
+
+// P6-06, D-096: the search sorts to `SearchSortKeys` (saved `2026-10` schema).
+it.each([
+  ['relevance', 'RELEVANCE', false],
+  ['price-ascending', 'PRICE', false],
+  ['price-descending', 'PRICE', true],
+] as const)('maps the search sort %s to %s, reverse %s', (sort, sortKey, reverse) => {
+  expect(searchSort(sort)).toEqual({ sortKey, reverse });
+});
+
+it('maps every search sort the store offers', () => {
+  for (const option of SEARCH_CONTENT.sortOptions) {
+    expect(searchSort(option.sort)).toBeDefined();
+  }
 });
