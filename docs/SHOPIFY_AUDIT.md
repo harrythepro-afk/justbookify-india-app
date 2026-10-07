@@ -112,6 +112,18 @@ Recorded in P6-05 from the architect's reading of the live page of `harry-potter
 - **The description** is about 750 characters of HTML using `p`, `strong`, `br` and `span`: bold headings ("Perfect for readers, who:", "Why You'll Love It:"), bullet lines starting with "•", and lines starting with the emoji ✅ and ❌.
 - **The app differs** (owner and architect, P6-05): it leaves out "Shipping calculated at checkout." and, until Phase 8, the buttons (D-081); it shows the sentence only for a book that cannot be ordered, and the "Rent" badge for a book orderable at zero stock (R8, D-073); it puts a "Rented Out" badge in the price row for a rented-out book (D-090).
 
+### Live search, architect's view (8 October 2026, view only)
+
+Recorded in P6-06 from the architect's reading of justbookify.in's search. Nothing on the live store was changed or read through an API. The app's search follows it, with the differences in D-096 to D-098.
+
+- **The header search form** goes to `/search` with `options[prefix]=last` (partial match on the last word).
+- **No suggestions while typing:** the theme's suggestion box is in the page, but its script is not loaded.
+- **Results page:** the heading "Search results", a count such as "12 results", the collection page's cards with "Rent" or "Rented Out" badges, blog articles mixed in, 24 per page with page numbers.
+- **Sort:** Relevance (the default), Price low to high, Price high to low.
+- **Filters:** Availability, Price, Genre, More filters. None is on by default; rented-out books are shown, after the available ones in the two searches read.
+- **Authors match as well as titles:** "roald dahl" gave 31 results.
+- **No results:** No results found for “zzqxv”. Check the spelling or use a different word or phrase.
+
 ## Orders and rentals
 
 - A rental is an order. Staff mark delivery as a fulfilment and pickup as a return. About 2,930 orders are fulfilled and 2,330 are returned.

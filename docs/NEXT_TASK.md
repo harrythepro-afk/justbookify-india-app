@@ -1,6 +1,6 @@
-# Next task (proposal): P6-06, search
+# Next task: P6-06, search
 
-Status: proposal. P6-05 (the book page) is on branch `p6-05-book-page`; see `CURRENT_STATUS.md`. P6-06 starts when the owner starts it.
+Status: in progress on branch `p6-06-search` (plan accepted by the owner on 8 October 2026). P6-05 (the book page) is merged (`1876ac1`, PR #18).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -18,8 +18,8 @@ Status: proposal. P6-05 (the book page) is on branch `p6-05-book-page`; see `CUR
 | P6-02 (done, fa4c6c9) | Catalogue operations and hooks (`useCollectionBooks`, `useBookCard`), the `toBookCard` mapping, the book card, a development-only preview; `expo-image` and the Expo SDK 57 patch releases in one build (3c8bf273) | D-072 to D-074 |
 | P6-03 (done, f9c3212) | The Home screen and the collection screen: Home content in configuration, only collections that exist, a square white cover frame, offline and error states, stale-only focus refetch, no dead card buttons, recovery from a false "offline" | D-075 to D-082 |
 | P6-04 (done, a57774a) | Browse: all books through the root `products` query, Age group and Series one at a time, "Available now" on by default (also on the collection screen), the website's sorts, lists that close on back and outside taps; the preview kept until Phase 8 | D-083 to D-089 |
-| P6-05 (branch `p6-05-book-page`, PR open) | The book page from every card: cover, author, title, the sentence for a rented-out book only, prices with the "Rent" or "Rented Out" badge, the description as native text from untrusted HTML, genre chips; no rating (Phase 13); `liveStock`; a description sample in the preview | D-090 to D-094 |
-| P6-06 (proposed) | Search | |
+| P6-05 (done, 1876ac1) | The book page from every card: cover, author, title, the sentence for a rented-out book only, prices with the "Rent" or "Rented Out" badge, the description as native text from untrusted HTML, genre chips; no rating (Phase 13); `liveStock`; a description sample in the preview | D-090 to D-094 |
+| P6-06 (in progress, branch `p6-06-search`) | Search | From D-095 |
 | Later in Phase 6 | The Genre filter (after the architect mirrors the live filters); the longer series list; the offline question, revisited in the last Phase 6 task (D-087) | |
 
 ## Goal of P6-06
@@ -92,7 +92,8 @@ A customer finds a book by title, author or series (`PRODUCT_REQUIREMENTS.md`: "
   - **Ratings:** not on the book page (D-092). Phase 13 (reviews) reads `reviews.rating` and `reviews.rating_count`, handling a rating without a count and a malformed rating (D-071).
   - **Website cards** show no author and no stars; the app's card keeps the author (D-073).
 - **Book card preview** (D-074, D-088): kept until Phase 8, when customer screens draw the card's buttons. Since P6-05 it also holds the book page links and the description sample (D-094).
-- **Development store descriptions (architect, from P6-05's phone check):** all 42 are a single `<p>` with no `<br>` or `<strong>`, so their headings and bullets run together on the book page. Re-import them with the live markup if the development store's book pages should look like the live ones.
+- **Description tables (architect's review of PR #18):** cells in one table row run together with no space ("AB"). Fix in the last Phase 6 task, with a test.
+- **Development store descriptions (architect's review of PR #18):** all 42 are a single `<p>` with no `<br>` or `<strong>`, so their headings and bullets run together on the book page. No re-import now. Before the release-build check, the owner pastes full descriptions into a few books in the development admin.
 - **Analytics events for catalogue screens (P6-05):** `view_collection` and `view_book` (`ANALYTICS.md`) are not wired; screen views are (D-053). Wire them in one task, with the owner's choice of timing.
 - **Book page in a release build:** the description and the full-width cover are checked on the development build only; include a long real description in the release-build list check (`TESTING.md`, "Release gate: list performance").
 - **Bottom inset:** Browse is a tab screen, so its tab bar already takes the inset, as on Home; any new stack screen adds it (D-080).
