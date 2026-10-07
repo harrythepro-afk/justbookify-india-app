@@ -84,7 +84,7 @@ Approved by the owner on 3 October 2026 as the target for later phases (D-037).
 - **Navigation:** five tabs, each with an icon and a label: Home, Browse, Cart, My Books, Account. Search sits under Browse. My Books holds books at home, orders and returns, and asks for login when the customer is signed out. Account holds profile, addresses, notification settings and help.
 - **Home:** header with the store name and a search button. A banner with a short headline, one line of text and a "Books for Rent" button. A "Popular series" row. A "Browse by age" row of chips. A "New arrivals" grid of book cards. It mirrors the website's home page.
 - **Book card, used everywhere:** cover image, title on one line, author, rental price in bold with the retail price struck through beside it, and an "Add to Cart" button. A book that cannot be ordered shows a "Rented Out" badge on the cover and a "Notify me" button instead.
-- **Browse, titled "Books for Rent":** three filter buttons (Age group, Genre, Series), an "Available now" toggle, a sort control, and a two-column grid of book cards.
+- **Browse, titled "Books for Rent":** three filter buttons (Age group, Genre, Series), an "Available now" toggle, a sort control, and a two-column grid of book cards. P6-04 builds Age group and Series, one group at a time, "Available now" on by default and the website's sorts; the Genre button comes with the Genre filter task (D-083 to D-086).
 - **My Books:** three segments (At home, Orders, Returns). At home shows a summary card with the number of books and the due date, the line "We collect these when your next order arrives.", a list of the books with their delivery date, a "Request return pickup" button and a "Choose your next books" link.
 
 ## Privacy requirements

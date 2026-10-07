@@ -273,6 +273,33 @@ Unit tests; the Storefront client or the catalogue fetchers are mocked and nothi
 
 React Native's "VirtualizedList: You have a large list that is slow to update" line is **not** a measure of slowness in a phone check: its `dt` is the time between two scroll events (`@react-native/virtualized-lists`, `VirtualizedList.js`), so the pauses between adb swipes set it off. Judge the list by timings and by eye.
 
+### Browse and the collection screen's controls (P6-04)
+
+Unit tests; the Storefront client or the catalogue fetchers are mocked and nothing reaches a store:
+- `__tests__/shopify/sort.test.ts`: every sort option maps to the keys in D-085 for both reads; Featured has no all-books key and falls back to A-Z if it ever arrives there.
+- `__tests__/config/browse.test.ts`: the title; the groups are Home's own lists (D-084); the website's 8 sorts in order and wording, no "Most relevant"; Featured only inside a group; `effectiveSort`: the defaults, a picked sort kept, a picked Featured becoming A-Z for all books (D-085).
+- `__tests__/shopify/catalogue.test.ts`: `fetchAllBooksPage` reads one page of 20 from the root `products` query with the sort and `available_for_sale:true`, no query when off, rented-out books mapped, the cursor; `fetchCollectionBooksPage` with a list sends the sort and `filters: [{ available: true }]`, or `null` when off (D-083, D-086).
+- `__tests__/shopify/hooks/catalogue.test.tsx`: without options, P6-03's key and variables unchanged; each combination cached on its own; `useAllBooks` reads 20 then 6 and never the whole catalogue; the `catalogue` preset under the `storefront` root.
+- `__tests__/shopify/operations.test.ts`: `AllBooks` and the extended `CollectionBooks` validate against the saved schema, carry `@inContext` and select no personal field.
+- `__tests__/components/BookListControls.test.tsx` (D-089): a list opens, marks the chosen option and closes on a choice; **Android's back button (`onRequestClose`) closes it without leaving the screen or changing the choice; a tap outside closes it the same way**; the switch passes its change on; Featured only inside a group.
+- `__tests__/app/browse.test.tsx`: opens on all books, "Available now" on, A-Z, 20 books; no Featured for all books; Age group and Series only, no Genre; only collections that exist; no group button before the handles are known; a chosen age group reads its collection with Featured and shows on its button; a series replaces an age group; "Clear" returns to all books and A-Z; a picked sort kept across a group change; a picked Featured becomes A-Z on "Clear"; a book orderable at zero stock shown with the toggle on, a rented-out book with its badge and no button with it off; both empty messages; "Load more" 20 then 26; offline with the controls kept, the notice over saved books, the error and "Try again" after `recheckNetwork()`; a group removed after listing says it is not available.
+- `__tests__/app/collection.test.tsx`: "Available now" on and Featured by default; off reads again without the filter and keeps the title; all 8 sorts in order with Featured marked, and a chosen sort read; both empty messages. `__tests__/app/tabs.test.tsx`: the Tintin tile's empty state now shows the "Available now" wording.
+
+**Development store numbers for the phone check** (`npm run check:dev-store`, 8 October 2026): all books 29 with "Available now" on (20, then 29 after "Load more") and 42 with it off (20, 40, 42; the 3 older test products are among them); `junior-readers` 21 on (20, then 21) and 26 off; `tintin-series` empty either way.
+
+**Phone check** (development build 3c8bf273, JavaScript from Metro, owner's phone, under `CLAUDE.md`'s phone check rules; Do Not Disturb on; the focus check and each tap, swipe or key in the same command):
+1. Browse shows "Books for Rent", Age group and Series buttons (no Genre), "Available now" on, "Sort: Alphabetically, A-Z", and two columns of cards with no cart or notify-me button.
+2. "Load more": 29 books in all, then the button disappears.
+3. `harry-potter-and-the-deathly-hallows-book-7` (orderable at zero stock) is in the list with "Available now" on, with no badge.
+4. "Available now" off: `the-gruffalo` shows with "Rented Out" and no button.
+5. Age group "9-10 years": `junior-readers` with "Sort: Featured"; then Series "Harry Potter" replaces it; "Clear" returns to all books with A-Z.
+6. Each sort once on all books; with "Price, low to high" the prices rise down the list, with "Alphabetically, Z-A" the titles run backwards.
+7. **With the Sort list open, Android's back button once: the list closes and Browse stays.** A tap outside an open list closes it too.
+8. From Home, the Tintin tile: "No books available right now. Switch off Available now to see rented-out books."; off: "No books here yet." The "9-10 years" chip: "Available now" on, "Sort: Featured", 21 books.
+9. Home and the development preview are unchanged.
+10. Standing step (D-082, D-087): more than 5 minutes in the background, then back: no false offline notice.
+11. The app's own log shows no crash and no JavaScript error.
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).
