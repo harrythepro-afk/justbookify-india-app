@@ -4,13 +4,14 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { freshness } from '@/query/freshness';
 import {
   useAllBooks,
+  useBook,
   useBookCard,
   useCollectionBooks,
   useCollectionHandles,
 } from '@/shopify/hooks/catalogue';
 import { storefrontKeys } from '@/shopify/queryKeys';
 
-import { bookProduct, EXAMPLES } from '../../helpers/catalogue';
+import { bookPageProduct, bookProduct, EXAMPLES } from '../../helpers/catalogue';
 import {
   createTestQueryClient,
   tearDownQueryClient,
@@ -260,6 +261,65 @@ describe('useBookCard', () => {
       queryKey: storefrontKeys.catalogue.bookCard('harry-potter-and-the-deathly-hallows-book-7'),
     });
     expect(query?.options).toMatchObject({ staleTime: freshness.catalogue.staleTime });
+  });
+});
+
+describe('useBook (P6-05)', () => {
+  it('reads one book page by handle with the liveStock preset (D-062, D-093)', async () => {
+    mockQuery.mockResolvedValue({
+      product: bookPageProduct({
+        handle: 'harry-potter-and-the-deathly-hallows-book-7',
+        currentlyNotInStock: true,
+      }),
+    });
+
+    const { result } = await renderHook(
+      () => useBook('harry-potter-and-the-deathly-hallows-book-7'),
+      { wrapper: withQueryClient(client) },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toMatchObject({
+      availability: 'orderable-at-zero-stock',
+      orderable: true,
+      genres: ['Fantasy'],
+    });
+    const query = client.getQueryCache().find({
+      queryKey: storefrontKeys.catalogue.book('harry-potter-and-the-deathly-hallows-book-7'),
+    });
+    expect(query?.queryKey[0]).toBe('storefront');
+    expect(query?.options).toMatchObject({
+      staleTime: freshness.liveStock.staleTime,
+      gcTime: freshness.liveStock.gcTime,
+      refetchOnMount: 'always',
+    });
+  });
+
+  it('gives null for a missing book', async () => {
+    mockQuery.mockResolvedValue({ product: null });
+
+    const { result } = await renderHook(() => useBook('no-such-book-p6-05'), {
+      wrapper: withQueryClient(client),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toBeNull();
+  });
+
+  it('reads Shopify again each time a page for the book opens', async () => {
+    mockQuery.mockResolvedValue({ product: bookPageProduct({ handle: 'the-gruffalo' }) });
+
+    const first = await renderHook(() => useBook('the-gruffalo'), {
+      wrapper: withQueryClient(client),
+    });
+    await waitFor(() => expect(first.result.current.isSuccess).toBe(true));
+    await first.unmount();
+
+    const second = await renderHook(() => useBook('the-gruffalo'), {
+      wrapper: withQueryClient(client),
+    });
+    await waitFor(() => expect(mockQuery).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(second.result.current.isFetching).toBe(false));
   });
 });
 

@@ -1,13 +1,14 @@
 import {
   CATALOGUE_PAGE_SIZE,
   fetchAllBooksPage,
+  fetchBook,
   fetchBookCard,
   fetchCollectionBooksPage,
   fetchCollectionHandles,
   resetCatalogueReportsForTests,
 } from '@/shopify/catalogue';
 
-import { bookProduct, EXAMPLES } from '../helpers/catalogue';
+import { bookPageProduct, bookProduct, EXAMPLES, genre } from '../helpers/catalogue';
 
 const mockQuery = jest.fn();
 const mockReportUnexpected = jest.fn();
@@ -255,6 +256,46 @@ describe('fetchBookCard', () => {
     mockQuery.mockResolvedValue({ product: null });
 
     await expect(fetchBookCard({ handle: 'the-giraffe-and-the-pelly-and-me' })).resolves.toBeNull();
+  });
+});
+
+describe('fetchBook (P6-05)', () => {
+  it('reads one book page by handle with the cancel signal', async () => {
+    mockQuery.mockResolvedValue({
+      product: bookPageProduct({
+        handle: 'the-gruffalo',
+        availableForSale: false,
+        genres: [genre('Picture Book')],
+      }),
+    });
+    const signal = new AbortController().signal;
+
+    const page = await fetchBook({ handle: 'the-gruffalo', signal });
+
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('query BookPage('), {
+      variables: { handle: 'the-gruffalo' },
+      signal,
+    });
+    expect(page).toMatchObject({
+      handle: 'the-gruffalo',
+      orderable: false,
+      genres: ['Picture Book'],
+    });
+  });
+
+  it('gives null for a book that is not published to the channel', async () => {
+    mockQuery.mockResolvedValue({ product: null });
+
+    await expect(fetchBook({ handle: 'no-such-book-p6-05' })).resolves.toBeNull();
+    expect(mockReportUnexpected).not.toHaveBeenCalled();
+  });
+
+  it('gives null for a book without a variant, reported once per session by code only', async () => {
+    mockQuery.mockResolvedValue({ product: bookPageProduct({ noVariant: true }) });
+
+    await expect(fetchBook({ handle: 'broken' })).resolves.toBeNull();
+    await expect(fetchBook({ handle: 'broken' })).resolves.toBeNull();
+    expect(mockReportUnexpected.mock.calls).toEqual([['catalogue/book-without-variant']]);
   });
 });
 

@@ -1,4 +1,5 @@
 import type { BookCardProduct } from '@/shopify/bookCard';
+import type { BookPageProduct } from '@/shopify/bookPage';
 import type { CurrencyCode } from '@/shopify/generated/storefront.types';
 
 type Overrides = {
@@ -79,3 +80,33 @@ export const EXAMPLES = {
       cover: false,
     }),
 };
+
+/** One reference in the genre metafield: a genre with a label, or a node of another type. */
+export type GenreNode = { type?: string; label?: { value?: string | null } | null };
+
+/** A genre metaobject as the BookPage operation reads it. */
+export function genre(label: string | null): {
+  type: string;
+  label: { value: string } | null;
+} {
+  return { type: 'shopify--genre', label: label === null ? null : { value: label } };
+}
+
+/**
+ * A product as the BookPage operation returns it (P6-05): the card's fields plus the
+ * description and the genre metafield. Defaults: a short description and one genre.
+ */
+export function bookPageProduct(
+  overrides: Overrides & {
+    readonly descriptionHtml?: string;
+    /** The metafield's references; `null` for a book with no genre metafield. */
+    readonly genres?: readonly GenreNode[] | null;
+  } = {},
+): BookPageProduct {
+  const genres = overrides.genres === undefined ? [genre('Fantasy')] : overrides.genres;
+  return {
+    ...bookProduct(overrides),
+    descriptionHtml: overrides.descriptionHtml ?? '<p>A short description.</p>',
+    genre: genres === null ? null : { references: { nodes: genres as { type: string }[] } },
+  };
+}

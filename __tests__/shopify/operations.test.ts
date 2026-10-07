@@ -104,14 +104,39 @@ it('finds the operations in src/shopify/', () => {
 // The book card shows no rating (owner, P6-02; D-073): its operations read no review metafield.
 it('reads no rating in the catalogue operations', () => {
   const catalogue = realOperations.filter(({ document }) =>
-    ['CollectionBooks', 'BookCardByHandle', 'CollectionHandles'].includes(
+    ['CollectionBooks', 'AllBooks', 'BookCardByHandle', 'CollectionHandles'].includes(
       definitions(document)[0]?.name?.value ?? '',
     ),
   );
-  expect(catalogue).toHaveLength(3);
+  expect(catalogue).toHaveLength(4);
   for (const { document } of catalogue) {
     expect(document).not.toMatch(/reviews|rating|metafield/i);
   }
+});
+
+// The book page shows the genre only (owner, answers 1 and 3, P6-05; D-090, D-092): no rating,
+// and no language, publisher, pages, binding or ISBN (the ISBN is damaged on the live store).
+it('reads only the genre metafield on the book page, and no rating', () => {
+  const page = realOperations.find(
+    ({ document }) => definitions(document)[0]?.name?.value === 'BookPage',
+  );
+  expect(page).toBeDefined();
+  const document = page?.document ?? '';
+  expect(document).not.toMatch(/reviews|rating|isbn|publisher|pages|language-version|cover-type/i);
+
+  const metafields: { namespace?: string; key?: string }[] = [];
+  visit(parse(document), {
+    Field: (node) => {
+      if (node.name.value === 'metafield' || node.name.value === 'metafields') {
+        const value = (name: string) => {
+          const argument = node.arguments?.find((arg) => arg.name.value === name);
+          return argument?.value.kind === Kind.STRING ? argument.value.value : undefined;
+        };
+        metafields.push({ namespace: value('namespace'), key: value('key') });
+      }
+    },
+  });
+  expect(metafields).toEqual([{ namespace: 'shopify', key: 'genre' }]);
 });
 
 // Home's series tiles are text only (owner, P6-03; D-076): the listing reads handles, no image.

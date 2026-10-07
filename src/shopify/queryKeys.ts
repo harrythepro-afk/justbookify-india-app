@@ -20,6 +20,7 @@ export const storefrontKeys = {
     allBooks: (list: BookListOptions) =>
       [...storefrontKeys.all, 'catalogue', 'allBooks', list] as const,
     bookCard: (handle: string) => [...storefrontKeys.all, 'catalogue', 'bookCard', handle] as const,
+    book: (handle: string) => [...storefrontKeys.all, 'catalogue', 'book', handle] as const,
     collectionHandles: () => [...storefrontKeys.all, 'catalogue', 'collectionHandles'] as const,
   },
 };
