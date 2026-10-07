@@ -8,4 +8,9 @@ export const storefrontKeys = {
     variants: () => [...storefrontKeys.all, 'devCheckout', 'variants'] as const,
     createCart: () => [...storefrontKeys.all, 'devCheckout', 'createCart'] as const,
   },
+  catalogue: {
+    collectionBooks: (handle: string) =>
+      [...storefrontKeys.all, 'catalogue', 'collectionBooks', handle] as const,
+    bookCard: (handle: string) => [...storefrontKeys.all, 'catalogue', 'bookCard', handle] as const,
+  },
 };

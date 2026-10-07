@@ -220,6 +220,26 @@ The development store's sample catalogue is the fixture for Phase 6 (D-069): 40 
 
 **Metafields.** Genre on every sample book (one to three values). Across all 40 books, counting the draft: English language version on all, paperback on 37 and hardcover on 3. No book uses `shopify.target-audience`, so the check can only show that it queries without error. `custom.pages` and `custom.isbn_13` are missing on 5 books. Five books have a rating, all 5.0; one of them has no count.
 
+### Catalogue hooks and book card (P6-02)
+
+Unit tests; the Storefront client is mocked and nothing reaches a store. Fixtures are shaped like the named examples above (`__tests__/helpers/catalogue.ts`):
+- `__tests__/shopify/bookCard.test.ts`: the three availability states; a book orderable at zero stock maps exactly like an in-stock one apart from `availability`; "continue selling" with stock is in stock; no cover gives `null`; `vendor` as stored; "₹49", "₹49.50", "₹1,00,000" and no space between symbol and digits; no retail price unless the compare-at price is above the price; a price in another currency throws `catalogue/currency-mismatch` without naming the currency; no variant gives no card (D-073).
+- `__tests__/shopify/catalogue.test.ts`: 20 books per page by handle, the cursor and the cancel signal reach the client, a missing collection is `not-found`, a book without a variant is left out and reported once per session by code, a currency mismatch fails the page.
+- `__tests__/shopify/hooks/catalogue.test.tsx`: `junior-readers` (26 books) in two pages, 20 then 6, then no next page; the `catalogue` preset under the `storefront` key root.
+- `__tests__/components/BookCard.test.tsx`: each state; zero stock renders the same tree as in stock; the badge and "Notify me" only when rented out; the struck-through retail price; one-line title; the missing cover shows no visible text and is labelled with the title; accessible labels; 44-point buttons; the callbacks receive the book.
+- `__tests__/app/dev-catalogue.test.tsx` and `__tests__/app/home.test.tsx`: the preview exists only on development builds; the named examples; "Load more".
+- `__tests__/shopify/operations.test.ts`: the catalogue operations validate, carry `@inContext`, select no personal field and read no rating.
+
+Shown on 7 October 2026: removing `currentlyNotInStock` from `BookCardByHandle` fails the type check, and mapping zero stock to "rented out" fails 3 tests.
+
+**Phone check** (development build, owner's phone, under `CLAUDE.md`'s phone check rules), on the development-only book card preview (D-074):
+1. Each named example shows its state: `the-gruffalo` has the "Rented Out" badge and "Notify me"; `harry-potter-and-the-deathly-hallows-book-7` and `sudha-murty-three-thousand-stitches` look exactly like in stock; `peter-and-the-wolf-read-it-yourself` shows the cream frame and the book icon only; no rating anywhere; long titles stay on one line.
+2. **Price text:** read the exact text on screen. It must be "₹49" style, the same as the unit tests expect. Another symbol, "Rs.", "INR", a space or other grouping stops the check, and is reported; the tests are never changed to match (owner).
+3. "Add to Cart" and "Notify me" each change the status line.
+4. `junior-readers` shows 20 books, then 26 after "Load more", and the button disappears.
+5. Covers load. (Reuse from expo-image's disk cache after a cold start cannot be observed: the query cache is in memory only, so a cold start reads Shopify again before any card appears. P6-02 recorded this as not observable.)
+6. The app's own log shows no crash and no JavaScript error.
+
 ## Edge cases
 
 | Case | Expected behaviour |

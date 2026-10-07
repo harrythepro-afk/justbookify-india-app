@@ -4,6 +4,11 @@ export {
   parseCrashReportingConfig,
   type CrashReportingConfig,
 } from './crashReporting';
+export {
+  DEV_CATALOGUE_COLLECTION,
+  DEV_CATALOGUE_EXAMPLES,
+  type DevCatalogueExample,
+} from './devCatalogue';
 export { getAppEnvironment, getEnvironmentLabel } from './environment';
 export {
   defaultFeatureFlags,

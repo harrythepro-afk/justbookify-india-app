@@ -72,6 +72,16 @@ All are readable by the Storefront API. Listed as `namespace.key`, type, and the
 
 **Design consequence for Phase 6 (proposed, not yet a decision):** browse by age group, series and author through **collections by handle**, not by parsing `productType` or tags. See `NEXT_TASK.md`.
 
+### Live website, architect's view (7 October 2026, view only)
+
+Recorded in P6-02. Nothing on the live store was changed or read through an API.
+
+- **Book cards** on the website show no author and no star rating. The app's card keeps the approved layout, which includes the author (D-073).
+- **Books orderable at zero stock** show a working "Add to Cart" and no "Rented Out" badge on the series page, the same as in-stock books (D-073).
+- **Collection pages** open with the "In stock" availability filter already on. Input for the Browse task.
+- **Filters:** the live collection pages offer Genre, tag and Service City filters, so these are configured on the live store. The development store has only the default Availability and Price filters (`SHOPIFY_INTEGRATION.md`). The architect mirrors the filter setup in the development store before the Genre filter task.
+- **Book page:** it shows "Currently not available as another junior reader is enjoying this book." even for a book that can be ordered at zero stock. The owner knows. The app's book page must not show an unavailable message for a book that can be ordered (R8, D-073).
+
 ## Orders and rentals
 
 - A rental is an order. Staff mark delivery as a fulfilment and pickup as a return. About 2,930 orders are fulfilled and 2,330 are returned.

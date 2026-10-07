@@ -20,6 +20,9 @@ export default function HomeScreen() {
           <Link href="/dev-checkout" style={styles.link}>
             Open the test checkout screen
           </Link>
+          <Link href="/dev-catalogue" style={styles.secondLink}>
+            Open the book card preview
+          </Link>
           <CrashReportingTestControls />
           <FeatureFlagStatus />
           <AnalyticsStatus />
@@ -110,6 +113,7 @@ const linkText = {
 
 const styles = StyleSheet.create({
   link: { ...linkText, marginTop: spacing.xl },
+  secondLink: { ...linkText, marginTop: spacing.md },
   // Vertical padding brings the touch target to the 44-point minimum.
   control: { marginTop: spacing.sm, paddingVertical: spacing.md, alignSelf: 'flex-start' },
   controlText: linkText,

@@ -93,6 +93,24 @@ describe('HomeScreen', () => {
     },
   );
 
+  it('links to the book card preview on a development build', async () => {
+    await render(<HomeScreen />, { wrapper: SafeArea });
+
+    const link = screen.getByText('Open the book card preview');
+    expect(link.props.accessibilityHint).toBe('/dev-catalogue');
+  });
+
+  it.each(['staging', 'production'])(
+    'does not link to the book card preview on a %s build',
+    async (env) => {
+      mockAppEnv = env;
+
+      await render(<HomeScreen />, { wrapper: SafeArea });
+
+      expect(screen.queryByText('Open the book card preview')).not.toBeOnTheScreen();
+    },
+  );
+
   it('sends a test error to Sentry on a development build', async () => {
     await render(<HomeScreen />, { wrapper: SafeArea });
 

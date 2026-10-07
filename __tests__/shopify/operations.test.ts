@@ -91,8 +91,24 @@ function personalFieldsIn(document: string): string[] {
 
 it('finds the operations in src/shopify/', () => {
   expect(realOperations.map(({ document }) => definitions(document)[0]?.name?.value)).toEqual(
-    expect.arrayContaining(['DevCheckoutProduct', 'DevCheckoutCartCreate']),
+    expect.arrayContaining([
+      'DevCheckoutProduct',
+      'DevCheckoutCartCreate',
+      'CollectionBooks',
+      'BookCardByHandle',
+    ]),
   );
+});
+
+// The book card shows no rating (owner, P6-02; D-073): its operations read no review metafield.
+it('reads no rating in the catalogue operations', () => {
+  const catalogue = realOperations.filter(({ document }) =>
+    ['CollectionBooks', 'BookCardByHandle'].includes(definitions(document)[0]?.name?.value ?? ''),
+  );
+  expect(catalogue).toHaveLength(2);
+  for (const { document } of catalogue) {
+    expect(document).not.toMatch(/reviews|rating|metafield/i);
+  }
 });
 
 describe.each(realOperations.map((found) => [found.file, found] as const))(

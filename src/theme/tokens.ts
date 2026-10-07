@@ -24,6 +24,10 @@ export const colors = {
   primaryButton: palette.maroon,
   onPrimaryButton: palette.cream,
   secondaryButtonText: palette.darkMaroon,
+  /** Outline of a secondary button on the page background, such as the card's "Notify me". */
+  secondaryButtonBorder: palette.darkMaroon,
+  /** The frame behind a book cover while it loads, and the whole cover when there is none. */
+  coverFrame: palette.cream,
 
   rentBadge: palette.green,
   onRentBadge: palette.darkMaroon,
@@ -97,4 +101,12 @@ export const radius = {
 
 export const iconSize = {
   tab: 24,
+  /** The book icon in a cover frame with no image. */
+  coverFallback: 40,
 } as const;
+
+/** The smallest touch target, in points (WCAG 2.5.5 and both platforms' guidelines). */
+export const minTouchTarget = 44;
+
+/** Width over height of the book card's cover frame. Covers fit inside it, never cropped. */
+export const coverAspectRatio = 2 / 3;
