@@ -10,6 +10,9 @@
 // the category metafields, ratings with and without a count, and one named book per case.
 // For Browse (P6-04) it checks that "available" means the same in the root products query
 // (`available_for_sale:true`) as in a collection's Availability filter (`available: true`).
+// For the book page (P6-05) it reads one named book the way the app's BookPage operation does:
+// genre labels resolve, the description parses through the app's own parser, and a handle no
+// book has gives null.
 //
 // Run with `npm run check:dev-store`. Read-only: named queries, no mutations. Never prints the
 // token or the domain. Not run in CI, which has no .env.local. Point it at a development store
@@ -19,6 +22,7 @@
 
 import { STOREFRONT_API_VERSION, storefrontEndpoint } from '../src/config/shopifyApi.ts';
 import { getStoreConfig, StoreConfigError } from '../src/config/store.ts';
+import { parseDescriptionHtml } from '../src/shopify/richText.ts';
 import {
   AVAILABILITY_COUNTS,
   AVAILABLE_FILTER_COLLECTION,
@@ -112,6 +116,33 @@ const DRAFT_QUERY = `query DevStoreDraft(
     id
   }
 }`;
+
+// The book page's own selection (src/shopify/catalogue.ts, BookPage), less the card fields.
+const BOOK_PAGE_QUERY = `query DevStoreBookPage(
+  $country: CountryCode
+  $language: LanguageCode
+  $handle: String!
+) @inContext(country: $country, language: $language) {
+  product(handle: $handle) {
+    handle
+    descriptionHtml
+    genre: metafield(namespace: "shopify", key: "genre") {
+      references(first: 10) {
+        nodes {
+          ... on Metaobject {
+            type
+            label: field(key: "label") {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
+/** A handle no book has, as in the development preview (src/config/devCatalogue.ts). */
+const MISSING_BOOK_HANDLE = 'no-such-book-p6-05';
 
 const COLLECTION_QUERY = `query DevStoreCollection(
   $country: CountryCode
@@ -361,6 +392,31 @@ async function checkAvailableNow(config, products, problems) {
   );
 }
 
+async function checkBookPage(config, problems) {
+  const handle = EXAMPLES.allMetafields;
+  const data = await storefrontRequest(config, BOOK_PAGE_QUERY, { handle });
+  const product = data?.product;
+  if (!product) {
+    problems.push(`book page: ${handle} is not visible.`);
+    return;
+  }
+  const genres = (product.genre?.references?.nodes ?? []).filter(
+    (node) => node?.type === 'shopify--genre' && node.label?.value?.trim(),
+  );
+  if (genres.length === 0) problems.push(`book page: ${handle} shows no genre label.`);
+  const blocks = parseDescriptionHtml(product.descriptionHtml ?? '');
+  if (blocks.length === 0) problems.push(`book page: ${handle} has no description to show.`);
+
+  const missing = await storefrontRequest(config, BOOK_PAGE_QUERY, {
+    handle: MISSING_BOOK_HANDLE,
+  });
+  if (missing?.product !== null) problems.push(`book page: ${MISSING_BOOK_HANDLE} is not null.`);
+  console.log(
+    `Book page: ${handle} has ${genres.length} genre label(s) and ${blocks.length} ` +
+      `description block(s); ${MISSING_BOOK_HANDLE} gives null.`,
+  );
+}
+
 async function checkCatalogue(config) {
   const problems = [];
   const products = await fetchAllProducts(config);
@@ -482,6 +538,9 @@ async function checkCatalogue(config) {
     `Metafields: ${METAFIELDS.length} queried on ${EXAMPLES.allMetafields}; ` +
       `${Object.keys(EXAMPLES).length} named examples checked.`,
   );
+
+  // The book page (P6-05).
+  await checkBookPage(config, problems);
 
   if (problems.length > 0) {
     fail(`the sample catalogue differs:\n- ${problems.join('\n- ')}`);
