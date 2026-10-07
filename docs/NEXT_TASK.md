@@ -1,6 +1,6 @@
 # Next task (proposal): P6-05, the book page
 
-Status: proposal. P6-04 (Browse, "Books for Rent") is on branch `p6-04-browse`; see `CURRENT_STATUS.md`. P6-05 starts when the owner starts it.
+Status: in progress on branch `p6-05-book-page`. P6-04 (Browse, "Books for Rent") is merged as `a57774a` (PR #17); see `CURRENT_STATUS.md`.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -17,8 +17,8 @@ Status: proposal. P6-04 (Browse, "Books for Rent") is on branch `p6-04-browse`; 
 | P6-01 (done, e378fa6) | The development store's sample catalogue (40 real books loaded by the architect) recorded in `SHOPIFY_INTEGRATION.md` and `TESTING.md`; `npm run check:dev-store` asserts it over the Storefront API; `filters` probed | D-068 to D-071 |
 | P6-02 (done, fa4c6c9) | Catalogue operations and hooks (`useCollectionBooks`, `useBookCard`), the `toBookCard` mapping, the book card, a development-only preview; `expo-image` and the Expo SDK 57 patch releases in one build (3c8bf273) | D-072 to D-074 |
 | P6-03 (done, f9c3212) | The Home screen and the collection screen: Home content in configuration, only collections that exist, a square white cover frame, offline and error states, stale-only focus refetch, no dead card buttons, recovery from a false "offline" | D-075 to D-082 |
-| P6-04 (branch `p6-04-browse`, PR open) | Browse: all books through the root `products` query, Age group and Series one at a time, "Available now" on by default (also on the collection screen), the website's sorts, lists that close on back and outside taps; the preview kept until Phase 8 | D-083 to D-089 |
-| P6-05 (proposed) | The book page | |
+| P6-04 (done, a57774a) | Browse: all books through the root `products` query, Age group and Series one at a time, "Available now" on by default (also on the collection screen), the website's sorts, lists that close on back and outside taps; the preview kept until Phase 8 | D-083 to D-089 |
+| P6-05 (in progress) | The book page | |
 | Later in Phase 6 | Search; the Genre filter (after the architect mirrors the live filters); the longer series list; the offline question, revisited in the last Phase 6 task (D-087) | |
 
 ## Goal of P6-05
