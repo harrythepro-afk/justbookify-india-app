@@ -20,8 +20,9 @@ export {
   type BookCard,
   type BookCover,
 } from '../bookCard';
-// Screens say when they are offline (D-078) and may import hooks only (D-063).
-export { useIsOffline } from '@/query/online';
+// Screens say when they are offline (D-078), and "Try again" re-reads the network first (D-082).
+// Screens may import hooks only (D-063).
+export { recheckNetwork, useIsOffline } from '@/query/online';
 
 /**
  * A collection's books by handle (D-068), page by page. Each page is `found` or `not-found`;

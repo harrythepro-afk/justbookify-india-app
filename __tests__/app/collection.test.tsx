@@ -36,6 +36,13 @@ jest.mock('@/crashReporting/sentry', () => ({
   reportUnexpectedDataError: jest.fn(),
 }));
 
+// "Try again" re-reads the network before it refetches (D-082).
+const mockRecheckNetwork = jest.fn(() => Promise.resolve());
+jest.mock('@/query/online', () => ({
+  ...jest.requireActual('@/query/online'),
+  recheckNetwork: () => mockRecheckNetwork(),
+}));
+
 const mockFetchPage = jest.fn<
   Promise<CollectionBooksPage>,
   [{ handle: string; after: string | null }]
@@ -105,6 +112,7 @@ beforeEach(() => {
   mockParams = { handle: 'junior-readers' };
   mockHeaderTitle = undefined;
   mockFetchPage.mockReset().mockImplementation(async (options) => juniorPage(options));
+  mockRecheckNetwork.mockClear();
 });
 
 afterEach(async () => {
@@ -161,6 +169,7 @@ it('keeps "Load more" as the retry after a page fails, and says so', async () =>
 
   await waitFor(() => expect(listProps().data).toHaveLength(26));
   expect(screen.queryByText('Something went wrong. Please try again.')).not.toBeOnTheScreen();
+  expect(mockRecheckNetwork).toHaveBeenCalled();
 });
 
 it('shows the empty state for a collection with no books (tintin-series)', async () => {
@@ -227,6 +236,10 @@ it('says something went wrong, and "Try again" reloads', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
 
   expect(await screen.findByText('Junior 1')).toBeOnTheScreen();
+  expect(mockRecheckNetwork).toHaveBeenCalledTimes(1);
+  expect(mockRecheckNetwork.mock.invocationCallOrder[0]).toBeLessThan(
+    mockFetchPage.mock.invocationCallOrder[1] ?? 0,
+  );
 });
 
 it("leaves room for Android's navigation bar below the last row", async () => {

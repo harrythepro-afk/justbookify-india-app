@@ -18,7 +18,12 @@ import {
 import { isCrashReportingOn, sendTestError, triggerTestNativeCrash } from '@/crashReporting/sentry';
 import { useFeatureFlags } from '@/featureFlags/session';
 import { describeReading, useNetworkLog } from '@/query/QueryProvider';
-import { useCollectionBooks, useCollectionHandles, useIsOffline } from '@/shopify/hooks/catalogue';
+import {
+  recheckNetwork,
+  useCollectionBooks,
+  useCollectionHandles,
+  useIsOffline,
+} from '@/shopify/hooks/catalogue';
 import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
 
 const BROWSE: Href = '/browse';
@@ -42,10 +47,12 @@ export default function HomeScreen() {
 
   const hasData = handles.data !== undefined || arrivals.data !== undefined;
   const firstError = handles.error ?? arrivals.error;
-  const retry = () => {
-    if (handles.data === undefined || handles.isError) void handles.refetch();
-    if (arrivals.data === undefined || arrivals.isError) void arrivals.refetch();
-  };
+  // "Try again" re-reads the network first, so an old offline signal cannot hold it back (D-082).
+  const retry = () =>
+    void recheckNetwork().then(() => {
+      if (handles.data === undefined || handles.isError) void handles.refetch();
+      if (arrivals.data === undefined || arrivals.isError) void arrivals.refetch();
+    });
   const screenState = catalogueViewState({
     hasData,
     isFetching: handles.isFetching || arrivals.isFetching,
@@ -68,12 +75,12 @@ export default function HomeScreen() {
               isFetching={handles.isFetching}
               isOffline={isOffline}
               error={handles.error}
-              onRetry={() => void handles.refetch()}
+              onRetry={() => void recheckNetwork().then(() => handles.refetch())}
             />
             <NewArrivals
               query={arrivals}
               isOffline={isOffline}
-              onRetry={() => void arrivals.refetch()}
+              onRetry={() => void recheckNetwork().then(() => arrivals.refetch())}
             />
           </>
         ) : (

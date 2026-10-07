@@ -6,9 +6,15 @@ import {
   type QueryObserverResult,
 } from '@tanstack/react-query';
 import type { NetworkState } from 'expo-network';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import type { StoreConfig } from '@/config/store';
-import { connectOnlineToNetwork, isOfflineState } from '@/query/online';
+import {
+  connectOnlineToNetwork,
+  isOfflineState,
+  OFFLINE_RECHECK_MS,
+  recheckNetwork,
+} from '@/query/online';
 import { storefrontMutation } from '@/shopify/client';
 import { DEV_CHECKOUT_CART_CREATE_MUTATION } from '@/shopify/devCheckout';
 import { StorefrontError } from '@/shopify/errors';
@@ -191,6 +197,153 @@ describe('connectOnlineToNetwork', () => {
 
     expect(mockRemove).toHaveBeenCalledTimes(1);
     expect(onlineManager.isOnline()).toBe(true);
+  });
+});
+
+// Seen once in P6-03's phone check: the app stayed offline after a return from the background
+// while the phone was online. The app re-reads the state itself (D-082).
+describe('a false offline signal (D-082)', () => {
+  let appStateListener: ((status: AppStateStatus) => void) | undefined;
+  const removeAppState = jest.fn();
+  // React Native's Jest mock makes `currentState` a function; the app reads a string, as on a phone.
+  const mockedCurrentState = Object.getOwnPropertyDescriptor(AppState, 'currentState');
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    appStateListener = undefined;
+    removeAppState.mockClear();
+    Object.defineProperty(AppState, 'currentState', {
+      value: 'active',
+      configurable: true,
+      writable: true,
+    });
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      appStateListener = listener as (status: AppStateStatus) => void;
+      return { remove: removeAppState };
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    if (mockedCurrentState !== undefined) {
+      Object.defineProperty(AppState, 'currentState', mockedCurrentState);
+    }
+  });
+
+  /** Lets pending reads settle without moving the clock. */
+  async function settle(): Promise<void> {
+    await jest.advanceTimersByTimeAsync(0);
+  }
+
+  async function appGoes(status: AppStateStatus): Promise<void> {
+    appStateListener?.(status);
+    await settle();
+  }
+
+  it('re-reads the network on return to the foreground and goes back online', async () => {
+    stop = connectOnlineToNetwork();
+    await settle();
+    networkListener?.(OFFLINE);
+    await appGoes('background');
+    expect(onlineManager.isOnline()).toBe(false);
+    mockGetNetworkState.mockClear().mockResolvedValue(ONLINE);
+
+    await appGoes('active');
+
+    expect(mockGetNetworkState).toHaveBeenCalledTimes(1);
+    expect(onlineManager.isOnline()).toBe(true);
+  });
+
+  it('while offline in the foreground, re-checks every few seconds until it reads online', async () => {
+    stop = connectOnlineToNetwork();
+    await settle();
+    mockGetNetworkState.mockClear().mockResolvedValue(OFFLINE);
+    networkListener?.(OFFLINE);
+
+    await jest.advanceTimersByTimeAsync(OFFLINE_RECHECK_MS - 1);
+    expect(mockGetNetworkState).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(mockGetNetworkState).toHaveBeenCalledTimes(1);
+    expect(onlineManager.isOnline()).toBe(false);
+
+    mockGetNetworkState.mockResolvedValue(ONLINE);
+    await jest.advanceTimersByTimeAsync(OFFLINE_RECHECK_MS);
+    expect(mockGetNetworkState).toHaveBeenCalledTimes(2);
+    expect(onlineManager.isOnline()).toBe(true);
+
+    await jest.advanceTimersByTimeAsync(OFFLINE_RECHECK_MS * 5);
+    expect(mockGetNetworkState).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs no timer while online', async () => {
+    stop = connectOnlineToNetwork();
+    await settle();
+    mockGetNetworkState.mockClear();
+
+    await jest.advanceTimersByTimeAsync(OFFLINE_RECHECK_MS * 5);
+
+    expect(mockGetNetworkState).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('runs no timer in the background, and stops one when the app leaves', async () => {
+    stop = connectOnlineToNetwork();
+    await settle();
+    mockGetNetworkState.mockClear().mockResolvedValue(OFFLINE);
+    networkListener?.(OFFLINE);
+    expect(jest.getTimerCount()).toBe(1);
+
+    await appGoes('background');
+    expect(jest.getTimerCount()).toBe(0);
+    networkListener?.(OFFLINE);
+    await jest.advanceTimersByTimeAsync(OFFLINE_RECHECK_MS * 5);
+
+    expect(mockGetNetworkState).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('tries again later when a re-read fails while offline', async () => {
+    stop = connectOnlineToNetwork();
+    await settle();
+    networkListener?.(OFFLINE);
+    mockGetNetworkState.mockClear().mockRejectedValueOnce(new Error('not available'));
+
+    await jest.advanceTimersByTimeAsync(OFFLINE_RECHECK_MS);
+    expect(onlineManager.isOnline()).toBe(false);
+
+    mockGetNetworkState.mockResolvedValue(ONLINE);
+    await jest.advanceTimersByTimeAsync(OFFLINE_RECHECK_MS);
+    expect(mockGetNetworkState).toHaveBeenCalledTimes(2);
+    expect(onlineManager.isOnline()).toBe(true);
+  });
+
+  it('lets "Try again" re-read the network before it refetches', async () => {
+    stop = connectOnlineToNetwork();
+    await settle();
+    networkListener?.(OFFLINE);
+    mockGetNetworkState.mockClear().mockResolvedValue(ONLINE);
+
+    await recheckNetwork();
+
+    expect(mockGetNetworkState).toHaveBeenCalledTimes(1);
+    expect(onlineManager.isOnline()).toBe(true);
+  });
+
+  it('does nothing on "Try again" when not connected, and stops everything when stopped', async () => {
+    await recheckNetwork();
+    expect(mockGetNetworkState).not.toHaveBeenCalled();
+
+    stop = connectOnlineToNetwork();
+    await settle();
+    networkListener?.(OFFLINE);
+    stop();
+    stop = undefined;
+
+    expect(removeAppState).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+    mockGetNetworkState.mockClear();
+    await recheckNetwork();
+    expect(mockGetNetworkState).not.toHaveBeenCalled();
   });
 });
 

@@ -79,6 +79,13 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
+// "Try again" re-reads the network before it refetches (D-082).
+const mockRecheckNetwork = jest.fn(() => Promise.resolve());
+jest.mock('@/query/online', () => ({
+  ...jest.requireActual('@/query/online'),
+  recheckNetwork: () => mockRecheckNetwork(),
+}));
+
 const mockFetchHandles = jest.fn<Promise<ReadonlySet<string>>, []>();
 const mockFetchPage = jest.fn<Promise<CollectionBooksPage>, [{ handle: string }]>();
 
@@ -323,6 +330,10 @@ describe('HomeScreen states (D-078)', () => {
 
     expect(await screen.findByRole('link', { name: 'Tintin' })).toBeOnTheScreen();
     expect(await screen.findByText('New book 1')).toBeOnTheScreen();
+    expect(mockRecheckNetwork).toHaveBeenCalledTimes(1);
+    expect(mockRecheckNetwork.mock.invocationCallOrder[0]).toBeLessThan(
+      mockFetchHandles.mock.invocationCallOrder[1] ?? 0,
+    );
     expect(screen.queryByText('Something went wrong. Please try again.')).not.toBeOnTheScreen();
   });
 

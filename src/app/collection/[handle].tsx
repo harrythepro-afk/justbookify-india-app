@@ -13,6 +13,7 @@ import {
   ScreenMessage,
 } from '@/components/ScreenMessage';
 import {
+  recheckNetwork,
   useCollectionBooks,
   useIsOffline,
   type BookCard as BookCardData,
@@ -62,7 +63,12 @@ function Collection({ handle }: { readonly handle: string }) {
     return (
       <View style={styles.screen}>
         {header('')}
-        {state !== 'ready' && <NoDataState onRetry={() => void query.refetch()} state={state} />}
+        {state !== 'ready' && (
+          <NoDataState
+            onRetry={() => void recheckNetwork().then(() => query.refetch())}
+            state={state}
+          />
+        )}
       </View>
     );
   }
@@ -93,7 +99,8 @@ function Collection({ handle }: { readonly handle: string }) {
             failed={query.isFetchNextPageError}
             hasNextPage={query.hasNextPage}
             isFetchingNextPage={query.isFetchingNextPage}
-            onPress={() => void query.fetchNextPage()}
+            // After a failed page this is the retry, so it re-reads the network first (D-082).
+            onPress={() => void recheckNetwork().then(() => query.fetchNextPage())}
           />
         }
         numColumns={2}
