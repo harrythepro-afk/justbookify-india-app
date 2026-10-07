@@ -230,6 +230,13 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
   - `npx expo-doctor` passes 21 of 21 again. `npm run audit:gate` passes; it now also lists two moderate advisories that do not gate (`lodash` GHSA-f23m-r3pf-42rh, `sprintf-js` GHSA-hp3w-g68c-fv3c). `npm run check:dev-store` passes.
   - Typed routes: `.expo/types/router.d.ts` (local, gitignored) only learns a new route when the Expo dev server runs; it was started briefly on port 8099 and its leftover `node` process stopped afterwards.
   - EAS Android development build **3c8bf273** (commit `d32b7bd`) queued. `eas build:inspect` (archive stage): the upload holds `.env.example` only (empty placeholders), no `.env.local`, keystore or credential file, and neither the store's domain nor its token; the copy was deleted. The first inspect attempt failed on an Expo API network reset and was repeated.
+  - **EAS build 3c8bf273 finished** (queued 05:51 IST, started after about 25 minutes, finished 06:19 IST). APK 96.9 MB (96,913,546 bytes), `native-code: 'arm64-v8a'` only.
+  - **APK permission check, build 3c8bf273, 7 October 2026: passed.** Downloaded with the owner's yes into the scratch folder; `aapt2` 36.1.0.
+    - The permission list is identical to build 022646a4's: `SYSTEM_ALERT_WINDOW`, `INTERNET`, `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` (both up to SDK 32), `VIBRATE`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `CHANGE_WIFI_MULTICAST_STATE`, `ACCESS_WIFI_STATE`, `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE`, and the app's own `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. No permission is new: expo-image's (`INTERNET`, `ACCESS_NETWORK_STATE`, `READ_EXTERNAL_STORAGE` up to SDK 32) were already present. Nothing containing `AD_ID` or `ADSERVICES`, no `USE_BIOMETRIC` or `USE_FINGERPRINT`.
+    - Firebase settings in the manifest: collection enabled false and deactivated false; automatic screen reporting off; analytics storage denied; advertising ID and SSAID off; every advertising consent denied.
+    - Backup: `android:allowBackup` false; `android:dataExtractionRules` resolves to `xml/no_backup_data_extraction_rules` (9 domains excluded from cloud backup and 9 from device transfer); `android:fullBackupContent` resolves to `xml/no_backup_rules` (9 domains excluded).
+    - The manifest also registers ML Kit barcode components. They come from `expo-dev-launcher`'s `debugOnly` dependency `com.google.mlkit:barcode-scanning` (the dev client's QR scanner), not from expo-image, declare no permission, and do not reach staging or production builds.
+    - The APK was deleted.
 
 ## What works
 
