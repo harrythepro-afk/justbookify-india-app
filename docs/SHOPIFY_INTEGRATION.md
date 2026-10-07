@@ -125,6 +125,13 @@ Each `shopify--*` metaobject has the fields `label` and `taxonomy_reference`. Th
 
 **Storefront filters (probe, P6-01, report only).** `filters` on the products of `junior-readers` returns two filters only: Availability (`filter.v.availability`, type `LIST`: "In stock" 21, "Out of stock" 5; Shopify's "in stock" here means `availableForSale`, so it includes books orderable at zero stock) and Price (`filter.v.price`, type `PRICE_RANGE`, 0 to 99). There is no Genre, author or product-type filter: the development store has no filters configured beyond Shopify's defaults. How the Genre filter works is decided in a later task.
 
+**Catalogue reads (P6-02 to P6-04).** All are named, typed by code generation and go through the Storefront client, 20 books per page:
+- `CollectionBooks`: a collection's books by handle, with optional `sortKey` (`ProductCollectionSortKeys`), `reverse` and `filters` (`[{ available: true }]` for "Available now"). Cache key `collectionBooks(handle)` without options, `collectionBooks(handle, list)` with them.
+- `AllBooks` (P6-04, D-083): the root `products` query for Browse with no group chosen, with `sortKey` (`ProductSortKeys`), `reverse` and `query` (`available_for_sale:true` for "Available now"). Cache key `allBooks(list)`. The store has no "all" collection.
+- `BookCardByHandle` (the development preview) and `CollectionHandles` (which collections exist, D-076).
+- **"Available" means `availableForSale` in both reads.** Checked on the development store on 8 October 2026: the root query returns 29 of 42 (21 in stock plus 8 orderable at zero stock) and `junior-readers`' Availability filter 21 of 26, each exactly the `availableForSale` products; `npm run check:dev-store` asserts both. The root query's `query` filter goes through Shopify's search index, so a stock change may take a moment to show there.
+- Sort keys per option: D-085 and `src/shopify/sort.ts`.
+
 ## Checkout behaviour to respect
 
 - Order subtotal under ₹500 (R2). The rule checks the subtotal, not the total with shipping (P3-02).

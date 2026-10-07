@@ -10,10 +10,21 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { freshness } from '@/query/freshness';
 import { useRefetchStaleOnFocus } from '@/query/screenFocus';
 
-import { fetchBookCard, fetchCollectionBooksPage, fetchCollectionHandles } from '../catalogue';
+import {
+  fetchAllBooksPage,
+  fetchBookCard,
+  fetchCollectionBooksPage,
+  fetchCollectionHandles,
+  type BookListOptions,
+} from '../catalogue';
 import { storefrontKeys } from '../queryKeys';
 
-export { CATALOGUE_PAGE_SIZE, type CollectionBooksPage } from '../catalogue';
+export {
+  CATALOGUE_PAGE_SIZE,
+  type AllBooksPage,
+  type BookListOptions,
+  type CollectionBooksPage,
+} from '../catalogue';
 export {
   CatalogueDataError,
   type BookAvailability,
@@ -26,17 +37,35 @@ export { recheckNetwork, useIsOffline } from '@/query/online';
 
 /**
  * A collection's books by handle (D-068), page by page. Each page is `found` or `not-found`;
- * `fetchNextPage()` reads the next one while `hasNextPage` is true.
+ * `fetchNextPage()` reads the next one while `hasNextPage` is true. Without `list`, every book
+ * in the collection's own order; with it, a sort and "Available now" (D-085, D-086), each
+ * combination cached on its own.
  */
-export function useCollectionBooks(handle: string) {
-  const queryKey = storefrontKeys.catalogue.collectionBooks(handle);
+export function useCollectionBooks(handle: string, list?: BookListOptions) {
+  const queryKey = storefrontKeys.catalogue.collectionBooks(handle, list);
   useRefetchStaleOnFocus(queryKey);
   return useInfiniteQuery({
     queryKey,
     queryFn: ({ pageParam, signal }) =>
-      fetchCollectionBooksPage({ handle, after: pageParam, signal }),
+      fetchCollectionBooksPage({ handle, after: pageParam, list, signal }),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => (lastPage.kind === 'found' ? lastPage.nextCursor : null),
+    ...freshness.catalogue,
+  });
+}
+
+/**
+ * All books (D-083), page by page, 20 at a time: the whole catalogue is never fetched. Each
+ * combination of sort and "Available now" is cached on its own.
+ */
+export function useAllBooks(list: BookListOptions) {
+  const queryKey = storefrontKeys.catalogue.allBooks(list);
+  useRefetchStaleOnFocus(queryKey);
+  return useInfiniteQuery({
+    queryKey,
+    queryFn: ({ pageParam, signal }) => fetchAllBooksPage({ after: pageParam, list, signal }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     ...freshness.catalogue,
   });
 }

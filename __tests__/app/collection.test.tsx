@@ -1,10 +1,10 @@
 import { onlineManager, type QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { FlatList, ScrollView, StyleSheet } from 'react-native';
+import { FlatList, Modal, ScrollView, Switch, StyleSheet } from 'react-native';
 
 import CollectionScreen from '@/app/collection/[handle]';
 import { toBookCard, type BookCard } from '@/shopify/bookCard';
-import type { CollectionBooksPage } from '@/shopify/catalogue';
+import type { BookListOptions, CollectionBooksPage } from '@/shopify/catalogue';
 import { StorefrontError } from '@/shopify/errors';
 
 import { bookProduct } from '../helpers/catalogue';
@@ -16,6 +16,9 @@ import { SAFE_AREA, withScreen } from '../helpers/screen';
 // The screen's FlatList is loaded the same way.
 void ScrollView;
 void FlatList;
+// The controls' list and switch (P6-04), the same way.
+void Modal;
+void Switch;
 
 let mockParams: { handle?: string | string[] } = { handle: 'junior-readers' };
 let mockHeaderTitle: string | undefined;
@@ -43,15 +46,13 @@ jest.mock('@/query/online', () => ({
   recheckNetwork: () => mockRecheckNetwork(),
 }));
 
-const mockFetchPage = jest.fn<
-  Promise<CollectionBooksPage>,
-  [{ handle: string; after: string | null }]
->();
+type PageOptions = { handle: string; after: string | null; list?: BookListOptions };
+
+const mockFetchPage = jest.fn<Promise<CollectionBooksPage>, [PageOptions]>();
 
 jest.mock('@/shopify/catalogue', () => ({
   ...jest.requireActual('@/shopify/catalogue'),
-  fetchCollectionBooksPage: (options: { handle: string; after: string | null }) =>
-    mockFetchPage(options),
+  fetchCollectionBooksPage: (options: PageOptions) => mockFetchPage(options),
 }));
 
 const CONFIG = { currencyCode: 'INR', language: 'EN', country: 'IN' };
@@ -172,15 +173,85 @@ it('keeps "Load more" as the retry after a page fails, and says so', async () =>
   expect(mockRecheckNetwork).toHaveBeenCalled();
 });
 
+const AVAILABLE_EMPTY =
+  'No books available right now. Switch off Available now to see rented-out books.';
+
 it('shows the empty state for a collection with no books (tintin-series)', async () => {
   mockParams = { handle: 'tintin-series' };
   mockFetchPage.mockResolvedValue({ kind: 'found', title: 'Tintin', books: [], nextCursor: null });
 
   await renderScreen();
 
-  expect(screen.getByText('No books here yet.')).toBeOnTheScreen();
+  // "Available now" is on by default, so the empty list says how to see rented-out books.
+  expect(screen.getByText(AVAILABLE_EMPTY)).toBeOnTheScreen();
+  expect(screen.queryByText('No books here yet.')).not.toBeOnTheScreen();
   expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeOnTheScreen();
   await waitFor(() => expect(mockHeaderTitle).toBe('Tintin'));
+
+  await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', false);
+
+  expect(await screen.findByText('No books here yet.')).toBeOnTheScreen();
+  expect(screen.queryByText(AVAILABLE_EMPTY)).not.toBeOnTheScreen();
+});
+
+describe('"Available now" and the sort (P6-04)', () => {
+  it("opens with 'Available now' on and the collection's own order, Featured", async () => {
+    await renderScreen();
+
+    expect(mockFetchPage.mock.calls[0]?.[0].list).toEqual({ available: true, sort: 'featured' });
+    expect(screen.getByRole('switch', { name: 'Available now' }).props.value).toBe(true);
+    expect(screen.getByRole('button', { name: 'Sort, Featured' })).toBeOnTheScreen();
+  });
+
+  it('reads the collection again without the filter when "Available now" is switched off', async () => {
+    await renderScreen();
+
+    await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', false);
+
+    await waitFor(() =>
+      expect(mockFetchPage.mock.calls.at(-1)?.[0]).toMatchObject({
+        handle: 'junior-readers',
+        after: null,
+        list: { available: false, sort: 'featured' },
+      }),
+    );
+    expect(await screen.findByText('Junior 1')).toBeOnTheScreen();
+    await waitFor(() => expect(mockHeaderTitle).toBe('Junior Readers'));
+  });
+
+  it('offers every sort, Featured first, and reads the collection in the chosen one', async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Sort, Featured' }));
+
+    const options = [
+      'Featured',
+      'Best selling',
+      'Alphabetically, A-Z',
+      'Alphabetically, Z-A',
+      'Price, low to high',
+      'Price, high to low',
+      'Date, old to new',
+      'Date, new to old',
+    ];
+    const shown = screen
+      .getAllByRole('button')
+      .map((button) => (button.props as { accessibilityLabel?: string }).accessibilityLabel)
+      .filter((label) => label !== undefined && options.includes(label));
+    expect(shown).toEqual(options);
+    expect(screen.getByRole('button', { name: 'Featured' })).toBeSelected();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Price, high to low' }));
+
+    await waitFor(() =>
+      expect(mockFetchPage.mock.calls.at(-1)?.[0].list).toEqual({
+        available: true,
+        sort: 'price-descending',
+      }),
+    );
+    expect(screen.getByRole('button', { name: 'Sort, Price, high to low' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Best selling' })).not.toBeOnTheScreen();
+  });
 });
 
 it('says the collection is not available when the store has no such handle', async () => {

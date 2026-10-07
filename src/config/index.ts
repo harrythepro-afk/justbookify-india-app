@@ -1,5 +1,13 @@
 export { type AppEnvironment } from './appEnvironment';
 export {
+  BROWSE_CONTENT,
+  effectiveSort,
+  sortOptionsFor,
+  type BookSort,
+  type BrowseContent,
+  type SortOption,
+} from './browse';
+export {
   getCrashReportingConfig,
   parseCrashReportingConfig,
   type CrashReportingConfig,

@@ -62,6 +62,8 @@ jest.mock('@/shopify/catalogue', () => ({
         ? { kind: 'found', title: 'Tintin', books: [], nextCursor: null }
         : { kind: 'not-found' },
     ),
+  // Browse lists all books with no group chosen (P6-04).
+  fetchAllBooksPage: () => Promise.resolve({ books: [], nextCursor: null }),
 }));
 
 jest.mock('expo-constants', () => ({
@@ -162,7 +164,12 @@ describe('tab navigation', () => {
 
     await fireEvent.press(await screen.findByRole('link', { name: 'Tintin' }));
     expect(app.getPathname()).toBe('/collection/tintin-series');
-    expect(await screen.findByText('No books here yet.')).toBeOnTheScreen();
+    // "Available now" is on by default (P6-04), so the empty list says how to see rented-out books.
+    expect(
+      await screen.findByText(
+        'No books available right now. Switch off Available now to see rented-out books.',
+      ),
+    ).toBeOnTheScreen();
   });
 
   it('opens Browse from the "All series" tile', async () => {

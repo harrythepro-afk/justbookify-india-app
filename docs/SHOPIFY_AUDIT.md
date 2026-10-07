@@ -93,6 +93,16 @@ Recorded in P6-03 from the architect's reading of justbookify.in's home page. No
 - **New arrivals:** the collection `new-arrivals`. On the development store it holds books with stock above 0 (`TESTING.md`, "Sample catalogue (P6-01)").
 - **On the development store** only 5 of the 15 series exist (`wimpy-kid-series`, `harry-potter-series`, `tintin-series`, `geronimo-stilton`, `read-it-yourself`), and `tintin-series` is empty (D-076).
 
+### Live "Books for Rent" page, architect's view (7 October 2026, view only)
+
+Recorded in P6-04 from the architect's reading of the website's "Books for Rent" page, `/collections/all`. Nothing on the live store was changed or read through an API. The app's Browse follows it (D-083 to D-086).
+
+- **No real collection behind it:** `/collections/all` is a page Shopify's online store builds from every product; the store has no collection with that handle. The app reads all books with the Storefront API's root `products` query (D-083).
+- **Size:** 2,026 products: 993 in stock and 1,033 out of stock.
+- **Opens with** the "In stock" availability filter on, sorted "Alphabetically, A-Z".
+- **Sort options**, in the website's order and wording: Featured; Most relevant; Best selling; Alphabetically, A-Z; Alphabetically, Z-A; Price, low to high; Price, high to low; Date, old to new; Date, new to old. The app leaves out "Most relevant" and offers "Featured" only inside a group (D-085).
+- **Filters offered:** Availability, Price, Genre, "More filters" (tags) and Service City. The app has Age group, Series and "Available now" in P6-04; Genre waits for its own task.
+
 ## Orders and rentals
 
 - A rental is an order. Staff mark delivery as a fulfilment and pickup as a return. About 2,930 orders are fulfilled and 2,330 are returned.

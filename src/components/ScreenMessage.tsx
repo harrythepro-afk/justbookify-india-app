@@ -9,8 +9,16 @@ export const OFFLINE_MESSAGE = "You're offline. Check your connection and try ag
 export const ERROR_MESSAGE = 'Something went wrong. Please try again.';
 export const OFFLINE_NOTICE = "You're offline. Showing saved books.";
 export const EMPTY_MESSAGE = 'No books here yet.';
+// With "Available now" on, an empty list may only mean every book is rented out (owner, P6-04).
+export const AVAILABLE_EMPTY_MESSAGE =
+  'No books available right now. Switch off Available now to see rented-out books.';
 // Proposed by Claude Code, confirmed by the owner at P6-03's plan review.
 export const NOT_FOUND_MESSAGE = 'This collection is not available.';
+
+/** What an empty list says, by whether "Available now" is on (owner, P6-04). */
+export function emptyMessageFor(available: boolean): string {
+  return available ? AVAILABLE_EMPTY_MESSAGE : EMPTY_MESSAGE;
+}
 
 /** A message in place of content, with an optional "Try again" button. */
 export function ScreenMessage({
