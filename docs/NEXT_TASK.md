@@ -1,6 +1,6 @@
 # Next task (proposal): P6-04, Browse ("Books for Rent")
 
-Status: proposal. P6-03 (the Home screen and the collection screen) is on branch `p6-03-home`; see `CURRENT_STATUS.md`. P6-04 starts when the owner starts it.
+Status: in progress on branch `p6-04-browse` (started 8 October 2026). P6-03 (the Home screen and the collection screen) is merged as `f9c3212` (PR #16); see `CURRENT_STATUS.md`.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -16,7 +16,7 @@ Status: proposal. P6-03 (the Home screen and the collection screen) is on branch
 | --- | --- | --- |
 | P6-01 (done, e378fa6) | The development store's sample catalogue (40 real books loaded by the architect) recorded in `SHOPIFY_INTEGRATION.md` and `TESTING.md`; `npm run check:dev-store` asserts it over the Storefront API; `filters` probed | D-068 to D-071 |
 | P6-02 (done, fa4c6c9) | Catalogue operations and hooks (`useCollectionBooks`, `useBookCard`), the `toBookCard` mapping, the book card, a development-only preview; `expo-image` and the Expo SDK 57 patch releases in one build (3c8bf273) | D-072 to D-074 |
-| P6-03 (branch `p6-03-home`, PR open) | The Home screen and the collection screen: Home content in configuration, only collections that exist, a square white cover frame, offline and error states, stale-only focus refetch, no dead card buttons, recovery from a false "offline" | D-075 to D-082 |
+| P6-03 (done, f9c3212) | The Home screen and the collection screen: Home content in configuration, only collections that exist, a square white cover frame, offline and error states, stale-only focus refetch, no dead card buttons, recovery from a false "offline" | D-075 to D-082 |
 | P6-04 (proposed) | Browse, "Books for Rent" | Records for the Browse groups, the "Available now" toggle and sort |
 
 ## Goal of P6-04
