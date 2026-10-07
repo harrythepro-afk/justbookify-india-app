@@ -1,6 +1,6 @@
-# Next task (proposal): P6-02, catalogue data hooks and the book card
+# Next task (proposal): P6-03, the Home screen
 
-Status: in progress on branch `p6-02-book-card`, started by the owner on 7 October 2026 with answers to the five questions below. P6-01 is merged (`e378fa6`, PR #14).
+Status: proposal. P6-02 (catalogue data hooks and the book card) is on branch `p6-02-book-card`, PR #15, awaiting review: local checks, the APK permission check and the phone check passed (`CURRENT_STATUS.md`). P6-03 starts when the owner starts it.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -15,64 +15,41 @@ Status: in progress on branch `p6-02-book-card`, started by the owner on 7 Octob
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P6-01 (done, e378fa6) | The development store's sample catalogue (40 real books loaded by the architect) recorded in `SHOPIFY_INTEGRATION.md` and `TESTING.md`; `npm run check:dev-store` asserts it over the Storefront API; `filters` probed | D-068 to D-071 |
-| P6-02 (in progress) | Catalogue data hooks and the book card | New records for the image library and the card's states |
+| P6-02 (PR #15, awaiting review) | Catalogue operations and hooks (`useCollectionBooks`, `useBookCard`), the `toBookCard` mapping, the book card, a development-only preview; `expo-image` and the Expo SDK 57 patch releases in one build (3c8bf273) | D-072 to D-074 |
+| P6-03 (proposed) | The Home screen | Records for the Home handles and the offline message |
 
-## Goal of P6-02
+## Goal of P6-03
 
-The data layer and the one component every catalogue screen uses, ready for Home and Browse (P6-03 onwards):
-- typed Storefront operations and hooks that read a collection's books by handle, page by page (D-068);
-- one mapping from a Storefront product to what the card shows, so screens never read raw Shopify fields;
-- the book card (`PRODUCT_REQUIREMENTS.md`, "Screen layouts"): cover, title on one line, author, rental price in bold with the retail price struck through, and an "Add to Cart" button. A book that cannot be ordered shows a "Rented Out" badge on the cover and a "Notify me" button instead (R8).
-
-No customer-facing screen is built in P6-02. Home and Browse come next.
+The first customer-facing catalogue screen, following `PRODUCT_REQUIREMENTS.md` ("Screen layouts", Home) and the website's home page (D-037): a header with the store name, a banner with a "Books for Rent" button, a "Popular series" row, a "Browse by age" row of chips, and a "New arrivals" grid of book cards (P6-02). Everything reads through the P6-02 hooks; nothing new is native, so no new build is expected.
 
 ## Proposed scope
 
-1. ~~Collection handles in configuration~~: **removed from P6-02** (owner's answer 1). The handles for the Home rows and the Browse groups move to P6-03 with the Home screen; the architect supplies the list from the live website. In P6-02 the hooks take a handle as an argument.
-2. **Operations** in `src/shopify/`, named, typed by code generation, with `@inContext`, selecting no personal field (checked by `__tests__/shopify/operations.test.ts`):
-   - `CollectionBooks($handle, $first, $after)`: the collection's title and, for each book, handle, title, `vendor`, featured image (URL, width, height, alt text), price, compare-at price, and the variant's `availableForSale` and `currentlyNotInStock`. No `reviews.rating` or `reviews.rating_count` (answer 5).
-   - A missing collection (`null`) is a typed "not found" result, not a crash.
-3. **Hooks** in `src/shopify/hooks/` (the hooks-only boundary, D-063): `useCollectionBooks(handle)` with TanStack's infinite query and the catalogue freshness preset (D-062). Page size 20, so `junior-readers` (26 books) needs two pages.
-4. **Mapping** `toBookCard(product)`, unit-tested, from the facts in `SHOPIFY_INTEGRATION.md`:
-   - availability: in stock, rented out, orderable at zero stock (the three Storefront states). Orderable at zero stock is orderable (R8);
-   - cover: `null` when there is no featured image;
-   - author: `vendor` as stored;
-   - ~~rating~~: removed (answer 5); rating parsing comes with the book page task;
-   - prices from Shopify's money values, formatted with the store currency from `src/config/`. No compare-at price means no struck-through price.
-5. **Book card component** in `src/components/`, from the design tokens only (D-037, D-038): the missing-cover fallback, the "Rented Out" badge, "Notify me" in place of "Add to Cart", a long title cut to one line, accessible labels. Both buttons take callbacks; the cart (Phase 8) and notify-me wire them later.
-6. **Tests** with fixtures shaped like the named examples in `TESTING.md` ("Sample catalogue (P6-01)"): `the-gruffalo` rented out, `harry-potter-and-the-deathly-hallows-book-7` orderable at zero stock, `sudha-murty-three-thousand-stitches` in stock with "continue selling" on and `peter-and-the-wolf-read-it-yourself` with no cover.
-7. **One native build** for everything native in this task:
-   - an image library for covers (proposal: `expo-image`, with its memory and disk cache and placeholders). It needs a new decision record and the owner's approval before it is added (`CLAUDE.md` rule 6);
-   - the pending Expo SDK 57 patch releases (`expo` 57.0.27, `expo-constants` 57.0.21, `expo-linking` 57.0.12, `expo-router` 57.0.25), installed with `npx expo install --fix` and pinned exactly, so `npx expo-doctor` passes 21 of 21 again;
-   - one EAS development build (`arm64-v8a`, D-066), the APK permission check, and a phone check of the card with the named example books.
-8. **Docs**: decisions, `TESTING.md`, `CURRENT_STATUS.md`, and the next task.
+1. **Home handles in configuration** (`src/config/`, D-068): the collection handles, in order, for "Popular series", "Browse by age" and "New arrivals", typed and store-specific, from the architect's list (owner's answer 1 to P6-02).
+2. **Operations and hooks:** the collection's own image and title for the series row (`Collection.image`), read by handle; the "New arrivals" grid through `useCollectionBooks`.
+3. **A collection screen** (`collection/[handle]`): the two-column grid of book cards with "Load more", opened from a series tile or an age chip, with the not-found state (an empty collection, `tintin-series`, shows an empty state).
+4. **Home layout:** header, banner ("Books for Rent" opens Browse), series row, age chips, New arrivals grid; the bottom safe-area inset (P6-02 finding); loading, error and offline states. The offline message's design is Phase 6's (D-065).
+5. **Screen focus refetch** (D-062 follow-up): decide whether stack screens refetch when they regain focus.
+6. **Remove the development-only book card preview** once Home shows the card (D-074), or keep it until Browse exists (owner).
+7. **Phone check** on the existing build 3c8bf273 with JavaScript from Metro, including the Phase 6 foreground-refetch follow-up with real data.
+8. **Docs:** decisions, `TESTING.md`, `CURRENT_STATUS.md`, and the next task.
 
-## Questions for the owner before starting
+## Questions for the owner and the architect
 
-1. **Home rows and Browse groups.** Which collection handles, in which order, for "Popular series" and "Browse by age"? For example the series row from `harry-potter-series`, `wimpy-kid-series`, `geronimo-stilton`, `my-hero-academia`, `secret-seven-series` and so on, and the five age groups.
-2. **Image library.** Is `expo-image` approved for covers, in the same build as the Expo patch releases?
-3. **Where the card is seen on the phone in P6-02.** A development-only preview screen (like the test checkout screen), removed before release, or wait for the Home screen in the next task?
-4. **Orderable at zero stock.** R8 says such a book can be ordered. Does its card look exactly like an in-stock book, or does it carry a note?
-5. **Ratings on the card.** The layout lists no rating on the card (the book page has the star rating). Confirm the card shows none.
-
-## Answers (owner and architect, 7 October 2026)
-
-1. Not in P6-02: scope item 1 moves to P6-03 with the Home screen, and the architect supplies the handles from the live website. The hooks take a handle as an argument.
-2. `expo-image` is approved for covers, in the same native build as the Expo SDK 57 patch releases. Version checked in Expo's documentation and pinned exactly, with a decision record.
-3. A development-only preview screen, like the test checkout screen, never reachable in a staging or production build. It shows the card for the named example books in `TESTING.md` and one paginated list from `junior-readers` (26 books, page size 20, so two pages).
-4. A book orderable at zero stock looks exactly like an in-stock book: same card, "Add to Cart", no note, no badge. The architect checked the live website on 7 October 2026 (view only): on the series page such books show a working Add to Cart and no "Rented Out" badge.
-5. The card shows no rating. The card query does not fetch `reviews.rating` or `reviews.rating_count`, and the card mapping has no rating parsing; ratings come with the book page task.
-
-Price format (owner, plan review): "₹49", with no decimals for whole rupees and two otherwise ("₹49.50"), and Indian digit grouping. No space between the symbol and the digits, on every phone. A missing cover shows the cream frame and a book icon only, with no visible text.
+1. **Handles:** which collections, in which order, for "Popular series", "Browse by age" and "New arrivals" (from the live website)?
+2. **Banner:** the headline, the line of text and the "Books for Rent" target, copied from the website (D-037)?
+3. **Header search button:** search is a later Phase 6 task. Hide the button until then, or show it and open Browse?
+4. **Series tiles:** the collection's own image from Shopify, or the cover of its first book? Some collections may have no image.
+5. **Cover frame:** keep the 2:3 frame and cream bands seen in P6-02's phone check, or change `coverAspectRatio` or `coverFrame`?
+6. **Offline message:** wording and placement when Home cannot load (a banner over cached content, and a retry control when nothing is cached)?
 
 ## Out of scope
 
-- Home, Browse, search and the book page (P6-03 onwards).
-- The Genre filter. The `filters` probe (P6-01, `SHOPIFY_INTEGRATION.md`) found only Availability and Price on the development store, so a later task decides how Genre filtering works.
-- Cart and notify-me actions (Phase 8 and later); the card only exposes the buttons.
+- Browse with its filters and sort, search, and the book page (later Phase 6 tasks).
+- The Genre filter (the architect mirrors the live filter setup in the development store first).
+- Cart and notify-me actions (Phase 8 and later).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P6-02)
+## Follow-ups (recorded, not part of P6-03)
 
 - **Release gate: analytics consent (from P4-04):** no build goes to any tester other than the owner until all of these hold (`TESTING.md`; D-048):
   - the consent request is built (Phase 7, at the placement the owner chooses between the two in D-048) and works;
@@ -117,3 +94,5 @@ Price format (owner, plan review): "₹49", with no decimals for whole rupees an
   - **Ratings:** the book page task reads `reviews.rating` and `reviews.rating_count`, handling a rating without a count and a malformed rating (D-071). The card shows none (D-073).
   - **Website cards** show no author and no stars; the app's card keeps the author (D-073).
 - **Remove the book card preview** (D-074) once Home and Browse show the card.
+- **Bottom inset (from P6-02's phone check):** the preview's last row and "Load more" sat partly behind Android's navigation bar, because its scroll view adds no bottom safe-area inset for the edge-to-edge system bar. Home and Browse must add it (P6-03).
+- **Cover frame (owner's choice, from P6-02's phone check):** the sample covers carry their own white space, so cream bands show above and below the image in the 2:3 frame. Changing `coverAspectRatio` or `coverFrame` in the tokens changes every card; nothing is changed until the owner decides.

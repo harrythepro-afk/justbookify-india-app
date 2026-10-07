@@ -237,7 +237,7 @@ Shown on 7 October 2026: removing `currentlyNotInStock` from `BookCardByHandle` 
 2. **Price text:** read the exact text on screen. It must be "₹49" style, the same as the unit tests expect. Another symbol, "Rs.", "INR", a space or other grouping stops the check, and is reported; the tests are never changed to match (owner).
 3. "Add to Cart" and "Notify me" each change the status line.
 4. `junior-readers` shows 20 books, then 26 after "Load more", and the button disappears.
-5. Covers load, and after a cold start they appear again from the disk cache.
+5. Covers load. (Reuse from expo-image's disk cache after a cold start cannot be observed: the query cache is in memory only, so a cold start reads Shopify again before any card appears. P6-02 recorded this as not observable.)
 6. The app's own log shows no crash and no JavaScript error.
 
 ## Edge cases

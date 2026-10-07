@@ -1,6 +1,6 @@
 # Current status
 
-Last updated: 7 October 2026 (P6-01 merged as `e378fa6`, PR #14. P6-02, catalogue data hooks and the book card, in progress on branch `p6-02-book-card`).
+Last updated: 7 October 2026 (P6-01 merged as `e378fa6`, PR #14. P6-02, catalogue data hooks and the book card, on branch `p6-02-book-card`, PR #15: local checks, APK permission check and phone check passed; awaiting review).
 
 ## Phase
 
@@ -222,7 +222,7 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
   - **`filters` probe (report only)** on `junior-readers`: Availability ("In stock" 21, "Out of stock" 5; Shopify counts a book orderable at zero stock as in stock) and Price (0 to 99). No Genre, author or product-type filter. Recorded in `SHOPIFY_INTEGRATION.md`; the Genre filter is a later decision.
   - Housekeeping: `NEXT_TASK.md`'s Phase 5 table gives P5-03's hash (`6bb14f2`); `ROADMAP.md` statuses: Phases 4 and 5 done, Phase 6 in progress.
 
-- P6-02 (branch `p6-02-book-card`, in progress), 7 October 2026: catalogue data hooks and the book card.
+- P6-02 (branch `p6-02-book-card`, PR #15, awaiting review), 7 October 2026: catalogue data hooks and the book card.
   - Housekeeping (first commit): P6-01 and P5-02 recorded as merged; `NEXT_TASK.md` records the owner's and architect's answers (collection handles move to P6-03; no rating on the card).
   - Decisions: D-072 (`expo-image` 57.0.5 for covers, no config plugin; the Expo SDK 57 patch releases `expo` 57.0.27, `expo-constants` 57.0.21, `expo-linking` 57.0.12, `expo-router` 57.0.25 in the same build), D-073 (what the card shows: zero stock looks like in stock, no rating, author kept, "₹49" with no space, currency mismatch fails the page), D-074 (development-only book card preview).
   - Code: `src/shopify/catalogue.ts` (operations `CollectionBooks`, 20 per page, and `BookCardByHandle`; fetchers with a typed not-found), `src/shopify/bookCard.ts` (`toBookCard`, `formatPrice`, `CatalogueDataError`), `src/shopify/hooks/catalogue.ts` (`useCollectionBooks` as an infinite query, `useBookCard`; `catalogue` preset), `src/components/BookCard.tsx`, `src/app/dev-catalogue.tsx` with its handles in `src/config/devCatalogue.ts`, a Home link on development builds, and five tokens (cover frame colour, secondary button border, cover aspect ratio 2:3, fallback icon size, 44-point touch target).
@@ -237,6 +237,18 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
     - Backup: `android:allowBackup` false; `android:dataExtractionRules` resolves to `xml/no_backup_data_extraction_rules` (9 domains excluded from cloud backup and 9 from device transfer); `android:fullBackupContent` resolves to `xml/no_backup_rules` (9 domains excluded).
     - The manifest also registers ML Kit barcode components. They come from `expo-dev-launcher`'s `debugOnly` dependency `com.google.mlkit:barcode-scanning` (the dev client's QR scanner), not from expo-image, declare no permission, and do not reach staging or production builds.
     - The APK was deleted.
+  - **On-device check, 7 October 2026, 06:26 to 06:35 IST, build 3c8bf273** (installed by the owner from EAS's link over the previous development build), JavaScript from Metro over USB (commit `4884d72`, 2,120 modules), under the owner's permission for one whole phone check, with Do Not Disturb on. The dev client reconnected to `http://localhost:8081` by itself, so nothing was typed. **Passed on steps 1 to 4 and 6; step 5 not observable.**
+    1. Home showed "Open the book card preview" under the test checkout link; one tap opened the preview.
+    2. Named examples: in stock (`the-diary-of-a-wimpy-kid-no-brainer`) "₹74" bold with "₹420" struck through, title cut to one line with "…", "Add to Cart"; rented out (`the-gruffalo`) "Rented Out" badge on the cover, "₹74 ₹300", "Notify me"; orderable at zero stock (`harry-potter-and-the-deathly-hallows-book-7`) "Add to Cart", no badge, the same as in stock; continue selling (`sudha-murty-three-thousand-stitches`) "₹49 ₹200", "Add to Cart"; no cover (`peter-and-the-wolf-read-it-yourself`) cream frame and book icon only, no text; hardcover (`cat-kid-comic-club-on-purpose`) "₹99 ₹400"; `jujutsu-kaisen-0` rented out on the development store, with badge and "Notify me"; both rating examples show no rating. **Price text on screen read exactly "₹74", "₹49", "₹99", "₹34"**, with no space, as the unit tests expect.
+    3. "Add to Cart" set the status line to "Add to Cart tapped: The Diary of a Wimpy Kid - No Brainer"; "Notify me" to "Notify me tapped: The Gruffalo".
+    4. Junior Readers: "Showing 20 books"; after "Load more", "Showing 26 books" and no "Load more" button.
+    5. Covers loaded. Their reuse from the disk cache after a cold start is **not observable** on the phone: the query cache is in memory only (D-059), so after a cold start the cards appear only after a new Storefront read, and offline no card appears at all. It rests on `expo-image`'s documented `memory-disk` policy (D-072). No force-stop was asked for.
+    6. The app's own log (12,336 lines): no crash, no JavaScript error or warning, no Sentry event, no expo-image or Glide error. Error-level entries are the known ones: React Native's `ReactNoCrashSoftException` for a window-focus event, the dev launcher's `ClassNotFoundException` for `SplashScreenManager`, hidden-API notices, `OpenGLRenderer` swap behaviour and the phone's own `FileUtils` lines.
+    - Optional step 7 (foreground refetch with real data) was not run; it stays a Phase 6 follow-up.
+  - **Findings for the owner (not failures):**
+    - The covers in the sample data carry their own white space, so in the 2:3 frame (`coverAspectRatio`) cream bands (`coverFrame`) show above and below the white image area. Both are tokens; any change waits for the owner.
+    - The preview's last "Load more" button and the last row of cards sit partly behind Android's navigation bar: the screen's scroll view adds no bottom inset for the edge-to-edge system bar. Development screen only; Home and Browse must add the bottom safe-area inset (P6-03).
+  - adb commands during the check: `devices`; `reverse tcp:8081 tcp:8081`; `monkey` to launch the app; the focus check (`dumpsys window` filtered to JustBookify's focus line) before every input and screenshot; `input tap` (four taps: preview link, "Add to Cart", "Notify me", "Load more"); `input swipe` (30 swipes, all behind the focus check, with the owner's separate yes, because the whole-check permission covers taps only); `exec-out screencap` (sixteen screenshots of JustBookify only, all deleted); `shell pidof` and `logcat -d --pid` (three reads). At the end the phone had dropped off USB (battery at 3%), so `reverse --remove tcp:8081` found no device; the mapping went with the connection. Metro was stopped and its leftover `node` process on port 8081 ended.
 
 ## What works
 
