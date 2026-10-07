@@ -91,6 +91,7 @@ Used when a check needs the phone offline but the development build still needs 
       The same form wraps `input text`. The check reads the focused window only: a notification banner over the app does not take focus. Do Not Disturb and the screenshot rule cover banners (owner, P5-03): a screenshot showing anything else still stops the check.
     - If anything else is in front, Claude sends **no input at all**, stops the check and tells the owner. Claude does not try to return to the app (no Back, no Home, no relaunch).
     - **Text entry** by adb (`adb shell input text`) is limited to the development server address, `http://localhost:8081`. Typing that fixed address is covered by the owner's permission for one whole phone check and needs no separate yes (owner, P5-03); outside such a check it needs the owner's yes. It still runs only behind the focus check above. Nothing else is ever typed.
+- **Standing step in every phone check from P6-03 on** (owner, D-082, risk 22): after more than 5 minutes in the background, the app returns with no false offline notice, and the development tools' "Query cache" line says online. If it fails, read the development tools' network events before anything else and stop.
 - After the checks, `adb reverse --remove tcp:8081`. Stopping Metro's background task can leave the Expo CLI's `node` process listening on port 8081; check the port and stop that process.
 - The `adb reverse` mapping can drop during a check (P5-02: the dev client showed "Failed to connect to localhost/127.0.0.1:8081"). Set it again before tapping Connect.
 - First used for P4-03 on 4 October 2026 (build 97582938, all six flag checks passed). For those checks the owner approved cold starts (`am force-stop` and `monkey -p <package> 1`), `pm clear` for the fresh-install check, typing the Metro address into the dev client and tapping Connect (`input text`, `input tap`), and screenshots of the app (`exec-out screencap`). Wi-Fi, mobile data and the Firebase and Sentry consoles stay with the owner. Two commands that day were outside what had been approved; see `CURRENT_STATUS.md`.
@@ -251,6 +252,8 @@ Unit tests; the Storefront client or the catalogue fetchers are mocked and nothi
 - `__tests__/app/home.test.tsx`: store name and banner; no search button; only the development store's 5 series in order, Tintin shown, "All series" last, the 5 age chips; 6 of 8 new arrivals and "See all"; "New arrivals" hidden when missing or empty; no tile before the handles are known; offline with nothing saved, the notice over saved books, `no-network` while "online", the error and "Try again", one part failed; development tools on development builds only.
 - `__tests__/app/collection.test.tsx`: handle and header title; two columns in Shopify's order; 20 then 26 with "Load more"; a failed page keeps the button as the retry; empty, not found and a malformed handle; offline, notice and error; the bottom inset.
 - `__tests__/app/tabs.test.tsx`, with the real router: "Books for Rent" and "All series" open Browse; a series tile opens `/collection/tintin-series` and its empty state.
+- `__tests__/query/online.test.ts` (D-082): a return to the foreground re-reads the network and goes back online; while offline in the foreground it re-reads every 3 seconds until online, then stops; no timer while online or in the background; a failed re-read tries again; `recheckNetwork()` re-reads, and does nothing when not connected. Shown on 7 October 2026: removing the read on return, the timer or `recheckNetwork` each fails its own tests. `home.test.tsx` and `collection.test.tsx`: "Try again" re-reads the network before it refetches.
+- `__tests__/query/networkLog.test.ts` and `home.test.tsx` (development builds only): the last 10 network events newest first, the times the app went to the background and came back, the reads on return and 3 s later; the "Query cache: online/offline" line; none of it on staging or production builds.
 
 **Phone check** (development build 3c8bf273, JavaScript from Metro, owner's phone, under `CLAUDE.md`'s phone check rules; swipes need the owner's yes, asked up front):
 1. Home shows the store name, the banner, the 5 development-store series in order (Wimpy Kid, Harry Potter, Tintin, Geronimo Stilton, Read It Yourself) and "All series", the 5 age chips, and New arrivals with 5 books. No search button, no cart or notify-me button.
@@ -261,8 +264,16 @@ Unit tests; the Storefront client or the catalogue fetchers are mocked and nothi
 6. "Books for Rent" and "All series" open Browse.
 7. Home's last row clears the tab bar (the tab bar takes the bottom inset; Home adds none).
 8. Airplane mode (the owner switches it): the notice "You're offline. Showing saved books." over the books on Home.
-9. Foreground refetch with real data, on `one-of-us-2-next` (in `new-arrivals` while its stock is 1): with the app in the background, the owner sets its stock to 0 in the development store; after **more than 5 minutes** (the `catalogue` preset's freshness) the app returns to the foreground and New arrivals shows 4 books. The owner sets the stock back to 1 and `npm run check:dev-store` must pass again.
-10. The app's own log shows no crash and no JavaScript error.
+9. Foreground refetch with real data, on `one-of-us-2-next` (in `new-arrivals` while its stock is 1): with the app in the background, the owner sets its stock to 0 in the development store; after **more than 5 minutes** (the `catalogue` preset's freshness) the app returns to the foreground and New arrivals shows 4 books, with no offline notice. The owner sets the stock back to 1 and `npm run check:dev-store` must pass again. (Shopify updates the smart collection about a minute after the stock change: if the check fails on `new-arrivals` straight away, wait a minute and run it again.)
+10. 30 seconds in the background and back: no offline notice.
+11. "Load more" on `junior-readers` with Metro serving production-mode JavaScript (`npx expo start --dev-client --no-dev --minify`; Expo's "Development and production mode" page): the 6 extra books appear within about 2 seconds.
+12. The app's own log shows no crash and no JavaScript error.
+
+React Native's "VirtualizedList: You have a large list that is slow to update" line is **not** a measure of slowness in a phone check: its `dt` is the time between two scroll events (`@react-native/virtualized-lists`, `VirtualizedList.js`), so the pauses between adb swipes set it off. Judge the list by timings and by eye.
+
+### Release gate: list performance (P6-03)
+
+No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).
 
 ## Edge cases
 

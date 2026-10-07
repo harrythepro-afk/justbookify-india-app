@@ -16,7 +16,7 @@ Status: proposal. P6-03 (the Home screen and the collection screen) is on branch
 | --- | --- | --- |
 | P6-01 (done, e378fa6) | The development store's sample catalogue (40 real books loaded by the architect) recorded in `SHOPIFY_INTEGRATION.md` and `TESTING.md`; `npm run check:dev-store` asserts it over the Storefront API; `filters` probed | D-068 to D-071 |
 | P6-02 (done, fa4c6c9) | Catalogue operations and hooks (`useCollectionBooks`, `useBookCard`), the `toBookCard` mapping, the book card, a development-only preview; `expo-image` and the Expo SDK 57 patch releases in one build (3c8bf273) | D-072 to D-074 |
-| P6-03 (branch `p6-03-home`, PR open) | The Home screen and the collection screen: Home content in configuration, only collections that exist, a square white cover frame, offline and error states, stale-only focus refetch, no dead card buttons | D-075 to D-081 |
+| P6-03 (branch `p6-03-home`, PR open) | The Home screen and the collection screen: Home content in configuration, only collections that exist, a square white cover frame, offline and error states, stale-only focus refetch, no dead card buttons, recovery from a false "offline" | D-075 to D-082 |
 | P6-04 (proposed) | Browse, "Books for Rent" | Records for the Browse groups, the "Available now" toggle and sort |
 
 ## Goal of P6-04
@@ -25,13 +25,14 @@ The Browse tab, titled "Books for Rent", following `PRODUCT_REQUIREMENTS.md` ("S
 
 ## Proposed scope
 
-1. **Browse groups in configuration** (`src/config/`): the Age group and Series lists, store-specific and typed, probably shared with Home's (D-075); only collections that exist are offered (D-076).
-2. **"Available now" toggle**, on by default as on the website, applied to Browse and to the collection screen (D-080), through the Storefront `filters` argument (`available: true`), which the development store supports (P6-01).
-3. **Sort:** the options the website offers, mapped to Storefront `ProductCollectionSortKeys`.
-4. **What Browse shows with no group chosen** (all books needs a collection or a product search; a question for the owner).
-5. **Remove the development-only book card preview** (D-074) once Browse shows the card, unless the owner keeps it.
-6. **Phone check** on the existing build 3c8bf273 if nothing native changes.
-7. **Docs:** decisions, `TESTING.md`, `CURRENT_STATUS.md`, and the next task.
+1. **Reuse the collection screen's list** (two columns, stable item functions, memoised card, 4-row window settings; P6-03) rather than a second list.
+2. **Browse groups in configuration** (`src/config/`): the Age group and Series lists, store-specific and typed, probably shared with Home's (D-075); only collections that exist are offered (D-076).
+3. **"Available now" toggle**, on by default as on the website, applied to Browse and to the collection screen (D-080), through the Storefront `filters` argument (`available: true`), which the development store supports (P6-01).
+4. **Sort:** the options the website offers, mapped to Storefront `ProductCollectionSortKeys`.
+5. **What Browse shows with no group chosen** (all books needs a collection or a product search; a question for the owner).
+6. **Remove the development-only book card preview** (D-074) once Browse shows the card, unless the owner keeps it.
+7. **Phone check** on the existing build 3c8bf273 if nothing native changes, including the standing step (more than 5 minutes in the background, no false offline notice).
+8. **Docs:** decisions, `TESTING.md`, `CURRENT_STATUS.md`, and the next task.
 
 ## Questions for the owner and the architect
 
@@ -76,7 +77,9 @@ The Browse tab, titled "Books for Rent", following `PRODUCT_REQUIREMENTS.md` ("S
 - **Store variables for EAS (from P5-01):** add `EXPO_PUBLIC_STORE_COUNTRY` and `EXPO_PUBLIC_STORE_LANGUAGE` to the EAS environment when the staging build is set up (D-058).
 - **Storefront domain for staging and production (architect, P5-01):** when the staging and production configurations are set up, confirm from Shopify's documentation which store domain the Storefront API calls should use, so that requests are not redirected.
 - **Code generator audit entries (D-060):** reviewed by 2026-11-15 with the `braces` and `@grpc/grpc-js` entries; re-checked whenever the preset or the codegen CLI is upgraded; each removed in the commit that picks up a compatible fix.
-- **Phase 6, foreground refetch with real data (owner, P5-02 phone check):** step 9 of P6-03's phone check (`TESTING.md`), on `one-of-us-2-next`, with more than 5 minutes in the background because Home uses the `catalogue` preset. Remove this entry once that step passes.
+- **Question for the architect (owner, P6-03; not to build now):** should queries stop pausing on the platform's offline signal and let the real request decide, as mutations already do (D-065), so a wrong signal can never block reading? Context: a false "offline" was seen once on 7 October 2026, not reproduced, cause unproven (D-082, risk 22).
+- **Standing phone-check step (owner, D-082):** in every phone check, after more than 5 minutes in the background, no false offline notice (`TESTING.md`).
+- **Release gate: list performance (P6-03):** the collection list (and Browse) must scroll and load more smoothly on a release build before any outside tester (`TESTING.md`). Measured so far only with production-mode JavaScript: the 6 extra books of `junior-readers` on screen within 0.8 to 1.8 seconds. Browse reuses the collection screen's list settings (D-080, `34218d5`).
 - **Phase 9, Checkout Kit TLS errors (owner, P5-02 phone check):** the app's log showed two TLS handshake errors (`net_error -101`) inside Checkout Kit's web view while the development store's password page loaded. The page itself loaded. Re-check during Phase 9's checkout tests.
 - **Phase 7, logout (D-061):** call `clearAllCaches()`; customer data gets its own key root and is cached in memory only.
 - **Sentry, offline case (P5-03):** the owner may confirm that the development Sentry project shows no new event from the P5-03 phone check (7 October 2026, 03:13 to 03:18 IST).
