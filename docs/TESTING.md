@@ -334,6 +334,32 @@ Unit tests; the Storefront client or the catalogue fetchers are mocked and nothi
 
 Passed on 8 October 2026 (all 10 steps; details in `CURRENT_STATUS.md`). The development store's own descriptions are single paragraphs with no markup, so only the preview's sample shows the live shape there.
 
+### Search (P6-06)
+
+Unit tests; the Storefront client or the catalogue fetchers are mocked and nothing reaches a store:
+- `__tests__/shopify/searchTerm.test.ts` (D-097): trimming and single spaces; Shopify syntax kept as typed (quotes, `title:`, `harry:`, a leading minus, `OR`); emoji and Hindi kept whole; the cut at 100 code points never splits an emoji; 12 hostile inputs (control characters, lone surrogates, backslashes, operation-like text, a million characters) never throw; letters and digits counted in any script; typing from 3, the search key from 2; symbols alone never search.
+- `__tests__/config/search.test.ts`: the agreed wording; Relevance then the two price sorts in Browse's wording; 300 ms and 100 characters; "1 result", "7 results", "1,000+ results"; both no-results lines.
+- `__tests__/shopify/sort.test.ts`: the search sorts to `RELEVANCE` and `PRICE` (reversed for high to low).
+- `__tests__/shopify/catalogue.test.ts`: `fetchSearchPage` sends the term, 20, the cursor, the sort and `LAST` or `HIDE` with the cancel signal; books only, `prefix: LAST`, no `predictiveSearch`; untrusted terms only as a variable, exactly as given; Shopify's count; only books kept; a book without a variant left out and reported by code; a failure passed on.
+- `__tests__/shopify/hooks/search.test.tsx`: nothing read without a term; 20 then the rest; each term and setting cached on its own under `storefront`, `catalogue` preset; **the earlier request's signal aborted when the term changes**; **the earlier results kept while a new term loads** (`isPlaceholderData`).
+- `__tests__/shopify/searchPrivacy.test.tsx` (D-097): a GraphQL error whose text repeats the term, a server error after the retries, an unreadable answer and a data fault each reach Sentry by code and operation name only; no Sentry call and no console call carries the term. Shown: with one `console.log` of the term added, all 4 tests fail.
+- `__tests__/app/search.test.tsx`: header, focused field, placeholder and hint, nothing read before a search; the field's settings (100 characters, no autocorrect, search key); the hint below 3 letters; symbols never search; the 300 ms pause, one request for quick typing, the search key at once from 2, the term trimmed; the count line, two columns, a card opening its book page; "1 result" and "1,000+ results"; "Load more" 20 then 26; both no-results lines with the cleaned term; **earlier results kept with no count line and no "Load more" while a new term loads, and no no-results line for a term still loading** (shown: without either part, 2 tests fail); the keyboard settings on the list; the keyboard closed when the screen loses focus; the bottom inset; "Available now" off and Relevance by default, on reads again; the three sorts only; offline, the error with "Try again" after `recheckNetwork()`, the error replacing earlier results when a new term fails; the term never logged and never in a route.
+- `__tests__/app/home.test.tsx` and `browse.test.tsx`: a button named "Search", at least 44 points square, opens `/search`; Home's other buttons stay absent. `__tests__/components/BookListControls.test.tsx`: Featured first inside a group; only the sorts a screen passes (search's three).
+
+**Development store numbers for the phone check** (`npm run check:dev-store`, 8 October 2026): harry 7 (6 orderable, then `harry-potter` rented out; 6 with "Available now" on); dahl 3 (`danny-the-champion-of-the-world`, `james-and-the-giant-peach`, `the-bfg`); zzqxv 0. "Price, low to high" for harry: ₹49 first, with `harry-potter` after the orderable ₹49 books; "Price, high to low": ₹74 first.
+
+**Phone check** (development build 3c8bf273, JavaScript from Metro, owner's phone, under `CLAUDE.md`'s phone check rules and the standing permission, D-095; Do Not Disturb on; the focus check and each input in the same command; **no screenshot while the keyboard shows**). Test words typed: `harry`, `dahl`, `zzqxv`.
+1. Home's search button opens Search; one Back press, then a screenshot: still on Search with the hint means the keyboard was open and the field focused.
+2. Type "harry"; one swipe on the results hides the keyboard; "7 results", "Sort: Relevance", "Available now" off, `harry-potter` with "Rented Out" last.
+3. "Price, low to high", then "Price, high to low": the order recorded.
+4. "Available now" on: "6 results", no "Rented Out". Off again.
+5. Tap into the field (keyboard up), then one tap on a card with no screenshot between: the book page opens on the first tap. Screenshot of the book page; Back returns to "harry" with the results.
+6. Double tap: two taps on one card in one command, then Back once; report whether it returned to the list or to a second copy of the book page.
+7. Back to Home, Browse's search button, type "dahl": "3 results", the Dahl books.
+8. Back, Search again, type "zzqxv": the website's no-results line.
+9. Standing step (D-082, D-087): more than 5 minutes in the background on the results, then back: no false offline notice; the term and the results kept.
+10. The app's own log: no crash and no JavaScript error; harry, dahl and zzqxv appear nowhere in it.
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).
