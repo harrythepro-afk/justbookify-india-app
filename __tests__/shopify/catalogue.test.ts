@@ -1,5 +1,6 @@
 import {
   CATALOGUE_PAGE_SIZE,
+  fetchAllBooksPage,
   fetchBookCard,
   fetchCollectionBooksPage,
   fetchCollectionHandles,
@@ -109,6 +110,130 @@ describe('fetchCollectionBooksPage', () => {
     await expect(
       fetchCollectionBooksPage({ handle: 'junior-readers', after: null }),
     ).rejects.toMatchObject({ code: 'catalogue/currency-mismatch' });
+  });
+});
+
+describe('fetchCollectionBooksPage with a sort and "Available now" (P6-04)', () => {
+  it('sends the sort and the Availability filter when "Available now" is on', async () => {
+    mockQuery.mockResolvedValue(collectionResponse([]));
+
+    await fetchCollectionBooksPage({
+      handle: 'junior-readers',
+      after: null,
+      list: { available: true, sort: 'featured' },
+    });
+
+    expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
+      handle: 'junior-readers',
+      first: 20,
+      after: null,
+      sortKey: 'COLLECTION_DEFAULT',
+      reverse: false,
+      filters: [{ available: true }],
+    });
+  });
+
+  it('sends no filter when "Available now" is off, and a reversed sort', async () => {
+    mockQuery.mockResolvedValue(collectionResponse([]));
+
+    await fetchCollectionBooksPage({
+      handle: 'junior-readers',
+      after: 'cursor-1',
+      list: { available: false, sort: 'price-descending' },
+    });
+
+    expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
+      handle: 'junior-readers',
+      first: 20,
+      after: 'cursor-1',
+      sortKey: 'PRICE',
+      reverse: true,
+      filters: null,
+    });
+  });
+});
+
+describe('fetchAllBooksPage (D-083)', () => {
+  function productsResponse(
+    nodes: unknown[],
+    pageInfo: { hasNextPage: boolean; endCursor: string | null } = {
+      hasNextPage: false,
+      endCursor: null,
+    },
+  ) {
+    return { products: { pageInfo, nodes } };
+  }
+
+  it('reads one page of 20 from the root products query, available for sale, A-Z', async () => {
+    mockQuery.mockResolvedValue(productsResponse([]));
+    const signal = new AbortController().signal;
+
+    await fetchAllBooksPage({
+      after: null,
+      list: { available: true, sort: 'title-ascending' },
+      signal,
+    });
+
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('query AllBooks('), {
+      variables: {
+        first: 20,
+        after: null,
+        sortKey: 'TITLE',
+        reverse: false,
+        query: 'available_for_sale:true',
+      },
+      signal,
+    });
+  });
+
+  it('sends no search query when "Available now" is off', async () => {
+    mockQuery.mockResolvedValue(productsResponse([]));
+
+    await fetchAllBooksPage({
+      after: 'cursor-1',
+      list: { available: false, sort: 'created-descending' },
+    });
+
+    expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
+      first: 20,
+      after: 'cursor-1',
+      sortKey: 'CREATED_AT',
+      reverse: true,
+      query: null,
+    });
+  });
+
+  it('maps the books, rented-out ones included, and gives the next cursor', async () => {
+    mockQuery.mockResolvedValue(
+      productsResponse([EXAMPLES.orderableAtZeroStock(), EXAMPLES.rentedOut()], {
+        hasNextPage: true,
+        endCursor: 'cursor-2',
+      }),
+    );
+
+    const page = await fetchAllBooksPage({
+      after: null,
+      list: { available: false, sort: 'title-ascending' },
+    });
+
+    expect(page.nextCursor).toBe('cursor-2');
+    expect(page.books.map((book) => [book.handle, book.availability])).toEqual([
+      ['harry-potter-and-the-deathly-hallows-book-7', 'orderable-at-zero-stock'],
+      ['the-gruffalo', 'rented-out'],
+    ]);
+  });
+
+  it('gives no next cursor on the last page', async () => {
+    mockQuery.mockResolvedValue(
+      productsResponse([], { hasNextPage: false, endCursor: 'cursor-3' }),
+    );
+
+    const page = await fetchAllBooksPage({
+      after: 'cursor-2',
+      list: { available: true, sort: 'title-ascending' },
+    });
+
+    expect(page.nextCursor).toBeNull();
   });
 });
 

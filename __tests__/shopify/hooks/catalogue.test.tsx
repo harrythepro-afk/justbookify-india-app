@@ -2,7 +2,12 @@ import type { QueryClient } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { freshness } from '@/query/freshness';
-import { useBookCard, useCollectionBooks, useCollectionHandles } from '@/shopify/hooks/catalogue';
+import {
+  useAllBooks,
+  useBookCard,
+  useCollectionBooks,
+  useCollectionHandles,
+} from '@/shopify/hooks/catalogue';
 import { storefrontKeys } from '@/shopify/queryKeys';
 
 import { bookProduct, EXAMPLES } from '../../helpers/catalogue';
@@ -126,6 +131,116 @@ describe('useCollectionBooks', () => {
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
+    expect(mockQuery.mock.calls[0]?.[1].signal).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe('useCollectionBooks with a sort and "Available now" (P6-04)', () => {
+  beforeEach(() => {
+    mockQuery.mockImplementation(
+      async (_query: string, options: { variables: { after: string | null } }) =>
+        page(options.variables.after),
+    );
+  });
+
+  it("keeps P6-03's key and variables without options (Home, the preview)", async () => {
+    const { result } = await renderHook(() => useCollectionBooks('junior-readers'), {
+      wrapper: withQueryClient(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(storefrontKeys.catalogue.collectionBooks('junior-readers')).toEqual([
+      'storefront',
+      'catalogue',
+      'collectionBooks',
+      'junior-readers',
+    ]);
+    expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
+      handle: 'junior-readers',
+      first: 20,
+      after: null,
+    });
+  });
+
+  it('caches each combination of sort and "Available now" on its own', async () => {
+    const on = { available: true, sort: 'featured' } as const;
+    const off = { available: false, sort: 'featured' } as const;
+    const { result, rerender } = await renderHook(
+      ({ list }: { list: typeof on | typeof off }) => useCollectionBooks('junior-readers', list),
+      { wrapper: withQueryClient(client), initialProps: { list: on } },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    await rerender({ list: off });
+    await waitFor(() => expect(mockQuery).toHaveBeenCalledTimes(2));
+
+    expect(mockQuery.mock.calls.map((call) => call[1].variables.filters)).toEqual([
+      [{ available: true }],
+      null,
+    ]);
+    for (const list of [on, off]) {
+      const query = client
+        .getQueryCache()
+        .find({ queryKey: storefrontKeys.catalogue.collectionBooks('junior-readers', list) });
+      expect(query?.queryKey[0]).toBe('storefront');
+    }
+  });
+});
+
+describe('useAllBooks (D-083)', () => {
+  const ALL = Array.from({ length: 26 }, (_, index) => bookProduct({ handle: `book-${index}` }));
+
+  beforeEach(() => {
+    mockQuery.mockImplementation(
+      async (_query: string, options: { variables: { after: string | null } }) => {
+        const start = options.variables.after === null ? 0 : 20;
+        return {
+          products: {
+            pageInfo: { hasNextPage: start + 20 < ALL.length, endCursor: `end-${start}` },
+            nodes: ALL.slice(start, start + 20),
+          },
+        };
+      },
+    );
+  });
+
+  it('reads 20 books at a time, never the whole catalogue', async () => {
+    const list = { available: true, sort: 'title-ascending' } as const;
+    const { result } = await renderHook(() => useAllBooks(list), {
+      wrapper: withQueryClient(client),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(result.current.data?.pages[0]?.books).toHaveLength(20);
+    expect(result.current.hasNextPage).toBe(true);
+
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+
+    await waitFor(() =>
+      expect((result.current.data?.pages ?? []).map((p) => p.books.length)).toEqual([20, 6]),
+    );
+    expect(mockQuery.mock.calls.map((call) => call[1].variables.after)).toEqual([null, 'end-0']);
+    expect(result.current.hasNextPage).toBe(false);
+  });
+
+  it('caches under the storefront key root with the catalogue preset, by options', async () => {
+    const list = { available: false, sort: 'price-ascending' } as const;
+    const { result } = await renderHook(() => useAllBooks(list), {
+      wrapper: withQueryClient(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const query = client
+      .getQueryCache()
+      .find({ queryKey: storefrontKeys.catalogue.allBooks(list) });
+    expect(query?.queryKey).toEqual(['storefront', 'catalogue', 'allBooks', list]);
+    expect(query?.options).toMatchObject({
+      staleTime: freshness.catalogue.staleTime,
+      gcTime: freshness.catalogue.gcTime,
+    });
     expect(mockQuery.mock.calls[0]?.[1].signal).toBeInstanceOf(AbortSignal);
   });
 });
