@@ -133,6 +133,24 @@ Each `shopify--*` metaobject has the fields `label` and `taxonomy_reference`. Th
 - **"Available" means `availableForSale` in both reads.** Checked on the development store on 8 October 2026: the root query returns 29 of 42 (21 in stock plus 8 orderable at zero stock) and `junior-readers`' Availability filter 21 of 26, each exactly the `availableForSale` products; `npm run check:dev-store` asserts both. The root query's `query` filter goes through Shopify's search index, so a stock change may take a moment to show there.
 - Sort keys per option: D-085 and `src/shopify/sort.ts`.
 
+## Search (P6-06)
+
+**Version and documentation.** Storefront API `2026-10`, the `search` query, checked against the saved schema (`storefront-2026-10.schema.json`) and Shopify's `2026-10` reference page for `SearchUnavailableProductsType` (read 8 October 2026). Arguments used: `query` (the term, a variable only), `types: [PRODUCT]`, `prefix: LAST`, `first: 20`, `after`, `sortKey` (`RELEVANCE` or `PRICE`), `reverse`, `unavailableProducts` (`LAST` or `HIDE`). `totalCount` gives the count line; Shopify caps it at 1,000. No `predictiveSearch`, articles or pages (owner, answers 1 and 3; D-096).
+
+**`SearchBooks`** (`src/shopify/catalogue.ts`) selects the card's fields under `... on Product`, with `__typename` so that anything other than a book is dropped. Cache key `search(term, { available, sort })`, preset `catalogue`, in memory only (D-059, D-097).
+
+**"Available now" gate (owner, answer 2), development store, 8 October 2026.** For harry (6), the (29), dahl (3), kid (7) and ha (0), both `unavailableProducts: HIDE` and `productFilters: [{ available: true }]` returned exactly the `availableForSale` books among the `LAST` results, and `totalCount` matched the books returned. Same meaning, so the build went ahead with `HIDE`: one argument switches between off (`LAST`) and on (`HIDE`). `npm run check:dev-store` asserts it for harry and the.
+
+**Differs from Shopify's documentation: the price sort.** The documentation says `LAST` shows unavailable products "after all other matching results". With `sortKey: PRICE` it does not: rented-out books come last only among books of the same price. For harry, "Price, low to high" gives the ₹49 books with the rented-out `harry-potter` after the orderable ones at ₹49, then the ₹74 books. Owner (answer 1): accept Shopify's order, no workaround in the app. `npm run check:dev-store` asserts the order both ways, and fails if `harry-potter` becomes last overall, so a change at Shopify is noticed.
+
+**Matching (probe, development store, 8 October 2026):**
+- Titles and authors (`vendor`) match: "harry" 7, "dahl" and "roald dahl" 3 (the three Roald Dahl books), "kinney" 4, "murty" 2.
+- Partial words match titles from 3 letters ("har", "gru", "wim", "pot") but not from 2 ("ha" finds only *One of Us Is Lying*), and never authors ("dah" 0, "dahl" 3; "kin" 0). So typing searches from 3 letters or digits and the keyboard's search key from 2 (owner, answer 3).
+- The draft `the-giraffe-and-the-pelly-and-me` is never found ("pelly", "giraffe" and "the" checked).
+- **Shopify's search syntax works, as on the website, and the app sends the term as typed (owner, answer 2):** `title:harry` and `harry:` find the 7 Harry books, as does `"harry"`; `-harry` finds the 35 books without "harry" (`NOT`); `harry -potter` 35; `harry OR` all 42; `vendor:dahl` 3.
+- **Symbols:** `*`, `har*`, `&`, `%`, `#`, `{}` and `\"` each find all 42 books; `:`, `-`, `(`, `)`, `\`, `OR`, `AND`, `NOT` alone, an emoji and Hindi find 0. None of 31 odd terms caused an error. Only letters and digits count towards the minimum length, so a term of symbols alone never runs a search (owner, answer 2).
+- A 100-character term finds 0, without an error.
+
 ## Checkout behaviour to respect
 
 - Order subtotal under ₹500 (R2). The rule checks the subtotal, not the total with shipping (P3-02).

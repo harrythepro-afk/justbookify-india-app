@@ -44,21 +44,25 @@ A production mobile app for iPhone and Android for JustBookify's India store, ju
 
 Standard `adb` from Google's SDK Platform-Tools only; no third-party MCP server, skill or app. Method in `docs/TESTING.md` ("Phone checks over USB with adb").
 
-- Allowed without asking: `adb devices`; `adb reverse tcp:8081 tcp:8081` and `adb reverse --remove tcp:8081`; reading logs filtered to this app's own process from the very first command, `adb logcat -d --pid=$(adb shell pidof com.justbookify.india.dev)`.
-- A screenshot needs the owner's yes each time, with the JustBookify app in the foreground.
-- Every other adb command needs the owner's yes each time, including read-only ones.
-- Never run an unfiltered log or a package listing.
-- **Permission for one whole phone check.** The owner may give permission for one whole phone check at a time. Under it, and only until that check ends, Claude may:
-  - launch JustBookify (`adb shell monkey -p com.justbookify.india.dev -c android.intent.category.LAUNCHER 1`);
-  - tap inside JustBookify (`adb shell input tap`);
-  - take screenshots of JustBookify only (`adb exec-out screencap -p`), and delete them afterwards.
-
-  Under that permission Claude never enters a password or payment detail, never places an order, and never opens or reads anything outside JustBookify. If a screenshot shows anything other than JustBookify, Claude deletes it at once, stops and tells the owner. Every command is recorded in `docs/CURRENT_STATUS.md`. Any other command still needs its own yes. Without that permission, the rules above apply.
+- Allowed at any time: `adb devices`; `adb reverse tcp:8081 tcp:8081` and `adb reverse --remove tcp:8081`; reading logs filtered to this app's own process from the very first command, `adb logcat -d --pid=$(adb shell pidof com.justbookify.india.dev)`.
+- **Standing permission for phone checks** (owner, 8 October 2026, D-095). It replaces the permission for one whole phone check at a time and covers the phone check in this task and every later task. Claude does not ask again for these. Inside JustBookify only, with each input behind the focus check in the same command:
+  - launch JustBookify (`adb shell monkey -p com.justbookify.india.dev -c android.intent.category.LAUNCHER 1`), and bring it back with the same command after the background step;
+  - tap (`adb shell input tap`), swipe (`adb shell input swipe`), press Back (`adb shell input keyevent KEYCODE_BACK`), and press Home for the background step (`adb shell input keyevent KEYCODE_HOME`);
+  - type (`adb shell input text`) the development server address, `http://localhost:8081`, and the test words written in the task's accepted plan, which are plain book words only (such as harry, dahl, zzqxv);
+  - take screenshots of JustBookify (`adb exec-out screencap -p`) and delete them afterwards;
+  - read the app's own log filtered to its process, as above;
+  - run the read-only commands `adb reverse --list` and `adb shell wm size`.
+- Unchanged, and covered by no permission:
+  - Never type a password, a payment detail or any personal data, and never place an order.
+  - Never open, read or screenshot anything outside JustBookify. If a screenshot shows anything else, delete it at once, stop and tell the owner.
+  - Never take a screenshot while the phone's keyboard is showing: it is not part of JustBookify, and its suggestion strip can show clipboard text. Hide it first, with a swipe on the results, or one Back press when there is nothing to swipe. If a screenshot shows the keyboard anyway, delete it at once, record it, hide the keyboard and continue.
+  - Never an unfiltered log or a package listing.
+  - Any adb command not listed above still needs the owner's yes each time, including read-only ones.
+  - Record every command in `docs/CURRENT_STATUS.md`.
 - **Before and during every phone check** (architect's review of PR #12, after input reached WhatsApp in P5-02's check):
-  - Before the check starts, ask the owner to switch on Do Not Disturb and to leave the phone untouched until Claude says the check is over.
-  - Immediately before every tap or text entry, check that JustBookify is the focused app, in the same command where possible. Reading the focused app's package name is allowed for this purpose only. The command form is in `docs/TESTING.md`.
-  - If anything else is in front, send no input at all, stop the check and tell the owner. Do not try to return to the app.
-  - Text entry by adb (`adb shell input text`) is limited to the development server address, `http://localhost:8081`. Under the owner's permission for one whole phone check, typing that fixed address needs no separate yes; outside such a check it needs the owner's yes. It still runs only behind the focus check. Nothing else is ever typed.
+  - Once, at the start, ask the owner to switch on Do Not Disturb and to leave the phone untouched until Claude says the check is over.
+  - Immediately before every tap, swipe, key press or text entry, check that JustBookify is the focused app, in the same command. Reading the focused app's package name is allowed for this purpose only. The command form is in `docs/TESTING.md`.
+  - If anything other than JustBookify is in front, send no input at all, stop the check and tell the owner. Do not try to return to the app. The launch command is used only to end the background step, never to recover from an interruption.
   - A notification banner does not take focus, so the focus check cannot see it. Do Not Disturb and the screenshot rule cover banners.
 
 ## Stop and ask the owner when

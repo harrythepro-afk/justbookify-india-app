@@ -91,3 +91,22 @@ export const METAFIELDS = [
   { namespace: 'reviews', key: 'rating' },
   { namespace: 'reviews', key: 'rating_count' },
 ];
+
+// Search (P6-06, D-096), read with the app's arguments: books only, prefix LAST. A title word and
+// an author's name; a term with no results; terms that would find the draft if it were visible;
+// "Available now" (unavailableProducts HIDE) giving exactly the availableForSale books; and the
+// price sort, where Shopify puts rented-out books last only among books of the same price.
+export const SEARCH = {
+  titleWord: { term: 'harry', count: 7, available: 6, rentedOutLast: 'harry-potter' },
+  author: {
+    term: 'dahl',
+    handles: ['danny-the-champion-of-the-world', 'james-and-the-giant-peach', 'the-bfg'],
+  },
+  noResults: 'zzqxv',
+  draftTerms: ['pelly', 'giraffe', 'the'],
+  availableNow: [
+    { term: 'harry', count: 6 },
+    { term: 'the', count: AVAILABLE_PRODUCT_COUNT },
+  ],
+  priceSort: { term: 'harry', rentedOut: 'harry-potter' },
+};

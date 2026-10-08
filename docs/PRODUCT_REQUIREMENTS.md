@@ -29,7 +29,7 @@ Values in R2, R3 and R4 are read from configuration, because the store owner can
 | --- | --- |
 | Home | Series, authors, age groups and new arrivals |
 | Browse | Filter by age group, genre, series, availability and price; sort |
-| Search | Search with suggestions as you type |
+| Search | Search with results as you type; no separate suggestion list (owner, P6-06, D-097) |
 | Book page | Cover, rental price beside retail price, author, genre, description (rating with reviews in Phase 13, D-092) |
 | Reviews | Read reviews; write one after renting the book |
 | Recommendations | A short quiz on age and genres, and "more like this" on book pages |

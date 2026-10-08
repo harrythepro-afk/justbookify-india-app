@@ -8,6 +8,8 @@ import { BookCard } from '@/components/BookCard';
 import { openBook } from '@/components/openBook';
 import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
 import { AgeChip, SeriesTile } from '@/components/CollectionLinks';
+import { SearchButton } from '@/components/SearchButton';
+import { guardLinkPress } from '@/navigation/openGuard';
 import { NoDataState, OfflineNotice } from '@/components/ScreenMessage';
 import {
   FEATURE_FLAG_NAMES,
@@ -35,7 +37,8 @@ function collectionHref(handle: string): Href {
 
 /**
  * Home (`PRODUCT_REQUIREMENTS.md`, "Screen layouts"; D-037): the store name, the banner, "Popular
- * series", "Browse by age" and "New arrivals", as on the website. Rows show only the configured
+ * series", "Browse by age" and "New arrivals", as on the website, with a search button beside the
+ * store name (P6-06). Rows show only the configured
  * collections that exist in the store (D-076). The header and banner are local and always show;
  * what comes from Shopify shows its own loading, offline and error states (D-078). The tab bar
  * already leaves room for Android's navigation bar, so no bottom inset is added here.
@@ -65,9 +68,12 @@ export default function HomeScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       {showsOfflineNotice({ hasData, isOffline, error: firstError }) && <OfflineNotice />}
       <ScrollView contentContainerStyle={styles.container} style={styles.screen}>
-        <Text accessibilityRole="header" style={styles.storeName}>
-          {HOME_CONTENT.storeName}
-        </Text>
+        <View style={styles.header}>
+          <Text accessibilityRole="header" style={styles.storeName}>
+            {HOME_CONTENT.storeName}
+          </Text>
+          <SearchButton testID="home-search" />
+        </View>
         <Banner />
         {screenState === 'ready' ? (
           <>
@@ -101,7 +107,7 @@ function Banner() {
         {headline}
       </Text>
       <Text style={styles.bannerLine}>{line}</Text>
-      <Link asChild href={BROWSE}>
+      <Link asChild href={BROWSE} onPress={guardLinkPress}>
         <Pressable accessibilityRole="link" style={styles.bannerButton}>
           <Text style={styles.bannerButtonText}>{buttonLabel}</Text>
         </Pressable>
@@ -208,7 +214,7 @@ function NewArrivals({
         <Text accessibilityRole="header" style={styles.sectionInRow}>
           New arrivals
         </Text>
-        <Link asChild href={collectionHref(handle)}>
+        <Link asChild href={collectionHref(handle)} onPress={guardLinkPress}>
           <Pressable accessibilityLabel="See all new arrivals" accessibilityRole="link">
             <Text style={styles.seeAll}>See all</Text>
           </Pressable>
@@ -230,10 +236,10 @@ function DevelopmentTools() {
   return (
     <View style={styles.devTools}>
       <SectionHeading>Development tools</SectionHeading>
-      <Link href="/dev-checkout" style={styles.link}>
+      <Link href="/dev-checkout" onPress={guardLinkPress} style={styles.link}>
         Open the test checkout screen
       </Link>
-      <Link href="/dev-catalogue" style={styles.secondLink}>
+      <Link href="/dev-catalogue" onPress={guardLinkPress} style={styles.secondLink}>
         Open the book card preview
       </Link>
       <CrashReportingTestControls />
@@ -353,11 +359,17 @@ const linkText = {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.lg, paddingBottom: spacing.xl },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
   storeName: {
+    flexShrink: 1,
     fontFamily: fonts.heading,
     fontSize: fontSize.heading,
     color: colors.text,
-    marginBottom: spacing.md,
   },
   banner: { padding: spacing.lg, borderRadius: radius.md, backgroundColor: colors.hero },
   bannerHeadline: { fontFamily: fonts.heading, fontSize: fontSize.title, color: colors.onHero },

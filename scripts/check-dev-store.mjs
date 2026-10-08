@@ -12,7 +12,10 @@
 // (`available_for_sale:true`) as in a collection's Availability filter (`available: true`).
 // For the book page (P6-05) it reads one named book the way the app's BookPage operation does:
 // genre labels resolve, the description parses through the app's own parser, and a handle no
-// book has gives null.
+// book has gives null. For search (P6-06) it reads Storefront's `search` with the app's arguments:
+// a title word, an author's name, a term with no results, the draft never found, "Available now"
+// (unavailableProducts HIDE) giving exactly the availableForSale books, and the price sort's order
+// of rented-out books.
 //
 // Run with `npm run check:dev-store`. Read-only: named queries, no mutations. Never prints the
 // token or the domain. Not run in CI, which has no .env.local. Point it at a development store
@@ -32,6 +35,7 @@ import {
   EXAMPLES,
   METAFIELDS,
   NO_COVER_HANDLES,
+  SEARCH,
   VISIBLE_PRODUCT_COUNT,
 } from './dev-store-catalogue.mjs';
 
@@ -417,6 +421,150 @@ async function checkBookPage(config, problems) {
   );
 }
 
+const SEARCH_QUERY = `query DevStoreSearch(
+  $query: String!
+  $after: String
+  $sortKey: SearchSortKeys
+  $reverse: Boolean
+  $unavailableProducts: SearchUnavailableProductsType
+  $country: CountryCode
+  $language: LanguageCode
+) @inContext(country: $country, language: $language) {
+  search(
+    query: $query
+    types: [PRODUCT]
+    prefix: LAST
+    first: 250
+    after: $after
+    sortKey: $sortKey
+    reverse: $reverse
+    unavailableProducts: $unavailableProducts
+  ) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ... on Product {
+        handle
+        availableForSale
+        priceRange {
+          minVariantPrice {
+            amount
+          }
+        }
+      }
+    }
+  }
+}`;
+
+async function search(config, term, options = {}) {
+  const nodes = [];
+  let totalCount = 0;
+  let after = null;
+  for (;;) {
+    const data = await storefrontRequest(config, SEARCH_QUERY, {
+      query: term,
+      after,
+      sortKey: 'RELEVANCE',
+      reverse: false,
+      unavailableProducts: 'LAST',
+      ...options,
+    });
+    totalCount = data.search.totalCount;
+    nodes.push(...data.search.nodes);
+    if (!data.search.pageInfo.hasNextPage) return { totalCount, nodes };
+    after = data.search.pageInfo.endCursor;
+  }
+}
+
+/** Prices in order, and within each price orderable books before rented-out ones (D-096). */
+function checkPriceOrder(label, nodes, reverse, problems) {
+  const price = (node) => Number(node.priceRange.minVariantPrice.amount);
+  for (let index = 1; index < nodes.length; index += 1) {
+    const before = nodes[index - 1];
+    const next = nodes[index];
+    const inOrder = reverse ? price(before) >= price(next) : price(before) <= price(next);
+    if (!inOrder) problems.push(`${label}: prices out of order at ${next.handle}.`);
+    if (price(before) === price(next) && !before.availableForSale && next.availableForSale) {
+      problems.push(`${label}: rented-out ${before.handle} before orderable ${next.handle}.`);
+    }
+  }
+}
+
+async function checkSearch(config, products, problems) {
+  const { titleWord, author, noResults, draftTerms, availableNow, priceSort } = SEARCH;
+
+  const title = await search(config, titleWord.term);
+  checkCounts(`search "${titleWord.term}"`, title.nodes.length, titleWord.count, problems);
+  checkCounts(`search "${titleWord.term}" totalCount`, title.totalCount, titleWord.count, problems);
+  const orderable = title.nodes.filter((node) => node.availableForSale).length;
+  checkCounts(`search "${titleWord.term}" orderable`, orderable, titleWord.available, problems);
+  if (title.nodes.at(-1)?.handle !== titleWord.rentedOutLast) {
+    problems.push(`search "${titleWord.term}": ${titleWord.rentedOutLast} is not last.`);
+  }
+
+  const byAuthor = await search(config, author.term);
+  sameHandles(
+    `search "${author.term}"`,
+    new Set(byAuthor.nodes.map((node) => node.handle)),
+    new Set(author.handles),
+    problems,
+  );
+
+  const none = await search(config, noResults);
+  checkCounts(`search "${noResults}"`, none.totalCount, 0, problems);
+
+  for (const term of draftTerms) {
+    const found = await search(config, term);
+    if (found.nodes.some((node) => node.handle === DRAFT_HANDLE)) {
+      problems.push(`search "${term}" finds the draft ${DRAFT_HANDLE}.`);
+    }
+  }
+
+  // "Available now": HIDE must give exactly the availableForSale books among LAST's results.
+  const orderableHandles = new Set(
+    products.filter((product) => availabilityOf(product) !== 'rentedOut').map((p) => p.handle),
+  );
+  for (const { term, count } of availableNow) {
+    const all = await search(config, term);
+    const hidden = await search(config, term, { unavailableProducts: 'HIDE' });
+    const expected = all.nodes
+      .filter((node) => node.availableForSale && orderableHandles.has(node.handle))
+      .map((node) => node.handle);
+    sameHandles(
+      `search "${term}" with HIDE`,
+      new Set(hidden.nodes.map((node) => node.handle)),
+      new Set(expected),
+      problems,
+    );
+    checkCounts(`search "${term}" with HIDE`, hidden.nodes.length, count, problems);
+    checkCounts(`search "${term}" with HIDE totalCount`, hidden.totalCount, count, problems);
+  }
+
+  // The price sort: rented-out books come last only among books of the same price (D-096).
+  let rising = [];
+  for (const reverse of [false, true]) {
+    const label = `search "${priceSort.term}" by price${reverse ? ', high to low' : ''}`;
+    const sorted = await search(config, priceSort.term, { sortKey: 'PRICE', reverse });
+    checkPriceOrder(label, sorted.nodes, reverse, problems);
+    if (!reverse) rising = sorted.nodes;
+  }
+  if (rising.at(-1)?.handle === priceSort.rentedOut) {
+    problems.push(
+      `search "${priceSort.term}" by price: ${priceSort.rentedOut} is last overall; ` +
+        'Shopify may now put rented-out books last with a price sort too (review D-096).',
+    );
+  }
+
+  console.log(
+    `Search: "${titleWord.term}" ${title.totalCount} (${orderable} orderable, rented-out last), ` +
+      `"${author.term}" ${byAuthor.totalCount}, "${noResults}" ${none.totalCount}; the draft ` +
+      'never found; "Available now" (HIDE) gives exactly the orderable books; price sort checked.',
+  );
+}
+
 async function checkCatalogue(config) {
   const problems = [];
   const products = await fetchAllProducts(config);
@@ -541,6 +689,9 @@ async function checkCatalogue(config) {
 
   // The book page (P6-05).
   await checkBookPage(config, problems);
+
+  // Search (P6-06).
+  await checkSearch(config, products, problems);
 
   if (problems.length > 0) {
     fail(`the sample catalogue differs:\n- ${problems.join('\n- ')}`);

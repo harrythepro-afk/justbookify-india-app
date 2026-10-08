@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BookCard } from '@/components/BookCard';
 import { openBook } from '@/components/openBook';
@@ -22,7 +22,8 @@ import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/them
  * collection screen (P6-04), with the states of D-078: loading, offline or error with "Try
  * again" while there is nothing to show, and the offline notice over saved books. Every "Try
  * again", and "Load more" after a failed page, re-reads the network first (D-082). A card opens
- * its book page (P6-05).
+ * its book page (P6-05). With the keyboard open (search, P6-06), a card opens on the first tap and
+ * scrolling hides the keyboard; on screens without a keyboard both settings do nothing.
  */
 export function BookGrid({
   books,
@@ -51,7 +52,8 @@ export function BookGrid({
   readonly onRetry: () => unknown;
   /** Reads the next page. */
   readonly onLoadMore: () => unknown;
-  readonly emptyMessage: string;
+  /** What an empty list says; null while a new list loads (search), which shows a spinner. */
+  readonly emptyMessage: string | null;
   /** Room for Android's navigation bar on a stack screen; 0 on a tab screen (D-080). */
   readonly bottomInset: number;
   readonly testID: string;
@@ -83,7 +85,19 @@ export function BookGrid({
         maxToRenderPerBatch={4}
         windowSize={5}
         keyExtractor={bookKey}
-        ListEmptyComponent={<ScreenMessage message={emptyMessage} />}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={
+          emptyMessage === null ? (
+            <ActivityIndicator
+              accessibilityLabel="Loading"
+              color={colors.text}
+              style={styles.emptyLoading}
+            />
+          ) : (
+            <ScreenMessage message={emptyMessage} />
+          )
+        }
         ListFooterComponent={
           <LoadMore
             failed={loadMoreFailed}
@@ -169,6 +183,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryButton,
   },
   disabled: { opacity: 0.5 },
+  emptyLoading: { paddingVertical: spacing.xl },
   loadMoreText: {
     fontFamily: fonts.bodyBold,
     fontSize: fontSize.body,

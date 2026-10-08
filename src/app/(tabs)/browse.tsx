@@ -3,8 +3,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookGrid } from '@/components/BookGrid';
-import { BookListControls, ListPicker } from '@/components/BookListControls';
+import { bookSortOptions, BookListControls, ListPicker } from '@/components/BookListControls';
 import { emptyMessageFor, NOT_FOUND_MESSAGE, ScreenMessage } from '@/components/ScreenMessage';
+import { SearchButton } from '@/components/SearchButton';
 import { BROWSE_CONTENT, effectiveSort, type BookSort, type CollectionLink } from '@/config';
 import {
   useAllBooks,
@@ -27,7 +28,8 @@ const GROUP_NAMES: Record<GroupKind, string> = { 'age-group': 'Age group', serie
  * time. With no group chosen it lists all books (D-083); choosing an age group or a series
  * replaces any earlier choice, and "Clear" returns to all books (D-084). "Available now" is on
  * by default (D-086). Settings live in the screen: the tab stays mounted, so they survive
- * switching tabs. The tab bar already leaves room for Android's navigation bar (D-080).
+ * switching tabs. The tab bar already leaves room for Android's navigation bar (D-080). Search
+ * sits under Browse: a search button beside the title opens it (P6-06).
  */
 export default function BrowseScreen() {
   const insets = useSafeAreaInsets();
@@ -40,16 +42,19 @@ export default function BrowseScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Text accessibilityRole="header" style={styles.title}>
-        {BROWSE_CONTENT.title}
-      </Text>
+      <View style={styles.titleRow}>
+        <Text accessibilityRole="header" style={styles.title}>
+          {BROWSE_CONTENT.title}
+        </Text>
+        <SearchButton testID="browse-search" />
+      </View>
       <GroupButtons group={group} onClear={() => setGroup(null)} onGroup={setGroup} />
       <BookListControls
         available={available}
-        inGroup={inGroup}
         onAvailableChange={setAvailable}
         onSort={setChosenSort}
         sort={sort}
+        sortOptions={bookSortOptions(inGroup)}
       />
       {group === null ? (
         <AllBooks list={list} />
@@ -178,10 +183,17 @@ function GroupBooks({ handle, list }: { readonly handle: string; readonly list: 
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  title: {
-    paddingHorizontal: spacing.lg,
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.sm,
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
+  },
+  title: {
+    flexShrink: 1,
     fontFamily: fonts.heading,
     fontSize: fontSize.heading,
     color: colors.text,

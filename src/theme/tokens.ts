@@ -73,6 +73,12 @@ export const colors = {
   sheet: palette.offWhite,
 
   // A switch's state shows by the thumb's side as well as the track's colour.
+  /** The search field (P6-06): white, outlined like a chip, so it reads as a place to type. */
+  searchField: palette.white,
+  searchFieldBorder: palette.darkMaroon,
+  onSearchField: palette.maroon,
+  searchPlaceholder: palette.darkMaroon,
+
   switchTrackOn: palette.greenDark,
   switchTrackOff: palette.darkMaroon,
   switchThumb: palette.offWhite,
@@ -98,6 +104,8 @@ export const textPairs: readonly { text: ColorRole; background: ColorRole }[] = 
   { text: 'onGenreChip', background: 'genreChip' },
   { text: 'onNotice', background: 'notice' },
   { text: 'text', background: 'coverFallback' },
+  { text: 'onSearchField', background: 'searchField' },
+  { text: 'searchPlaceholder', background: 'searchField' },
 ];
 
 /** One family per face: SDK 57 cannot map `fontWeight` to a custom face (D-041). */
@@ -143,6 +151,8 @@ export const iconSize = {
   coverFallback: 40,
   /** The same on the book page's full-width cover (P6-05). */
   pageCoverFallback: 72,
+  /** The search button on Home and Browse (P6-06). */
+  search: 24,
 } as const;
 
 /** Extra space between letters, in points. */

@@ -107,27 +107,31 @@ export function ListPicker<T extends string>({
 }
 
 /**
- * "Available now" and the sort (D-085, D-086), above a list of books. "Featured", a collection's
+ * Browse's and the collection screen's sorts as list options (D-085). "Featured", a collection's
  * own order, is offered only inside a group.
  */
-export function BookListControls({
+export function bookSortOptions(inGroup: boolean): readonly ListOption<BookSort>[] {
+  return sortOptionsFor(inGroup).map((option) => ({ value: option.sort, label: option.label }));
+}
+
+/**
+ * "Available now" and the sort (D-085, D-086), above a list of books. The screen passes the sorts
+ * it offers: Browse and the collection screen theirs (`bookSortOptions`), search its own (P6-06).
+ */
+export function BookListControls<S extends string>({
   available,
   onAvailableChange,
   sort,
-  inGroup,
+  sortOptions,
   onSort,
 }: {
   readonly available: boolean;
   readonly onAvailableChange: (available: boolean) => void;
-  readonly sort: BookSort;
-  readonly inGroup: boolean;
-  readonly onSort: (sort: BookSort) => void;
+  readonly sort: S;
+  readonly sortOptions: readonly ListOption<S>[];
+  readonly onSort: (sort: S) => void;
 }) {
-  const options = sortOptionsFor(inGroup).map((option) => ({
-    value: option.sort,
-    label: option.label,
-  }));
-  const sortLabel = options.find((option) => option.value === sort)?.label ?? '';
+  const sortLabel = sortOptions.find((option) => option.value === sort)?.label ?? '';
   return (
     <View style={styles.row}>
       <View style={styles.switchRow}>
@@ -147,7 +151,7 @@ export function BookListControls({
         accessibilityLabel={`Sort, ${sortLabel}`}
         buttonLabel={`Sort: ${sortLabel}`}
         onSelect={onSort}
-        options={options}
+        options={sortOptions}
         selected={sort}
         testID="sort"
         title="Sort"

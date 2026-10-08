@@ -70,27 +70,33 @@ Used when a check needs the phone offline but the development build still needs 
 - The phone is connected by a **data** USB cable with USB debugging on. `adb devices` must list it as `device`; `unauthorized` means the owner taps Allow on the phone. If adb lists nothing, Windows is not seeing the phone as a USB device: a charge-only cable or port, or a loose plug (4 October 2026: fixed by re-seating the cable).
 - `adb reverse tcp:8081 tcp:8081` maps the phone's port 8081 to Metro on this machine over USB. In the development build, connect to `http://localhost:8081`. The phone can then turn off Wi-Fi and mobile data and still load JavaScript, so offline behaviour can be tested.
 - **adb rule** (architect's review of PR #9; the same rule is in `CLAUDE.md`):
-  - Allowed without asking: `adb devices`; `adb reverse tcp:8081 tcp:8081` and its removal (`adb reverse --remove tcp:8081`); and reading logs filtered to this app's own process, filtered that way from the very first command: `adb logcat -d --pid=$(adb shell pidof com.justbookify.india.dev)` (the `pidof` lookup is part of this one allowed read and is never used for anything else).
-  - A screenshot needs the owner's yes each time, with the JustBookify app in the foreground.
-  - Every other adb command needs the owner's yes each time, including read-only ones (for example `dumpsys`, `am`, `monkey`, `pm`, `input`).
-  - Never run an unfiltered log or a package listing: an unfiltered system log can list the phone's installed apps.
-  - **Permission for one whole phone check** (architect's review of PR #11). The owner may give permission for one whole phone check at a time. Under it, and only until that check ends, Claude may:
-    - launch JustBookify (`adb shell monkey -p com.justbookify.india.dev -c android.intent.category.LAUNCHER 1`);
-    - tap inside JustBookify (`adb shell input tap`);
-    - take screenshots of JustBookify only (`adb exec-out screencap -p`), deleting them afterwards.
-
-    Under that permission Claude never enters a password or payment detail (the development store's password page in Checkout Kit is closed, not filled in), never places an order, and never opens or reads anything outside JustBookify. A screenshot that shows anything other than JustBookify is deleted at once, and Claude stops and tells the owner. Every command is recorded in `CURRENT_STATUS.md`. Any other command still needs its own yes. Without that permission, the rules above apply.
+  - Allowed at any time: `adb devices`; `adb reverse tcp:8081 tcp:8081` and `adb reverse --remove tcp:8081`; reading logs filtered to this app's own process from the very first command, `adb logcat -d --pid=$(adb shell pidof com.justbookify.india.dev)`.
+  - **Standing permission for phone checks** (owner, 8 October 2026, D-095). It replaces the permission for one whole phone check at a time and covers the phone check in this task and every later task. Claude does not ask again for these. Inside JustBookify only, with each input behind the focus check in the same command:
+    - launch JustBookify (`adb shell monkey -p com.justbookify.india.dev -c android.intent.category.LAUNCHER 1`), and bring it back with the same command after the background step;
+    - tap (`adb shell input tap`), swipe (`adb shell input swipe`), press Back (`adb shell input keyevent KEYCODE_BACK`), and press Home for the background step (`adb shell input keyevent KEYCODE_HOME`);
+    - type (`adb shell input text`) the development server address, `http://localhost:8081`, and the test words written in the task's accepted plan, which are plain book words only (such as harry, dahl, zzqxv);
+    - take screenshots of JustBookify (`adb exec-out screencap -p`) and delete them afterwards;
+    - read the app's own log filtered to its process, as above;
+    - run the read-only commands `adb reverse --list` and `adb shell wm size`.
+  - Unchanged, and covered by no permission:
+    - Never type a password, a payment detail or any personal data, and never place an order.
+    - Never open, read or screenshot anything outside JustBookify. If a screenshot shows anything else, delete it at once, stop and tell the owner.
+    - Never take a screenshot while the phone's keyboard is showing: it is not part of JustBookify, and its suggestion strip can show clipboard text. Hide it first, with a swipe on the results, or one Back press when there is nothing to swipe. If a screenshot shows the keyboard anyway, delete it at once, record it, hide the keyboard and continue.
+    - Never an unfiltered log or a package listing.
+    - Any adb command not listed above still needs the owner's yes each time, including read-only ones.
+    - Record every command in `docs/CURRENT_STATUS.md`.
+  - From P4-03 to P6-05 the owner gave permission one check at a time; on 8 October 2026 the owner replaced it with the standing permission above (D-095).
   - **Before and during every phone check** (architect's review of PR #12). In P5-02's check the owner used the phone between messages: one tap and the typed server address went into WhatsApp's search box, and later an incoming-call notification covered the app.
-    - Before the check starts, Claude asks the owner to switch on **Do Not Disturb** and to **leave the phone untouched** until Claude says the check is over.
-    - **Immediately before every tap or text entry**, Claude checks that JustBookify is the focused app, in the same command as the input, so nothing can come to the front in between. Reading the focused app's package name is allowed for this purpose only; the full window list never leaves the phone:
+    - Once, at the start, Claude asks the owner to switch on **Do Not Disturb** and to **leave the phone untouched** until Claude says the check is over.
+    - **Immediately before every tap, swipe, key press or text entry**, Claude checks that JustBookify is the focused app, in the same command as the input, so nothing can come to the front in between. Reading the focused app's package name is allowed for this purpose only; the full window list never leaves the phone:
 
       ```
       adb shell 'dumpsys window | grep -q "mCurrentFocus=.* com.justbookify.india.dev/" && input tap X Y || echo "JustBookify is not in front: no input sent"'
       ```
 
       The same form wraps `input text`. The check reads the focused window only: a notification banner over the app does not take focus. Do Not Disturb and the screenshot rule cover banners (owner, P5-03): a screenshot showing anything else still stops the check.
-    - If anything else is in front, Claude sends **no input at all**, stops the check and tells the owner. Claude does not try to return to the app (no Back, no Home, no relaunch).
-    - **Text entry** by adb (`adb shell input text`) is limited to the development server address, `http://localhost:8081`. Typing that fixed address is covered by the owner's permission for one whole phone check and needs no separate yes (owner, P5-03); outside such a check it needs the owner's yes. It still runs only behind the focus check above. Nothing else is ever typed.
+    - If anything other than JustBookify is in front, Claude sends **no input at all**, stops the check and tells the owner. Claude does not try to return to the app (no Back, no Home, no relaunch). The launch command is used only to end the background step, never to recover from an interruption.
+    - **Text entry** by adb (`adb shell input text`) is limited to the development server address, `http://localhost:8081`, and the plain test words written in the task's accepted plan (D-095). It runs only behind the focus check above. Nothing else is ever typed.
 - **Standing step in every phone check from P6-03 on** (owner, D-082, risk 22): after more than 5 minutes in the background, the app returns with no false offline notice, and the development tools' "Query cache" line says online. If it fails, read the development tools' network events before anything else and stop.
 - After the checks, `adb reverse --remove tcp:8081`. Stopping Metro's background task can leave the Expo CLI's `node` process listening on port 8081; check the port and stop that process.
 - The `adb reverse` mapping can drop during a check (P5-02: the dev client showed "Failed to connect to localhost/127.0.0.1:8081"). Set it again before tapping Connect.
@@ -327,6 +333,43 @@ Unit tests; the Storefront client or the catalogue fetchers are mocked and nothi
 10. The app's own log shows no crash and no JavaScript error.
 
 Passed on 8 October 2026 (all 10 steps; details in `CURRENT_STATUS.md`). The development store's own descriptions are single paragraphs with no markup, so only the preview's sample shows the live shape there.
+
+### Search (P6-06)
+
+Unit tests; the Storefront client or the catalogue fetchers are mocked and nothing reaches a store:
+- `__tests__/shopify/searchTerm.test.ts` (D-097): trimming and single spaces; Shopify syntax kept as typed (quotes, `title:`, `harry:`, a leading minus, `OR`); emoji and Hindi kept whole; the cut at 100 code points never splits an emoji; 12 hostile inputs (control characters, lone surrogates, backslashes, operation-like text, a million characters) never throw; letters and digits counted in any script; typing from 3, the search key from 2; symbols alone never search.
+- `__tests__/config/search.test.ts`: the agreed wording; Relevance then the two price sorts in Browse's wording; 300 ms and 100 characters; "1 result", "7 results", "1,000+ results"; both no-results lines.
+- `__tests__/shopify/sort.test.ts`: the search sorts to `RELEVANCE` and `PRICE` (reversed for high to low).
+- `__tests__/shopify/catalogue.test.ts`: `fetchSearchPage` sends the term, 20, the cursor, the sort and `LAST` or `HIDE` with the cancel signal; books only, `prefix: LAST`, no `predictiveSearch`; untrusted terms only as a variable, exactly as given; Shopify's count; only books kept; a book without a variant left out and reported by code; a failure passed on.
+- `__tests__/shopify/hooks/search.test.tsx`: nothing read without a term; 20 then the rest; each term and setting cached on its own under `storefront`, `catalogue` preset; **the earlier request's signal aborted when the term changes**; **the earlier results kept while a new term loads** (`isPlaceholderData`).
+- `__tests__/shopify/searchPrivacy.test.tsx` (D-097): a GraphQL error whose text repeats the term, a server error after the retries, an unreadable answer and a data fault each reach Sentry by code and operation name only; no Sentry call and no console call carries the term. Shown: with one `console.log` of the term added, all 4 tests fail.
+- `__tests__/app/search.test.tsx`: header, focused field, placeholder and hint, nothing read before a search; the field's settings (100 characters, no autocorrect, search key); the hint below 3 letters; symbols never search; the 300 ms pause, one request for quick typing, the search key at once from 2, the term trimmed; the count line, two columns, a card opening its book page; "1 result" and "1,000+ results"; "Load more" 20 then 26; both no-results lines with the cleaned term; **earlier results kept with no count line and no "Load more" while a new term loads, and no no-results line for a term still loading** (shown: without either part, 2 tests fail); the keyboard settings on the list; the keyboard closed when the screen loses focus; the bottom inset; "Available now" off and Relevance by default, on reads again; the three sorts only; offline, the error with "Try again" after `recheckNetwork()`, the error replacing earlier results when a new term fails; the term never logged and never in a route.
+- `__tests__/app/home.test.tsx` and `browse.test.tsx`: a button named "Search", at least 44 points square, opens `/search`; Home's other buttons stay absent. `__tests__/components/BookListControls.test.tsx`: Featured first inside a group; only the sorts a screen passes (search's three).
+
+**Development store numbers for the phone check** (`npm run check:dev-store`, 8 October 2026): harry 7 (6 orderable, then `harry-potter` rented out; 6 with "Available now" on); dahl 3 (`danny-the-champion-of-the-world`, `james-and-the-giant-peach`, `the-bfg`); zzqxv 0. "Price, low to high" for harry: ₹49 first, with `harry-potter` after the orderable ₹49 books; "Price, high to low": ₹74 first.
+
+**Phone check** (development build 3c8bf273, JavaScript from Metro, owner's phone, under `CLAUDE.md`'s phone check rules and the standing permission, D-095; Do Not Disturb on; the focus check and each input in the same command; **no screenshot while the keyboard shows**). Test words typed: `harry`, `dahl`, `zzqxv`.
+1. Home's search button opens Search; one Back press, then a screenshot: still on Search with the hint means the keyboard was open and the field focused.
+2. Type "harry"; one swipe on the results hides the keyboard; "7 results", "Sort: Relevance", "Available now" off, `harry-potter` with "Rented Out" last.
+3. "Price, low to high", then "Price, high to low": the order recorded.
+4. "Available now" on: "6 results", no "Rented Out". Off again.
+5. Tap into the field (keyboard up), then one tap on a card with no screenshot between: the book page opens on the first tap. Screenshot of the book page; Back returns to "harry" with the results.
+6. Double tap: two taps on one card in one command, then Back once; report whether it returned to the list or to a second copy of the book page.
+7. Back to Home, Browse's search button, type "dahl": "3 results", the Dahl books.
+8. Back, Search again, type "zzqxv": the website's no-results line.
+9. Standing step (D-082, D-087): more than 5 minutes in the background on the results, then back: no false offline notice; the term and the results kept.
+10. The app's own log: no crash and no JavaScript error; harry, dahl and zzqxv appear nowhere in it.
+
+Run on 8 October 2026: steps 1 to 5 and 7 to 10 passed; **step 6 found that a double tap opens the book page twice**, fixed in the same pull request (D-099, below).
+
+**Double tap and the clear button (architect's review of PR #19, D-099).** Unit tests:
+- `__tests__/navigation/openGuard.test.tsx`, with fake timers: `openScreen` ignores a second open at 499 ms and opens at 500 ms; any second open inside the window is ignored, whichever control it comes from; push by default, navigate when asked; a clock moved back never blocks. For each kind of control: a book card (double tap opens once; another card after Back and the window opens; a different book later opens), the search button, a series tile and an age chip (both `Link`s, through `guardLinkPress`, with `Link` mocked as its source behaves): a second open inside the window ignored, one after it works. `guardLinkPress` prevents the default only inside the window. Shown: with the guard switched off, 7 of the 11 tests fail.
+- `__tests__/app/search.test.tsx`: the clear button only while the field has text, named "Clear search", at least 44 points; it empties the field, brings back the hint, hides the results, focuses the field again (the keyboard stays) and never dismisses the keyboard (shown: without the focus call, that test fails); it stops a search waiting for the pause, and the next term searches.
+- `jest.setup.ts` clears the guard after each test; it loads the guard only after the test, so the test file's own `expo-router` mock applies.
+
+**Phone check before the fix** (8 October 2026, 04:54 to 04:56 IST, standing permission, Do Not Disturb on): a fast double tap (two taps in one adb command), then Back: book card on Home, **opened twice**; search button on Home, **opened twice** (three Back presses back to Home: the keyboard, then each Search); series tile ("Wimpy Kid") and age chip ("6-8 years"), **once**.
+
+**Short phone check after the fix:** a double tap on a book card, on the search button and on a series tile, each followed by Back: back where the tap was made; type "harry", tap the clear button: the hint is back; type "dahl": "3 results". No screenshot while the keyboard shows. **Passed on 8 October 2026, 05:23 to 05:25 IST** (commit `4b964d7`; details in `CURRENT_STATUS.md`). In step 10, "harry" appears only in Glide's debug lines naming cover image files on Shopify's CDN (`harry-potter-and-the-…`), never as the typed term; dahl and zzqxv 0. Details in `CURRENT_STATUS.md`.
 
 ### Release gate: list performance (P6-03)
 

@@ -1,12 +1,16 @@
 import { Link, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
+import { guardLinkPress } from '@/navigation/openGuard';
 import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
 
-/** A series on Home's "Popular series" row: text only, no image (owner, P6-03). */
+/**
+ * A series on Home's "Popular series" row: text only, no image (owner, P6-03). Like every in-app
+ * open, it goes through the shared guard (D-099).
+ */
 export function SeriesTile({ label, href }: { readonly label: string; readonly href: Href }) {
   return (
-    <Link asChild href={href}>
+    <Link asChild href={href} onPress={guardLinkPress}>
       <Pressable accessibilityRole="link" style={styles.tile}>
         <Text numberOfLines={2} style={styles.tileText}>
           {label}
@@ -16,10 +20,10 @@ export function SeriesTile({ label, href }: { readonly label: string; readonly h
   );
 }
 
-/** An age group on Home's "Browse by age" row. */
+/** An age group on Home's "Browse by age" row, through the shared guard (D-099). */
 export function AgeChip({ label, href }: { readonly label: string; readonly href: Href }) {
   return (
-    <Link asChild href={href}>
+    <Link asChild href={href} onPress={guardLinkPress}>
       <Pressable accessibilityRole="link" style={styles.chip}>
         <Text style={styles.chipText}>{label}</Text>
       </Pressable>

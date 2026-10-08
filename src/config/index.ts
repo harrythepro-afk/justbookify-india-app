@@ -35,6 +35,14 @@ export {
   type RawRemoteConfigValue,
   type RemoteConfigSettings,
 } from './featureFlags';
+export {
+  noResultsMessage,
+  resultCountLabel,
+  SEARCH_CONTENT,
+  type SearchContent,
+  type SearchSort,
+  type SearchSortOption,
+} from './search';
 export { STOREFRONT_API_VERSION, storefrontEndpoint } from './shopifyApi';
 export {
   getStoreConfig,

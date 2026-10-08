@@ -1,13 +1,18 @@
 /**
  * Each sort the app offers (`BookSort`, `src/config/browse.ts`) mapped to Shopify's sort keys,
  * for the two kinds of read (D-085): all books through the root `products` query
- * (`ProductSortKeys`) and a group through a collection's products (`ProductCollectionSortKeys`).
- * Checked against the saved `2026-10` schema.
+ * (`ProductSortKeys`) and a group through a collection's products (`ProductCollectionSortKeys`);
+ * and each search sort (`SearchSort`, `src/config/search.ts`) mapped to `SearchSortKeys` (P6-06,
+ * D-096). Checked against the saved `2026-10` schema.
  */
 
-import type { BookSort } from '@/config';
+import type { BookSort, SearchSort } from '@/config';
 
-import type { ProductCollectionSortKeys, ProductSortKeys } from './generated/storefront.types';
+import type {
+  ProductCollectionSortKeys,
+  ProductSortKeys,
+  SearchSortKeys,
+} from './generated/storefront.types';
 
 export type SortVariables<Key> = { readonly sortKey: Key; readonly reverse: boolean };
 
@@ -33,6 +38,12 @@ const ALL_BOOKS_SORT: Record<Exclude<BookSort, 'featured'>, SortVariables<Produc
   'created-descending': { sortKey: 'CREATED_AT', reverse: true },
 };
 
+const SEARCH_SORT: Record<SearchSort, SortVariables<SearchSortKeys>> = {
+  relevance: { sortKey: 'RELEVANCE', reverse: false },
+  'price-ascending': { sortKey: 'PRICE', reverse: false },
+  'price-descending': { sortKey: 'PRICE', reverse: true },
+};
+
 /** The sort variables for a collection's products. */
 export function collectionSort(sort: BookSort): SortVariables<ProductCollectionSortKeys> {
   return COLLECTION_SORT[sort];
@@ -45,4 +56,9 @@ export function collectionSort(sort: BookSort): SortVariables<ProductCollectionS
  */
 export function allBooksSort(sort: BookSort): SortVariables<ProductSortKeys> {
   return sort === 'featured' ? ALL_BOOKS_SORT['title-ascending'] : ALL_BOOKS_SORT[sort];
+}
+
+/** The sort variables for a search (D-096). */
+export function searchSort(sort: SearchSort): SortVariables<SearchSortKeys> {
+  return SEARCH_SORT[sort];
 }

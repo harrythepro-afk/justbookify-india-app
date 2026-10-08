@@ -1,6 +1,6 @@
 import { onlineManager, type QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { ScrollView } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import type { AnalyticsConsentState } from '@/analytics/consent';
 import HomeScreen from '@/app/(tabs)/index';
@@ -152,6 +152,13 @@ const NO_NETWORK = new StorefrontError('no-network', { operationName: 'X' });
 let client: QueryClient;
 
 /** Renders Home and waits until nothing on it is still loading. */
+/** The accessible names of every button on screen. */
+function buttonNames(): (string | undefined)[] {
+  return screen
+    .queryAllByRole('button')
+    .map((button) => button.props.accessibilityLabel as string | undefined);
+}
+
 async function renderHome() {
   await render(<HomeScreen />, { wrapper: withScreen(client) });
   await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
@@ -198,10 +205,10 @@ describe('HomeScreen (P6-03)', () => {
     );
   });
 
-  it('has no search button until search is built', async () => {
+  it('has one search button in the header, and no other search text (P6-06)', async () => {
     await renderHome();
 
-    expect(screen.queryByRole('button', { name: /search/i })).not.toBeOnTheScreen();
+    expect(screen.getAllByRole('button', { name: /search/i })).toHaveLength(1);
     expect(screen.queryByText(/search/i)).not.toBeOnTheScreen();
   });
 
@@ -263,7 +270,8 @@ describe('HomeScreen (P6-03)', () => {
 
     expect(screen.getByText('New book 2')).toBeOnTheScreen();
     expect(screen.getByText('Rented Out')).toBeOnTheScreen();
-    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+    // The header's search button (P6-06) is the only button.
+    expect(buttonNames()).toEqual(['Search']);
   });
 
   it.each([
@@ -432,7 +440,8 @@ describe('HomeScreen development tools', () => {
     await renderHome();
 
     expect(screen.getByText('Crash reporting is off (no DSN).')).toBeOnTheScreen();
-    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+    // The header's search button (P6-06) is the only button.
+    expect(buttonNames()).toEqual(['Search']);
   });
 
   it('says the feature flags are not ready before local activation', async () => {
@@ -497,7 +506,8 @@ describe('HomeScreen development tools', () => {
 
     await renderHome();
 
-    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+    // The header's search button (P6-06) is the only button.
+    expect(buttonNames()).toEqual(['Search']);
     expect(screen.queryByText('Crash reporting is off (no DSN).')).not.toBeOnTheScreen();
   });
 
@@ -552,4 +562,18 @@ describe('HomeScreen development tools', () => {
 
     expect(screen.queryByText(/^Analytics:/)).not.toBeOnTheScreen();
   });
+});
+
+it('has a search button named "Search", at least 44 points square, that opens search (P6-06)', async () => {
+  await renderHome();
+  const button = screen.getByRole('button', { name: 'Search' });
+  const style = StyleSheet.flatten(button.props.style as object) as {
+    minWidth?: number;
+    minHeight?: number;
+  };
+
+  expect(style.minWidth).toBeGreaterThanOrEqual(44);
+  expect(style.minHeight).toBeGreaterThanOrEqual(44);
+  await fireEvent.press(button);
+  expect(mockPush).toHaveBeenCalledWith('/search');
 });
