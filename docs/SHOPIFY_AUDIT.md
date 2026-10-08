@@ -103,6 +103,29 @@ Recorded in P6-04 from the architect's reading of the website's "Books for Rent"
 - **Sort options**, in the website's order and wording: Featured; Most relevant; Best selling; Alphabetically, A-Z; Alphabetically, Z-A; Price, low to high; Price, high to low; Date, old to new; Date, new to old. The app leaves out "Most relevant" and offers "Featured" only inside a group (D-085).
 - **Filters offered:** Availability, Price, Genre, "More filters" (tags) and Service City. The app has Age group, Series and "Available now" in P6-04; Genre waits for its own task.
 
+### Live website filters, architect's view (8 October 2026, view only)
+
+Recorded in P6-07 from the architect's reading of the website's "Books for Rent" page. Nothing on the live store was changed or read through an API. The app's Genre filter follows it (D-101, D-102).
+
+- **Filters offered:** Availability, Price, Genre, "More filters" (tags: about 100 raw tag names) and Service City (one value, `bengaluru`). The app offers Genre only; no tag filter and no Service City; Price is a later task (owner, P6-07).
+- **Genre is a category attribute filter:** the page parameter is `filter.v.t.shopify.genre` and each value is a `TaxonomyValue` ID. 20 values.
+- **The filter shows Shopify's built-in name, not the store's own genre name, for eight genres.** Book pages show the store's name. Filter name = book page name (`TaxonomyValue`):
+
+  | Filter name | Store's name (book page) | `TaxonomyValue` |
+  | --- | --- | --- |
+  | Design | Manga | 15730 |
+  | Children | Picture Book | 15727 |
+  | Drama | Realistic fiction | 15732 |
+  | Documentary | non fiction | 15731 |
+  | Family | Fairy tale | 15733 |
+  | Other | Mythology | 20866 |
+  | Literature | Classic Literature | 20858 |
+  | Education | activity book | 20852 |
+
+- **The other twelve keep their names:** Action & adventure 15724, Biography 15726, Comics & graphic novels 15728, Crime & mystery 15729, Fantasy 20853, Historical fiction 15739, Horror 20857, Humor & comedy 15741, Religion & spirituality 15749, Sci-fi 20862, Sports 20863, Technology 20864 (0 books).
+- **The app always shows the store's own name** (the genre entry's `label`, such as Manga), never Shopify's built-in name (owner, answer 5, P6-07; D-102).
+- **No real "all" collection** (P6-04): Storefront filters work only on a collection's products and on search, so Genre across all books needs a collection that holds every book. On the live store that collection (`all-books`) is store addition 4, the owner's decision at the live-store connection (D-100).
+
 ### Live book page, architect's view (8 October 2026, view only)
 
 Recorded in P6-05 from the architect's reading of the live page of `harry-potter-and-the-half-blood-prince-book-6`. Nothing on the live store was changed or read through an API. The app's book page follows it, with the differences in D-090 to D-092.

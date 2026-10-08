@@ -221,9 +221,11 @@ The development store's sample catalogue is the fixture for Phase 6 (D-069): 40 
 | Age groups | `early-readers` 5, `emerging-readers` 22, `junior-readers` 26, `pre-teen-readers` 16, `teenage-readers` 8 |
 | Series | `harry-potter-series` 4, `wimpy-kid-series` 4, `geronimo-stilton` 3, `my-hero-academia` 3, `secret-seven-series` 4, `read-it-yourself` 2, `manga-collections` 3, `cat-kid-comic-club` 3, `tintin-series` 0 (the empty state) |
 | Authors | `roald-dahl` 3, `ruskin-bond` 3, `enid-blyton` 4, `jeff-kinney` 4, `sudha-murthy` 2, `j-k-rowling` 7, `julia-donaldson` 3 |
-| Others | `new-arrivals` 5, `frontpage` 1 |
+| Others | `new-arrivals` 5, `frontpage` 1, `all-books` 42 (P6-07: every visible book; 29 with "Available now") |
 
 `new-arrivals` matches tag `new-arrival` **and** inventory above 0, so three tagged books with zero stock are left out.
+
+**Genre filter (P6-07, 8 October 2026).** On `all-books`, Shopify's Genre filter (`filter.v.t.shopify.genre`) has 11 values. Shown name (the store's genre entry) / Shopify's filter label / `TaxonomyValue` / books without and with "Available now": Action & adventure / same / 15724 / 16, 12; Biography / same / 15726 / 1, 1; Comics & graphic novels / same / 15728 / 3, 3; Crime & mystery / same / 15729 / 4, 3; **Fairy tale / Family** / 15733 / 2, 1; Fantasy / same / 20853 / 13, 10; Humor & comedy / same / 15741 / 13, 12; **Manga / Design** / 15730 / 4, 2; **Non-fiction / Documentary** / 15731 / 1, 1; **Picture book / Children** / 15727 / 3, 1; **Realistic fiction / Drama** / 15732 / 14, 9. `junior-readers` offers 8 of them (no Fairy tale, Manga or Picture book). The 11 `shopify--genre` entries can be listed over the Storefront API, one per value.
 
 **Deliberate gap, copied from the live store.** `one-of-us-1-lying` and `one-of-us-2-next` (product type "Teenage Readers") and `artemis-fowl-1-artemis-fowl` and `artemis-fowl-2-the-arctic-incident` (product type "Junior readers; Pre-teen readers") are in no age-group collection. They do not appear under any age group, and the app must not work around this (D-068).
 
@@ -374,6 +376,17 @@ Run on 8 October 2026: steps 1 to 5 and 7 to 10 passed; **step 6 found that a do
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).
+
+### Release gate: before the live store is connected (P6-07, owner)
+
+Before any build points at the live store, all four checks below must pass on the live store, **read-only, with the app's public Storefront token** (the same reads as `npm run check:dev-store`; no Admin API, nothing written). If any fails, the build does not point at the live store until the owner decides.
+
+1. The `all-books` collection exists, is published to the app's channel only, and returns every book the app can see.
+2. The Genre filter (`filter.v.t.shopify.genre`) is offered on that collection and on a group.
+3. The genre entries (`metaobjects(type: "shopify--genre")`) can be listed, and every filter value joins to at least one store name (D-102).
+4. The eight custom genres show the store's names, not Shopify's: Manga, Picture Book, Realistic fiction, non fiction, Fairy tale, Mythology, Classic Literature, activity book (`SHOPIFY_AUDIT.md`, "Live website filters").
+
+Creating the collection on the live store is the owner's decision at that time (store addition 4, `SHOPIFY_INTEGRATION.md`). Nothing on the live store is touched before then. If the genre entries cannot be listed, the app shows no Genre button and never Shopify's built-in names (D-102).
 
 ## Edge cases
 
