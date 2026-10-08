@@ -322,11 +322,34 @@ describe('useGenreOptions (P6-07, D-101, D-102)', () => {
 
   it('is loading until both reads are in, then gives the store names A-Z', async () => {
     respond();
+    // The entries are held back, so the loading state does not depend on the machine's speed.
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const answer = mockQuery.getMockImplementation();
+    mockQuery.mockImplementation(async (query: string, ...rest: unknown[]) => {
+      if (query.includes('query GenreEntries(')) await held;
+      return answer?.(query, ...rest);
+    });
     const { result } = await renderHook(() => useGenreOptions('all-books', true), {
       wrapper: withQueryClient(client),
     });
 
+    // The values are in; the entries are not, so still loading.
+    await waitFor(() =>
+      expect(
+        client
+          .getQueryCache()
+          .find({ queryKey: storefrontKeys.catalogue.collectionGenres('all-books', true) })?.state
+          .status,
+      ).toBe('success'),
+    );
     expect(result.current).toEqual({ kind: 'loading' });
+
+    await act(async () => {
+      release();
+    });
     await waitFor(() => expect(result.current.kind).toBe('ready'));
     if (result.current.kind !== 'ready') throw new Error('expected ready');
     expect(result.current.options.map((option) => option.name)).toEqual([

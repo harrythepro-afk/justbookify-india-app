@@ -163,10 +163,21 @@ const AVAILABLE_EMPTY =
 
 let client: QueryClient;
 
-async function renderScreen() {
+async function renderScreen({ settle = true }: { settle?: boolean } = {}) {
   await render(<BrowseScreen />, { wrapper: withScreen(client) });
   await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
   await screen.findByRole('button', { name: 'Age group' });
+  if (settle) await genreSettled();
+}
+
+/**
+ * Waits until the Genre button has settled: enabled, or not drawn. Every screen reads its genre
+ * list as well as its books; without this, a test can end while that read is still landing.
+ */
+async function genreSettled() {
+  await waitFor(() =>
+    expect(screen.queryByTestId('genre')?.props.accessibilityState?.disabled ?? false).toBe(false),
+  );
 }
 
 function listData(): readonly BookCard[] {
@@ -690,6 +701,10 @@ describe('Genre (P6-07, D-101, D-102)', () => {
       await choose('Genre', 'Manga');
 
       expect(screen.getByRole('button', { name: CLEAR })).toBeOnTheScreen();
+      // Ends once the Manga list is in, so no update lands after the test.
+      await waitFor(() => expect(allCalls().at(-1)?.list.genre).toEqual(genreFilter(MANGA)));
+      await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
+      expect(listData()).toHaveLength(20);
     });
 
     it('resets the group and the genre, and keeps "Available now" and the sort', async () => {
@@ -727,7 +742,7 @@ describe('Genre (P6-07, D-101, D-102)', () => {
             entriesReady = resolve;
           }),
       );
-      await renderScreen();
+      await renderScreen({ settle: false });
 
       expect(filterButtonNames()).toEqual(['Age group', 'Genre', 'Series']);
       expect(genreButton().props.accessibilityState).toEqual({ disabled: true });

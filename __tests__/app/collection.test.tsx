@@ -112,9 +112,20 @@ const HTTP_ERROR = new StorefrontError('http-error', { operationName: 'X', statu
 
 let client: QueryClient;
 
-async function renderScreen() {
+async function renderScreen({ settle = true }: { settle?: boolean } = {}) {
   await render(<CollectionScreen />, { wrapper: withScreen(client) });
   await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
+  if (settle) await genreSettled();
+}
+
+/**
+ * Waits until the Genre button has settled: enabled, or not drawn. Every screen reads its genre
+ * list as well as its books; without this, a test can end while that read is still landing.
+ */
+async function genreSettled() {
+  await waitFor(() =>
+    expect(screen.queryByTestId('genre')?.props.accessibilityState?.disabled ?? false).toBe(false),
+  );
 }
 
 function listProps() {
@@ -203,6 +214,9 @@ it('keeps "Load more" as the retry after a page fails, and says so', async () =>
   await waitFor(() => expect(listProps().data).toHaveLength(26));
   expect(screen.queryByText('Something went wrong. Please try again.')).not.toBeOnTheScreen();
   expect(mockRecheckNetwork).toHaveBeenCalled();
+  // The list draws new cards in batches (every 50 ms by default); let a pending one run inside
+  // act, so no render lands after the test.
+  await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
 });
 
 const AVAILABLE_EMPTY =
@@ -302,7 +316,7 @@ describe('Genre on the collection screen (P6-07, D-101)', () => {
           entriesReady = resolve;
         }),
     );
-    await renderScreen();
+    await renderScreen({ settle: false });
 
     expect(genreButton().props.accessibilityState).toEqual({ disabled: true });
 
