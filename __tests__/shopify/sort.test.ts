@@ -1,16 +1,18 @@
 import { BROWSE_CONTENT, SEARCH_CONTENT, type BookSort } from '@/config';
-import { allBooksSort, collectionSort, searchSort } from '@/shopify/sort';
+import { collectionSort, searchSort } from '@/shopify/sort';
 
-// D-085: each option to its Storefront sort key, per kind of read (saved `2026-10` schema).
-const TABLE: readonly [BookSort, string | null, string, boolean][] = [
-  ['featured', null, 'COLLECTION_DEFAULT', false],
-  ['best-selling', 'BEST_SELLING', 'BEST_SELLING', false],
-  ['title-ascending', 'TITLE', 'TITLE', false],
-  ['title-descending', 'TITLE', 'TITLE', true],
-  ['price-ascending', 'PRICE', 'PRICE', false],
-  ['price-descending', 'PRICE', 'PRICE', true],
-  ['created-ascending', 'CREATED_AT', 'CREATED', false],
-  ['created-descending', 'CREATED_AT', 'CREATED', true],
+// D-085: each option to its Storefront collection sort key (saved `2026-10` schema). Every list is
+// a collection since P6-07, all books included (D-100): on the development store the all-books
+// collection's orders matched the root query's (8 October 2026).
+const TABLE: readonly [BookSort, string, boolean][] = [
+  ['featured', 'COLLECTION_DEFAULT', false],
+  ['best-selling', 'BEST_SELLING', false],
+  ['title-ascending', 'TITLE', false],
+  ['title-descending', 'TITLE', true],
+  ['price-ascending', 'PRICE', false],
+  ['price-descending', 'PRICE', true],
+  ['created-ascending', 'CREATED', false],
+  ['created-descending', 'CREATED', true],
 ];
 
 it('covers every sort the store offers, in the table above', () => {
@@ -19,13 +21,8 @@ it('covers every sort the store offers, in the table above', () => {
   );
 });
 
-it.each(TABLE)('maps %s: all books %s, a group %s, reverse %s', (sort, all, group, reverse) => {
-  expect(collectionSort(sort)).toEqual({ sortKey: group, reverse });
-  if (all !== null) expect(allBooksSort(sort)).toEqual({ sortKey: all, reverse });
-});
-
-it('reads all books A-Z if Featured ever arrives there, as all books are no collection', () => {
-  expect(allBooksSort('featured')).toEqual({ sortKey: 'TITLE', reverse: false });
+it.each(TABLE)('maps %s to the collection key %s, reverse %s', (sort, sortKey, reverse) => {
+  expect(collectionSort(sort)).toEqual({ sortKey, reverse });
 });
 
 // P6-06, D-096: the search sorts to `SearchSortKeys` (saved `2026-10` schema).

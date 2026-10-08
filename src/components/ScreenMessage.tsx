@@ -17,8 +17,16 @@ export const NOT_FOUND_MESSAGE = 'This collection is not available.';
 // The owner's wording (answer 5, P6-05; D-093).
 export const BOOK_NOT_FOUND_MESSAGE = 'This book is not available.';
 
-/** What an empty list says, by whether "Available now" is on (owner, P6-04). */
-export function emptyMessageFor(available: boolean): string {
+/**
+ * What an empty list says, by whether "Available now" is on (owner, P6-04) and, with a genre
+ * chosen, naming the genre by the store's name (owner, P6-07 plan review; D-101).
+ */
+export function emptyMessageFor(available: boolean, genreName?: string): string {
+  if (genreName !== undefined) {
+    return available
+      ? `No ${genreName} books available right now. Switch off Available now to see rented-out books, or choose another genre.`
+      : `No ${genreName} books here. Choose another genre.`;
+  }
   return available ? AVAILABLE_EMPTY_MESSAGE : EMPTY_MESSAGE;
 }
 

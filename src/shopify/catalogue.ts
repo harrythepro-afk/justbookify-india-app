@@ -1,26 +1,29 @@
 /**
  * Catalogue reads for the book card (P6-02): a collection's books, page by page, by handle
  * (D-068), and one book by handle for the development preview; and for Home (P6-03), the handles
- * of every published collection; and for Browse (P6-04), all books, page by page, through the root
- * `products` query (D-083), and a collection's books with "Available now" and a sort; and for the
- * book page (P6-05), one book with its description and genres; and for search (P6-06), one page
- * of the books matching a term. All go through the Storefront client (D-056), are typed by code
- * generation (D-054) and select no personal field and no rating (D-073, D-092).
+ * of every published collection; and for Browse (P6-04), a collection's books with "Available
+ * now" and a sort, all books included: since P6-07 they are the collection that holds every book
+ * (D-100); and for the book page (P6-05), one book with its description and genres; and for
+ * search (P6-06), one page of the books matching a term; and for the Genre filter (P6-07), a
+ * collection's genre values and the store's genre entries (D-101, D-102). All go through the
+ * Storefront client (D-056), are typed by code generation (D-054) and select no personal field and
+ * no rating (D-073, D-092).
  *
- * The five book operations select the same product fields (BookPage adds its own). They cannot
+ * The four book operations select the same product fields (BookPage adds its own). They cannot
  * share a fragment, because an operation holds no `${}` interpolation (D-054); `toBookCard` takes
- * the CollectionBooks product type, so the type check fails if BookCardByHandle, AllBooks,
- * SearchBooks or BookPage stops matching it.
+ * the CollectionBooks product type, so the type check fails if BookCardByHandle, SearchBooks or
+ * BookPage stops matching it.
  */
 
 import { reportUnexpectedDataError } from '@/crashReporting/sentry';
-import { getStoreConfig, type BookSort, type SearchSort } from '@/config';
+import { BROWSE_CONTENT, getStoreConfig, type BookSort, type SearchSort } from '@/config';
 
-import { toBookCard, type BookCard, type BookCardProduct } from './bookCard';
+import { storeLocale, toBookCard, type BookCard, type BookCardProduct } from './bookCard';
 import { toBookPage, type BookPage } from './bookPage';
 import { storefrontQuery } from './client';
-import type { CollectionHandlesQuery } from './generated/storefront.generated';
-import { allBooksSort, collectionSort, searchSort } from './sort';
+import type { CollectionHandlesQuery, GenreEntriesQuery } from './generated/storefront.generated';
+import type { GenreEntry, GenreFilter, GenreFilterValue } from './genres';
+import { collectionSort, searchSort } from './sort';
 
 /** Books per page. `junior-readers` (26 books) takes two pages. */
 export const CATALOGUE_PAGE_SIZE = 20;
@@ -73,58 +76,6 @@ query CollectionBooks(
               amount
               currencyCode
             }
-          }
-        }
-      }
-    }
-  }
-}` as const;
-
-/**
- * All books, for Browse with no group chosen (D-083). The store has no "all" collection (the
- * website's `/collections/all` is a virtual page), so this reads the root `products` query.
- * `$query` is `available_for_sale:true` when "Available now" is on: the same books as a
- * collection's Availability filter, Shopify's `availableForSale` (checked on the development
- * store, 29 of 42; `npm run check:dev-store`).
- */
-export const ALL_BOOKS_QUERY = `#graphql
-query AllBooks(
-  $first: Int!
-  $after: String
-  $sortKey: ProductSortKeys
-  $reverse: Boolean
-  $query: String
-  $country: CountryCode
-  $language: LanguageCode
-) @inContext(country: $country, language: $language) {
-  products(first: $first, after: $after, sortKey: $sortKey, reverse: $reverse, query: $query) {
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-    nodes {
-      id
-      handle
-      title
-      vendor
-      featuredImage {
-        url(transform: { maxWidth: 600 })
-        width
-        height
-        altText
-      }
-      variants(first: 1) {
-        nodes {
-          id
-          availableForSale
-          currentlyNotInStock
-          price {
-            amount
-            currencyCode
-          }
-          compareAtPrice {
-            amount
-            currencyCode
           }
         }
       }
@@ -198,9 +149,6 @@ query SearchBooks(
     }
   }
 }` as const;
-
-/** Shopify's search syntax for "Available now" on the root `products` query (D-083). */
-export const AVAILABLE_FOR_SALE_QUERY = 'available_for_sale:true';
 
 export const BOOK_CARD_BY_HANDLE_QUERY = `#graphql
 query BookCardByHandle($handle: String!, $country: CountryCode, $language: LanguageCode)
@@ -312,10 +260,73 @@ query CollectionHandles(
 }` as const;
 
 /**
- * How a Browse or collection list is read (D-085, D-086). `available` is "Available now":
- * Shopify's `availableForSale`, so books orderable at zero stock are included.
+ * The values of a collection's Genre filter (P6-07, D-101): only the filter's id and each value's
+ * count and input. Shopify's own value labels are its built-in names, which the app never shows
+ * (D-102), so they are not read. `$filters` holds "Available now" when it is on, so the counts
+ * are those of the current list; a chosen genre is never sent here.
  */
-export type BookListOptions = { readonly available: boolean; readonly sort: BookSort };
+export const COLLECTION_GENRES_QUERY = `#graphql
+query CollectionGenres(
+  $handle: String!
+  $filters: [ProductFilter!]
+  $country: CountryCode
+  $language: LanguageCode
+) @inContext(country: $country, language: $language) {
+  collection(handle: $handle) {
+    products(first: 1, filters: $filters) {
+      filters {
+        id
+        values {
+          count
+          input
+        }
+      }
+    }
+  }
+}` as const;
+
+/** The largest page Shopify allows. One page is expected; the loop follows `pageInfo` anyway. */
+const GENRE_ENTRIES_PAGE_SIZE = 250;
+
+/**
+ * The store's genre entries (P6-07, D-102): each one's `label`, the name the app shows, and its
+ * `taxonomy_reference`, the taxonomy value the Genre filter gives. Checked on the development
+ * store: the public token can list them (gate f, 8 October 2026).
+ */
+export const GENRE_ENTRIES_QUERY = `#graphql
+query GenreEntries(
+  $type: String!
+  $first: Int!
+  $after: String
+  $country: CountryCode
+  $language: LanguageCode
+) @inContext(country: $country, language: $language) {
+  metaobjects(type: $type, first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      label: field(key: "label") {
+        value
+      }
+      taxonomyReference: field(key: "taxonomy_reference") {
+        value
+      }
+    }
+  }
+}` as const;
+
+/**
+ * How a Browse or collection list is read (D-085, D-086, D-101). `available` is "Available now":
+ * Shopify's `availableForSale`, so books orderable at zero stock are included. `genre` is the
+ * chosen genre's filter, or null for all genres.
+ */
+export type BookListOptions = {
+  readonly available: boolean;
+  readonly sort: BookSort;
+  readonly genre: GenreFilter | null;
+};
 
 /** How a search is read (D-096): "Available now" and the sort. */
 export type SearchOptions = { readonly available: boolean; readonly sort: SearchSort };
@@ -325,13 +336,6 @@ export type SearchBooksPage = {
   readonly books: readonly BookCard[];
   /** Shopify's count of every matching book, up to 1,000. */
   readonly totalCount: number;
-  /** The cursor for the next page, or null on the last page. */
-  readonly nextCursor: string | null;
-};
-
-/** One page of all books. */
-export type AllBooksPage = {
-  readonly books: readonly BookCard[];
   /** The cursor for the next page, or null on the last page. */
   readonly nextCursor: string | null;
 };
@@ -346,8 +350,29 @@ export type CollectionBooksPage =
     }
   | { readonly kind: 'not-found' };
 
+/**
+ * A collection's Genre filter values, with the store's locale (D-058) that their names are sorted
+ * in; `not-found` when the collection is missing.
+ */
+export type CollectionGenres =
+  | {
+      readonly kind: 'found';
+      readonly values: readonly GenreFilterValue[];
+      readonly locale: string;
+    }
+  | { readonly kind: 'not-found' };
+
 const BOOK_WITHOUT_VARIANT = 'catalogue/book-without-variant';
-let reportedBookWithoutVariant = false;
+// Configuration names a collection that holds every book (D-100); the store must have it.
+const ALL_BOOKS_MISSING = 'catalogue/all-books-missing';
+const reportedFaults = new Set<string>();
+
+/** Reports a catalogue data fault by code only, once per session (D-061). */
+export function reportCatalogueFaultOnce(code: string): void {
+  if (reportedFaults.has(code)) return;
+  reportedFaults.add(code);
+  reportUnexpectedDataError(code);
+}
 
 /**
  * Shopify gives every product at least one variant, so a book without one is a data fault. It is
@@ -356,27 +381,31 @@ let reportedBookWithoutVariant = false;
 function cardOrNothing(product: BookCardProduct): BookCard[] {
   const card = toBookCard(product, getStoreConfig());
   if (card !== null) return [card];
-  reportBookWithoutVariant();
+  reportCatalogueFaultOnce(BOOK_WITHOUT_VARIANT);
   return [];
 }
 
-function reportBookWithoutVariant(): void {
-  if (reportedBookWithoutVariant) return;
-  reportedBookWithoutVariant = true;
-  reportUnexpectedDataError(BOOK_WITHOUT_VARIANT);
+/** For tests: lets the once-per-session reports fire again. */
+export function resetCatalogueReportsForTests(): void {
+  reportedFaults.clear();
 }
 
-/** For tests: lets the once-per-session report fire again. */
-export function resetCatalogueReportsForTests(): void {
-  reportedBookWithoutVariant = false;
+/** The filters for a list: the chosen genre, then "Available now"; null when neither is on. */
+function listFilters(list: BookListOptions) {
+  const filters = [
+    ...(list.genre === null ? [] : [{ taxonomyMetafield: list.genre }]),
+    ...(list.available ? [{ available: true }] : []),
+  ];
+  return filters.length === 0 ? null : filters;
 }
 
 /**
  * One page of a collection's books, by handle. A collection that does not exist (or is not
- * published to the app's channel) is `not-found`, not an error. Without `list`, every book in
- * the collection's own order (Home's New arrivals, the development preview); with it, the sort
- * and "Available now" (D-085, D-086). `signal` cancels the call; the query cache passes its own
- * (D-061).
+ * published to the app's channel) is `not-found`, not an error; for the collection that holds
+ * every book (D-100) it is also reported once, because configuration names it. Without `list`,
+ * every book in the collection's own order (Home's New arrivals, the development preview); with
+ * it, the sort, "Available now" and the genre (D-085, D-086, D-101). `signal` cancels the call;
+ * the query cache passes its own (D-061).
  */
 export async function fetchCollectionBooksPage(options: {
   readonly handle: string;
@@ -394,40 +423,22 @@ export async function fetchCollectionBooksPage(options: {
         ? {}
         : {
             ...collectionSort(list.sort),
-            filters: list.available ? [{ available: true }] : null,
+            filters: listFilters(list),
           }),
     },
     signal: options.signal,
   });
   const collection = data.collection;
-  if (collection === null || collection === undefined) return { kind: 'not-found' };
+  if (collection === null || collection === undefined) {
+    if (options.handle === BROWSE_CONTENT.allBooksHandle) {
+      reportCatalogueFaultOnce(ALL_BOOKS_MISSING);
+    }
+    return { kind: 'not-found' };
+  }
   const { pageInfo, nodes } = collection.products;
   return {
     kind: 'found',
     title: collection.title,
-    books: nodes.flatMap(cardOrNothing),
-    nextCursor: pageInfo.hasNextPage ? (pageInfo.endCursor ?? null) : null,
-  };
-}
-
-/** One page of all books (D-083), sorted, with "Available now" on or off. Never more than a page. */
-export async function fetchAllBooksPage(options: {
-  readonly after: string | null;
-  readonly list: BookListOptions;
-  readonly signal?: AbortSignal;
-}): Promise<AllBooksPage> {
-  const { list } = options;
-  const data = await storefrontQuery(ALL_BOOKS_QUERY, {
-    variables: {
-      first: CATALOGUE_PAGE_SIZE,
-      after: options.after,
-      ...allBooksSort(list.sort),
-      query: list.available ? AVAILABLE_FOR_SALE_QUERY : null,
-    },
-    signal: options.signal,
-  });
-  const { pageInfo, nodes } = data.products;
-  return {
     books: nodes.flatMap(cardOrNothing),
     nextCursor: pageInfo.hasNextPage ? (pageInfo.endCursor ?? null) : null,
   };
@@ -511,6 +522,59 @@ export async function fetchBook(options: {
   const product = data.product;
   if (product === null || product === undefined) return null;
   const page = toBookPage(product, getStoreConfig());
-  if (page === null) reportBookWithoutVariant();
+  if (page === null) reportCatalogueFaultOnce(BOOK_WITHOUT_VARIANT);
   return page;
+}
+
+/**
+ * A collection's Genre filter values (P6-07, D-101), for the list with "Available now" on or off.
+ * A collection without the filter gives no values; one that does not exist is `not-found`.
+ */
+export async function fetchCollectionGenres(options: {
+  readonly handle: string;
+  readonly available: boolean;
+  readonly signal?: AbortSignal;
+}): Promise<CollectionGenres> {
+  const data = await storefrontQuery(COLLECTION_GENRES_QUERY, {
+    variables: {
+      handle: options.handle,
+      filters: options.available ? [{ available: true }] : null,
+    },
+    signal: options.signal,
+  });
+  const collection = data.collection;
+  if (collection === null || collection === undefined) return { kind: 'not-found' };
+  const genre = collection.products.filters.find(
+    (filter) => filter.id === BROWSE_CONTENT.genre.filterId,
+  );
+  return {
+    kind: 'found',
+    values: (genre?.values ?? []).map(({ count, input }) => ({ count, input })),
+    // Read here, not while a screen draws, so a configuration fault is a failed read.
+    locale: storeLocale(getStoreConfig()),
+  };
+}
+
+/** Every genre entry of the store (P6-07, D-102), following `pageInfo`. */
+export async function fetchGenreEntries(options: {
+  readonly signal?: AbortSignal;
+}): Promise<readonly GenreEntry[]> {
+  const entries: GenreEntry[] = [];
+  let after: string | null = null;
+  for (;;) {
+    const data: GenreEntriesQuery = await storefrontQuery(GENRE_ENTRIES_QUERY, {
+      variables: { type: BROWSE_CONTENT.genre.entryType, first: GENRE_ENTRIES_PAGE_SIZE, after },
+      signal: options.signal,
+    });
+    const { pageInfo, nodes } = data.metaobjects;
+    for (const node of nodes) {
+      entries.push({
+        label: node.label?.value ?? null,
+        taxonomyReference: node.taxonomyReference?.value ?? null,
+      });
+    }
+    const next = pageInfo.endCursor ?? null;
+    if (!pageInfo.hasNextPage || next === null) return entries;
+    after = next;
+  }
 }

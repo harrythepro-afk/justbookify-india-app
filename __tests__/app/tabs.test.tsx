@@ -62,8 +62,9 @@ jest.mock('@/shopify/catalogue', () => ({
         ? { kind: 'found', title: 'Tintin', books: [], nextCursor: null }
         : { kind: 'not-found' },
     ),
-  // Browse lists all books with no group chosen (P6-04).
-  fetchAllBooksPage: () => Promise.resolve({ books: [], nextCursor: null }),
+  // Genre lists (P6-07): none here, so no Genre button and no store name is needed.
+  fetchCollectionGenres: () => Promise.resolve({ kind: 'found', locale: 'en-IN', values: [] }),
+  fetchGenreEntries: () => Promise.resolve([]),
 }));
 
 jest.mock('expo-constants', () => ({

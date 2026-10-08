@@ -3,7 +3,15 @@ import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 're
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { sortOptionsFor, type BookSort } from '@/config';
-import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
+import {
+  colors,
+  disabledOpacity,
+  fonts,
+  fontSize,
+  minTouchTarget,
+  radius,
+  spacing,
+} from '@/theme/tokens';
 
 export const AVAILABLE_NOW_LABEL = 'Available now';
 
@@ -11,9 +19,11 @@ export type ListOption<T extends string> = { readonly value: T; readonly label: 
 
 /**
  * A button that opens a list of options over the screen (P6-04): Sort on Browse and the
- * collection screen, Age group and Series on Browse. Choosing an option closes the list.
- * Android's back button and a tap outside the list close it too, without leaving the screen or
- * changing the choice (owner, plan review). React Native's own `Modal`: no new package.
+ * collection screen, Age group, Genre and Series on Browse, Genre on the collection screen.
+ * Choosing an option closes the list. Android's back button and a tap outside the list close it
+ * too, without leaving the screen or changing the choice (owner, plan review). React Native's own
+ * `Modal`: no new package. A disabled button keeps its place but does not open (Genre while its
+ * list loads, P6-07).
  */
 export function ListPicker<T extends string>({
   buttonLabel,
@@ -23,6 +33,7 @@ export function ListPicker<T extends string>({
   selected,
   onSelect,
   testID,
+  disabled = false,
 }: {
   /** What the button says, such as "Sort: Featured". */
   readonly buttonLabel: string;
@@ -34,6 +45,8 @@ export function ListPicker<T extends string>({
   readonly selected: T | null;
   readonly onSelect: (value: T) => void;
   readonly testID: string;
+  /** Drawn in its place, but not pressable. */
+  readonly disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
@@ -44,8 +57,10 @@ export function ListPicker<T extends string>({
       <Pressable
         accessibilityLabel={accessibilityLabel}
         accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
         onPress={() => setOpen(true)}
-        style={styles.button}
+        style={[styles.button, disabled && styles.buttonDisabled]}
         testID={testID}
       >
         <Text style={styles.buttonText}>{buttonLabel}</Text>
@@ -186,6 +201,7 @@ const styles = StyleSheet.create({
     borderColor: colors.chipBorder,
     borderRadius: radius.md,
   },
+  buttonDisabled: { opacity: disabledOpacity },
   buttonText: { fontFamily: fonts.body, fontSize: fontSize.small, color: colors.link },
   overlay: { flex: 1, justifyContent: 'flex-end' },
   scrim: { flex: 1, backgroundColor: colors.scrim },

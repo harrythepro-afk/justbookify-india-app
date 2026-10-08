@@ -17,8 +17,11 @@ export const storefrontKeys = {
       list === undefined
         ? ([...storefrontKeys.all, 'catalogue', 'collectionBooks', handle] as const)
         : ([...storefrontKeys.all, 'catalogue', 'collectionBooks', handle, list] as const),
-    allBooks: (list: BookListOptions) =>
-      [...storefrontKeys.all, 'catalogue', 'allBooks', list] as const,
+    // A collection's Genre filter values for a list with "Available now" on or off (D-101).
+    collectionGenres: (handle: string, available: boolean) =>
+      [...storefrontKeys.all, 'catalogue', 'collectionGenres', handle, available] as const,
+    // The store's genre entries, whose labels name the genres (D-102).
+    genreEntries: () => [...storefrontKeys.all, 'catalogue', 'genreEntries'] as const,
     bookCard: (handle: string) => [...storefrontKeys.all, 'catalogue', 'bookCard', handle] as const,
     book: (handle: string) => [...storefrontKeys.all, 'catalogue', 'book', handle] as const,
     collectionHandles: () => [...storefrontKeys.all, 'catalogue', 'collectionHandles'] as const,
