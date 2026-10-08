@@ -8,14 +8,18 @@
 // visible products, the draft's absence, each collection's count by handle, the availability
 // states, the covers, every product metafield the app may read, the metaobject labels behind
 // the category metafields, ratings with and without a count, and one named book per case.
-// For Browse (P6-04) it checks that "available" means the same in the root products query
-// (`available_for_sale:true`) as in a collection's Availability filter (`available: true`).
+// For Browse (P6-04) it checks that a collection's Availability filter (`available: true`) gives
+// exactly the availableForSale books; since P6-07 on the all-books collection, which must hold
+// every visible book (D-100), as well as on a group.
 // For the book page (P6-05) it reads one named book the way the app's BookPage operation does:
 // genre labels resolve, the description parses through the app's own parser, and a handle no
 // book has gives null. For search (P6-06) it reads Storefront's `search` with the app's arguments:
 // a title word, an author's name, a term with no results, the draft never found, "Available now"
 // (unavailableProducts HIDE) giving exactly the availableForSale books, and the price sort's order
-// of rented-out books.
+// of rented-out books. For the Genre filter (P6-07) it reads the filter on all-books and on a group,
+// lists the store's genre entries, joins them through the app's own toGenreOptions (the names the
+// app shows), and checks that one built-in and one custom genre each list exactly their books,
+// with "Available now" and under every sort.
 //
 // Run with `npm run check:dev-store`. Read-only: named queries, no mutations. Never prints the
 // token or the domain. Not run in CI, which has no .env.local. Point it at a development store
@@ -25,14 +29,20 @@
 
 import { STOREFRONT_API_VERSION, storefrontEndpoint } from '../src/config/shopifyApi.ts';
 import { getStoreConfig, StoreConfigError } from '../src/config/store.ts';
+import { toGenreOptions } from '../src/shopify/genres.ts';
 import { parseDescriptionHtml } from '../src/shopify/richText.ts';
 import {
+  ALL_BOOKS_HANDLE,
   AVAILABILITY_COUNTS,
   AVAILABLE_FILTER_COLLECTION,
   AVAILABLE_PRODUCT_COUNT,
   COLLECTION_COUNTS,
   DRAFT_HANDLE,
   EXAMPLES,
+  GENRE_EXAMPLES,
+  GENRE_FILTER,
+  GENRES,
+  GROUP_GENRES,
   METAFIELDS,
   NO_COVER_HANDLES,
   SEARCH,
@@ -103,6 +113,9 @@ const PRODUCTS_QUERY = `query DevStoreCatalogue(
               label: field(key: "label") {
                 value
               }
+              taxonomyReference: field(key: "taxonomy_reference") {
+                value
+              }
             }
           }
         }
@@ -165,24 +178,88 @@ const COLLECTION_QUERY = `query DevStoreCollection(
   }
 }`;
 
-// Browse's "all books" with "Available now" on (P6-04): the root products query filtered through
-// Shopify's search syntax.
-const AVAILABLE_PRODUCTS_QUERY = `query DevStoreAvailableProducts(
+// A collection's books with filters and a sort, every page (P6-04, P6-07).
+const FILTERED_COLLECTION_QUERY = `query DevStoreFilteredCollection(
   $country: CountryCode
   $language: LanguageCode
+  $handle: String!
+  $filters: [ProductFilter!]
+  $sortKey: ProductCollectionSortKeys
+  $reverse: Boolean
   $after: String
 ) @inContext(country: $country, language: $language) {
-  products(first: 250, after: $after, query: "available_for_sale:true") {
+  collection(handle: $handle) {
+    products(first: 250, after: $after, filters: $filters, sortKey: $sortKey, reverse: $reverse) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        handle
+        availableForSale
+      }
+    }
+  }
+}`;
+
+// The Genre filter's values, as the app's CollectionGenres reads them, plus Shopify's own label,
+// which the app never reads (P6-07): the check records that it differs from the store's name.
+const COLLECTION_FILTERS_QUERY = `query DevStoreCollectionFilters(
+  $country: CountryCode
+  $language: LanguageCode
+  $handle: String!
+  $filters: [ProductFilter!]
+) @inContext(country: $country, language: $language) {
+  collection(handle: $handle) {
+    products(first: 1, filters: $filters) {
+      filters {
+        id
+        label
+        type
+        values {
+          label
+          count
+          input
+        }
+      }
+    }
+  }
+}`;
+
+// The store's genre entries, as the app's GenreEntries reads them (P6-07, D-102).
+const GENRE_ENTRIES_QUERY = `query DevStoreGenreEntries(
+  $country: CountryCode
+  $language: LanguageCode
+  $type: String!
+  $after: String
+) @inContext(country: $country, language: $language) {
+  metaobjects(type: $type, first: 250, after: $after) {
     pageInfo {
       hasNextPage
       endCursor
     }
     nodes {
-      handle
-      availableForSale
+      label: field(key: "label") {
+        value
+      }
+      taxonomyReference: field(key: "taxonomy_reference") {
+        value
+      }
     }
   }
 }`;
+
+// The collection sorts the app sends (src/shopify/sort.ts, D-085).
+const COLLECTION_SORTS = [
+  ['COLLECTION_DEFAULT', false],
+  ['BEST_SELLING', false],
+  ['TITLE', false],
+  ['TITLE', true],
+  ['PRICE', false],
+  ['PRICE', true],
+  ['CREATED', false],
+  ['CREATED', true],
+];
 
 // A group with "Available now" on: the collection's Availability filter.
 const AVAILABLE_COLLECTION_QUERY = `query DevStoreAvailableCollection(
@@ -357,23 +434,50 @@ function sameHandles(label, actual, expected, problems) {
   if (extra.length > 0) problems.push(`${label} also returns ${extra.join(', ')}.`);
 }
 
-async function checkAvailableNow(config, products, problems) {
-  const available = [];
+async function collectionHandles(config, handle, filters = null, sort = [null, false]) {
+  const nodes = [];
   let after = null;
   do {
-    const data = await storefrontRequest(config, AVAILABLE_PRODUCTS_QUERY, { after });
-    const page = data?.products;
-    available.push(...(page?.nodes ?? []));
-    after = page?.pageInfo?.hasNextPage ? page.pageInfo.endCursor : null;
+    const data = await storefrontRequest(config, FILTERED_COLLECTION_QUERY, {
+      handle,
+      filters,
+      sortKey: sort[0],
+      reverse: sort[1],
+      after,
+    });
+    const page = data?.collection?.products;
+    if (!page) return null;
+    nodes.push(...page.nodes);
+    after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
   } while (after);
+  return nodes;
+}
+
+async function checkAvailableNow(config, products, problems) {
+  // All books (D-100): the all-books collection holds every visible book; "Available now" on it
+  // gives exactly the availableForSale ones.
+  const all = await collectionHandles(config, ALL_BOOKS_HANDLE);
+  const available = await collectionHandles(config, ALL_BOOKS_HANDLE, [{ available: true }]);
+  if (all === null || available === null) {
+    problems.push(
+      `collection ${ALL_BOOKS_HANDLE} is missing or not published to the Headless channel.`,
+    );
+    return;
+  }
+  sameHandles(
+    `collection ${ALL_BOOKS_HANDLE}`,
+    new Set(all.map((product) => product.handle)),
+    new Set(products.map((product) => product.handle)),
+    problems,
+  );
   checkCounts(
-    'root products, available_for_sale:true',
+    `collection ${ALL_BOOKS_HANDLE}, available: true`,
     available.length,
     AVAILABLE_PRODUCT_COUNT,
     problems,
   );
   sameHandles(
-    'root products, available_for_sale:true,',
+    `collection ${ALL_BOOKS_HANDLE}, available: true,`,
     new Set(available.map((product) => product.handle)),
     new Set(products.filter((p) => availabilityOf(p) !== 'rentedOut').map((p) => p.handle)),
     problems,
@@ -382,17 +486,168 @@ async function checkAvailableNow(config, products, problems) {
   const { handle, count } = AVAILABLE_FILTER_COLLECTION;
   const data = await storefrontRequest(config, AVAILABLE_COLLECTION_QUERY, { handle });
   const filtered = data?.collection?.products?.nodes ?? [];
-  const all = data?.collection?.all?.nodes ?? [];
+  const group = data?.collection?.all?.nodes ?? [];
   checkCounts(`collection ${handle}, available: true`, filtered.length, count, problems);
   sameHandles(
     `collection ${handle}, available: true,`,
     new Set(filtered.map((product) => product.handle)),
-    new Set(all.filter((product) => product.availableForSale).map((product) => product.handle)),
+    new Set(group.filter((product) => product.availableForSale).map((product) => product.handle)),
     problems,
   );
   console.log(
-    `Available now: root query ${available.length} of ${products.length}; ` +
-      `${handle} filter ${filtered.length} of ${all.length}.`,
+    `Available now: ${ALL_BOOKS_HANDLE} ${available.length} of ${all.length}; ` +
+      `${handle} filter ${filtered.length} of ${group.length}.`,
+  );
+}
+
+const taxonomyGid = (id) => `gid://shopify/TaxonomyValue/${id}`;
+
+function genreFilterOf(data) {
+  return data?.collection?.products?.filters?.find((filter) => filter.id === GENRE_FILTER.id);
+}
+
+function genreValueOf(value) {
+  try {
+    return JSON.parse(value.input)?.taxonomyMetafield?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// The books whose shopify.genre holds an entry for this taxonomy value.
+function booksOfGenre(products, gid) {
+  return new Set(
+    products
+      .filter((product) =>
+        (metafieldOf(product, 'shopify', 'genre')?.references?.nodes ?? []).some(
+          (node) => node?.taxonomyReference?.value === gid,
+        ),
+      )
+      .map((product) => product.handle),
+  );
+}
+
+async function checkGenres(config, products, problems) {
+  const locale = `${config.language.toLowerCase()}-${config.country}`;
+
+  // The store's genre entries can be listed (gate f).
+  const entries = [];
+  let after = null;
+  do {
+    const data = await storefrontRequest(config, GENRE_ENTRIES_QUERY, {
+      type: GENRE_FILTER.entryType,
+      after,
+    });
+    const page = data?.metaobjects;
+    for (const node of page?.nodes ?? []) {
+      entries.push({
+        label: node.label?.value ?? null,
+        taxonomyReference: node.taxonomyReference?.value ?? null,
+      });
+    }
+    after = page?.pageInfo?.hasNextPage ? page.pageInfo.endCursor : null;
+  } while (after);
+  if (entries.length === 0) {
+    problems.push(
+      `genres: the ${GENRE_FILTER.entryType} entries cannot be listed with the public token.`,
+    );
+  }
+
+  // The filter on all-books, without and with "Available now" (gates b and c).
+  for (const available of [false, true]) {
+    const filters = available ? [{ available: true }] : null;
+    const data = await storefrontRequest(config, COLLECTION_FILTERS_QUERY, {
+      handle: ALL_BOOKS_HANDLE,
+      filters,
+    });
+    const genre = genreFilterOf(data);
+    const label = `genres on ${ALL_BOOKS_HANDLE}${available ? ', available' : ''}`;
+    if (!genre) {
+      problems.push(`${label}: no ${GENRE_FILTER.id} filter.`);
+      continue;
+    }
+    if (genre.label !== GENRE_FILTER.label || genre.type !== GENRE_FILTER.type) {
+      problems.push(`${label}: the filter is "${genre.label}" ${genre.type}.`);
+    }
+    checkCounts(`${label}, values`, genre.values.length, GENRES.length, problems);
+    for (const expected of GENRES) {
+      const value = genre.values.find(
+        (v) => genreValueOf(v) === taxonomyGid(expected.taxonomyValue),
+      );
+      if (!value) {
+        problems.push(`${label}: no value for ${expected.storeName} (${expected.taxonomyValue}).`);
+        continue;
+      }
+      if (value.label !== expected.filterLabel) {
+        problems.push(
+          `${label}: Shopify labels ${expected.taxonomyValue} "${value.label}", expected ` +
+            `"${expected.filterLabel}".`,
+        );
+      }
+      const count = available ? expected.available : expected.count;
+      checkCounts(`${label}, ${expected.storeName}`, value.count, count, problems);
+    }
+
+    // The names the app shows, through the app's own join (D-102).
+    const { options, faults } = toGenreOptions(genre.values, entries, locale);
+    const names = options.map((option) => option.name);
+    const expectedNames = GENRES.map((g) => g.storeName).sort((a, b) =>
+      a.localeCompare(b, locale, { sensitivity: 'base' }),
+    );
+    if (JSON.stringify(names) !== JSON.stringify(expectedNames)) {
+      problems.push(`${label}: the app would show ${names.join(', ')}.`);
+    }
+    if (faults.length > 0) problems.push(`${label}: join faults ${faults.join(', ')}.`);
+  }
+
+  // A group offers the filter too, named by the store.
+  const groupData = await storefrontRequest(config, COLLECTION_FILTERS_QUERY, {
+    handle: GROUP_GENRES.handle,
+    filters: null,
+  });
+  const groupGenre = genreFilterOf(groupData);
+  if (!groupGenre) {
+    problems.push(`genres on ${GROUP_GENRES.handle}: no ${GENRE_FILTER.id} filter.`);
+  } else {
+    const names = toGenreOptions(groupGenre.values, entries, locale).options.map((o) => o.name);
+    if (JSON.stringify(names) !== JSON.stringify(GROUP_GENRES.storeNames)) {
+      problems.push(`genres on ${GROUP_GENRES.handle}: the app would show ${names.join(', ')}.`);
+    }
+  }
+
+  // One built-in and one custom genre list exactly their books, with "Available now" and under
+  // every sort (gates d and e).
+  for (const id of [GENRE_EXAMPLES.builtIn, GENRE_EXAMPLES.custom]) {
+    const gid = taxonomyGid(id);
+    const name = GENRES.find((g) => g.taxonomyValue === id)?.storeName ?? String(id);
+    const genreFilter = { taxonomyMetafield: { namespace: 'shopify', key: 'genre', value: gid } };
+    const expected = booksOfGenre(products, gid);
+    const got = await collectionHandles(config, ALL_BOOKS_HANDLE, [genreFilter]);
+    sameHandles(`genre ${name}`, new Set((got ?? []).map((p) => p.handle)), expected, problems);
+    const expectedAvailable = new Set(
+      products
+        .filter((p) => expected.has(p.handle) && availabilityOf(p) !== 'rentedOut')
+        .map((p) => p.handle),
+    );
+    for (const sort of COLLECTION_SORTS) {
+      const sorted = await collectionHandles(
+        config,
+        ALL_BOOKS_HANDLE,
+        [genreFilter, { available: true }],
+        sort,
+      );
+      sameHandles(
+        `genre ${name}, available, ${sort[0]}${sort[1] ? ' reversed' : ''},`,
+        new Set((sorted ?? []).map((p) => p.handle)),
+        expectedAvailable,
+        problems,
+      );
+    }
+  }
+  console.log(
+    `Genres: ${entries.length} entries listed; ${GENRES.length} values on ${ALL_BOOKS_HANDLE} ` +
+      `named by the store; ${GROUP_GENRES.handle} offers ${GROUP_GENRES.storeNames.length}; ` +
+      `${GENRE_EXAMPLES.builtIn} and ${GENRE_EXAMPLES.custom} checked book by book under every sort.`,
   );
 }
 
@@ -692,6 +947,9 @@ async function checkCatalogue(config) {
 
   // Search (P6-06).
   await checkSearch(config, products, problems);
+
+  // The Genre filter (P6-07).
+  await checkGenres(config, products, problems);
 
   if (problems.length > 0) {
     fail(`the sample catalogue differs:\n- ${problems.join('\n- ')}`);
