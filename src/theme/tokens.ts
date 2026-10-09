@@ -165,6 +165,12 @@ export const letterSpacing = {
 export const minTouchTarget = 44;
 
 /**
+ * A control drawn in its place but not usable yet, such as the Genre button while its list loads
+ * (P6-07). WCAG 1.4.3 does not apply to disabled controls; the screen reader hears "disabled".
+ */
+export const disabledOpacity = 0.5;
+
+/**
  * Width over height of the book card's cover frame. Covers fit inside it, never cropped. Every
  * sample cover is 1280 by 1280 pixels, so the frame is square (measured 7 October 2026, D-077).
  */

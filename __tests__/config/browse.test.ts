@@ -5,9 +5,74 @@ describe('BROWSE_CONTENT (P6-04)', () => {
     expect(BROWSE_CONTENT.title).toBe('Books for Rent');
   });
 
-  it("offers Home's age groups and series, so the two lists never drift apart (D-084)", () => {
+  it("offers Home's age groups, so the two lists never drift apart (D-084)", () => {
     expect(BROWSE_CONTENT.ageGroups).toBe(HOME_CONTENT.ageGroups);
-    expect(BROWSE_CONTENT.series).toBe(HOME_CONTENT.popularSeries);
+  });
+
+  it("lists Home's 15 series first, in Home's order, then the architect's 40 (D-103)", () => {
+    expect(HOME_CONTENT.popularSeries).toHaveLength(15);
+    expect(BROWSE_CONTENT.series.slice(0, 15)).toEqual(HOME_CONTENT.popularSeries);
+    expect(
+      BROWSE_CONTENT.series.slice(15).map(({ handle, label }) => `${handle} = ${label}`),
+    ).toEqual([
+      'a-z-mysteries = A-Z Mysteries',
+      'alex-rider = Alex Rider',
+      'amar-chitra-katha = Amar Chitra Katha',
+      'amulet = Amulet',
+      'artemis-fowl = Artemis Fowl',
+      'baby-sitters-little-sister = Baby-Sitters Little Sister',
+      'bad-guys = Bad Guys',
+      'big-nate-series = Big Nate',
+      'cat-kid-comic-club = Cat Kid Comic Club',
+      'chainsaw-man = Chainsaw Man',
+      'dragon-ball-z-series = Dragon Ball Z',
+      'dragon-masters = Dragon Masters',
+      'goosebumps-series = Goosebumps',
+      'his-dark-materials = His Dark Materials',
+      'horrid-henry = Horrid Henry',
+      'how-to-train-your-dragon = How to Train Your Dragon',
+      'i-survived = I Survived',
+      'investigators = Investigators',
+      'jujutsu-kaisen = Jujutsu Kaisen',
+      'keeper-of-the-lost-cities = Keeper of the Lost Cities',
+      'lockwood-co = Lockwood & Co.',
+      'magic-tree-house-series = Magic Tree House',
+      'maze-runner = Maze Runner',
+      'my-hero-academia = My Hero Academia',
+      'nancy-drew = Nancy Drew',
+      'one-of-us = One of Us',
+      'one-piece = One Piece',
+      'owl-diaries = Owl Diaries',
+      'percy-jackson = Percy Jackson',
+      'secret-seven-series = Secret Seven',
+      'the-baby-sitters-club = The Baby-Sitters Club',
+      'the-hunger-games = The Hunger Games',
+      'the-inheritance-games = The Inheritance Games',
+      'the-kane-chronicles = The Kane Chronicles',
+      'the-trials-of-apollo = The Trials of Apollo',
+      'thea-stilton = Thea Stilton',
+      'tinkle = Tinkle',
+      'tom-gates-series = Tom Gates',
+      'treehouse-series = Treehouse',
+      'vagabond = Vagabond',
+    ]);
+  });
+
+  it('names no series handle twice', () => {
+    const handles = BROWSE_CONTENT.series.map((link) => link.handle);
+    expect(new Set(handles).size).toBe(handles.length);
+  });
+
+  it('reads all books from the all-books collection (D-100)', () => {
+    expect(BROWSE_CONTENT.allBooksHandle).toBe('all-books');
+  });
+
+  it("names Shopify's Genre filter and the store's genre entries, and no genre (D-101, D-102)", () => {
+    expect(BROWSE_CONTENT.genre).toEqual({
+      filterId: 'filter.v.t.shopify.genre',
+      entryType: 'shopify--genre',
+    });
+    expect(JSON.stringify(BROWSE_CONTENT)).not.toMatch(/Manga|Fantasy|Fairy tale|Design/);
   });
 
   it("lists the website's sorts in its order and wording, without Most relevant (D-085)", () => {

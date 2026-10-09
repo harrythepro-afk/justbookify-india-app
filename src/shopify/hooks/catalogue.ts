@@ -6,26 +6,26 @@
  */
 
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
 
 import { freshness } from '@/query/freshness';
 import { useRefetchStaleOnFocus } from '@/query/screenFocus';
 
 import {
-  fetchAllBooksPage,
   fetchBook,
   fetchBookCard,
   fetchCollectionBooksPage,
+  fetchCollectionGenres,
   fetchCollectionHandles,
+  fetchGenreEntries,
+  reportCatalogueFaultOnce,
   type BookListOptions,
 } from '../catalogue';
+import { toGenreOptions, type GenreOption } from '../genres';
 import { storefrontKeys } from '../queryKeys';
 
-export {
-  CATALOGUE_PAGE_SIZE,
-  type AllBooksPage,
-  type BookListOptions,
-  type CollectionBooksPage,
-} from '../catalogue';
+export { CATALOGUE_PAGE_SIZE, type BookListOptions, type CollectionBooksPage } from '../catalogue';
+export type { GenreFilter, GenreOption } from '../genres';
 export type { BookPage } from '../bookPage';
 export type { RichSpan, RichTextBlock } from '../richText';
 // The development preview shows a sample description through the book page's parser (D-094).
@@ -43,8 +43,8 @@ export { recheckNetwork, useIsOffline } from '@/query/online';
 /**
  * A collection's books by handle (D-068), page by page. Each page is `found` or `not-found`;
  * `fetchNextPage()` reads the next one while `hasNextPage` is true. Without `list`, every book
- * in the collection's own order; with it, a sort and "Available now" (D-085, D-086), each
- * combination cached on its own.
+ * in the collection's own order; with it, a sort, "Available now" and a genre (D-085, D-086,
+ * D-101), each combination cached on its own. Browse's all books are a collection too (D-100).
  */
 export function useCollectionBooks(handle: string, list?: BookListOptions) {
   const queryKey = storefrontKeys.catalogue.collectionBooks(handle, list);
@@ -60,19 +60,54 @@ export function useCollectionBooks(handle: string, list?: BookListOptions) {
 }
 
 /**
- * All books (D-083), page by page, 20 at a time: the whole catalogue is never fetched. Each
- * combination of sort and "Available now" is cached on its own.
+ * What a Genre button can offer (D-101): `loading` until both reads are in (the button is drawn
+ * but disabled), `ready` with the options, which may be none (no button), or `unavailable` when
+ * either read failed with nothing saved or the collection is missing (no button).
  */
-export function useAllBooks(list: BookListOptions) {
-  const queryKey = storefrontKeys.catalogue.allBooks(list);
-  useRefetchStaleOnFocus(queryKey);
-  return useInfiniteQuery({
-    queryKey,
-    queryFn: ({ pageParam, signal }) => fetchAllBooksPage({ after: pageParam, list, signal }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+export type GenreListState =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'ready'; readonly options: readonly GenreOption[] }
+  | { readonly kind: 'unavailable' };
+
+/**
+ * The Genre list for a collection's list, with "Available now" on or off (P6-07, D-101, D-102):
+ * the collection's Genre filter values, named by the store's genre entries, never by Shopify's
+ * built-in names. The two reads are cached on their own; the entries are shared by every list.
+ * Faults in the store's data are reported by code, once per session.
+ */
+export function useGenreOptions(handle: string, available: boolean): GenreListState {
+  const valuesKey = storefrontKeys.catalogue.collectionGenres(handle, available);
+  const entriesKey = storefrontKeys.catalogue.genreEntries();
+  useRefetchStaleOnFocus(valuesKey);
+  useRefetchStaleOnFocus(entriesKey);
+  const values = useQuery({
+    queryKey: valuesKey,
+    queryFn: ({ signal }) => fetchCollectionGenres({ handle, available, signal }),
     ...freshness.catalogue,
   });
+  const entries = useQuery({
+    queryKey: entriesKey,
+    queryFn: ({ signal }) => fetchGenreEntries({ signal }),
+    ...freshness.catalogue,
+  });
+
+  const joined = useMemo(() => {
+    if (values.data === undefined || entries.data === undefined) return null;
+    if (values.data.kind === 'not-found') return 'not-found' as const;
+    return toGenreOptions(values.data.values, entries.data, values.data.locale);
+  }, [values.data, entries.data]);
+
+  useEffect(() => {
+    if (joined === null || joined === 'not-found') return;
+    for (const fault of joined.faults) reportCatalogueFaultOnce(fault);
+  }, [joined]);
+
+  if (joined === 'not-found') return { kind: 'unavailable' };
+  if (joined !== null) return { kind: 'ready', options: joined.options };
+  const failed =
+    (values.data === undefined && values.isError) ||
+    (entries.data === undefined && entries.isError);
+  return failed ? { kind: 'unavailable' } : { kind: 'loading' };
 }
 
 /** One book's card by handle; `null` when no such book is published to the app's channel. */

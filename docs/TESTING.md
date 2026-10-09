@@ -221,9 +221,11 @@ The development store's sample catalogue is the fixture for Phase 6 (D-069): 40 
 | Age groups | `early-readers` 5, `emerging-readers` 22, `junior-readers` 26, `pre-teen-readers` 16, `teenage-readers` 8 |
 | Series | `harry-potter-series` 4, `wimpy-kid-series` 4, `geronimo-stilton` 3, `my-hero-academia` 3, `secret-seven-series` 4, `read-it-yourself` 2, `manga-collections` 3, `cat-kid-comic-club` 3, `tintin-series` 0 (the empty state) |
 | Authors | `roald-dahl` 3, `ruskin-bond` 3, `enid-blyton` 4, `jeff-kinney` 4, `sudha-murthy` 2, `j-k-rowling` 7, `julia-donaldson` 3 |
-| Others | `new-arrivals` 5, `frontpage` 1 |
+| Others | `new-arrivals` 5, `frontpage` 1, `all-books` 42 (P6-07: every visible book; 29 with "Available now") |
 
 `new-arrivals` matches tag `new-arrival` **and** inventory above 0, so three tagged books with zero stock are left out.
+
+**Genre filter (P6-07, 8 October 2026).** On `all-books`, Shopify's Genre filter (`filter.v.t.shopify.genre`) has 11 values. Shown name (the store's genre entry) / Shopify's filter label / `TaxonomyValue` / books without and with "Available now": Action & adventure / same / 15724 / 16, 12; Biography / same / 15726 / 1, 1; Comics & graphic novels / same / 15728 / 3, 3; Crime & mystery / same / 15729 / 4, 3; **Fairy tale / Family** / 15733 / 2, 1; Fantasy / same / 20853 / 13, 10; Humor & comedy / same / 15741 / 13, 12; **Manga / Design** / 15730 / 4, 2; **Non-fiction / Documentary** / 15731 / 1, 1; **Picture book / Children** / 15727 / 3, 1; **Realistic fiction / Drama** / 15732 / 14, 9. `junior-readers` offers 8 of them (no Fairy tale, Manga or Picture book). The 11 `shopify--genre` entries can be listed over the Storefront API, one per value.
 
 **Deliberate gap, copied from the live store.** `one-of-us-1-lying` and `one-of-us-2-next` (product type "Teenage Readers") and `artemis-fowl-1-artemis-fowl` and `artemis-fowl-2-the-arctic-incident` (product type "Junior readers; Pre-teen readers") are in no age-group collection. They do not appear under any age group, and the app must not work around this (D-068).
 
@@ -371,9 +373,50 @@ Run on 8 October 2026: steps 1 to 5 and 7 to 10 passed; **step 6 found that a do
 
 **Short phone check after the fix:** a double tap on a book card, on the search button and on a series tile, each followed by Back: back where the tap was made; type "harry", tap the clear button: the hint is back; type "dahl": "3 results". No screenshot while the keyboard shows. **Passed on 8 October 2026, 05:23 to 05:25 IST** (commit `4b964d7`; details in `CURRENT_STATUS.md`). In step 10, "harry" appears only in Glide's debug lines naming cover image files on Shopify's CDN (`harry-potter-and-the-…`), never as the typed term; dahl and zzqxv 0. Details in `CURRENT_STATUS.md`.
 
+### Browse's Genre filter and the longer series list (P6-07)
+
+Unit tests; the Storefront client or the catalogue fetchers are mocked and nothing reaches a store:
+- `__tests__/shopify/genres.test.ts` (D-102): the development store's 11 values named by the store, A-Z, none of Shopify's built-in names; a value with 0 books left out; sorting ignores case; **a value with no entry** left out and reported (also when no entry matches at all); **two entries on one value** give "Fairy tale / Mythology" and a report, the same name twice merges; **a blank label** ignored beside another entry, and the value left out when it is the only one; names trimmed; an input that is not a taxonomy filter refused (eight shapes) and reported once.
+- `__tests__/shopify/catalogue.test.ts`: the genre sent first, then "Available now"; all books read from `all-books` with the collection sort keys (the four all-books tests of P6-04 rewritten for the collection); a missing `all-books` reported once, another missing collection not; `fetchCollectionGenres` with and without "Available now", keeping only the Genre filter, never reading a value label, no filter and a missing collection; `fetchGenreEntries` following `pageInfo`; once-per-session reports.
+- `__tests__/shopify/hooks/catalogue.test.tsx`: `useCollectionBooks('all-books', …)` reads 20 then 6; each genre cached on its own; `useGenreOptions` loading until both reads are in, then the store's names A-Z; the entries read once for every list; unavailable when the entries cannot be listed, when the collection is missing, or when the store configuration cannot be read (never a crash); a value with no name reported once.
+- `__tests__/shopify/operations.test.ts`: `CollectionGenres` and `GenreEntries` validate, carry `@inContext`, read no rating; **no customer operation reads the root `products` query** (only the development checkout); `CollectionGenres` selects no `label`. `__tests__/shopify/sort.test.ts`: every sort to its collection key.
+- `__tests__/config/browse.test.ts`: Home's 15 series first, then the 40 in order, handle = label; no handle twice; `all-books`; the Genre filter id and entry type, and no genre name in the configuration.
+- `__tests__/components/BookListControls.test.tsx`: a disabled `ListPicker` keeps its label, is announced as disabled and does not open.
+- `__tests__/app/browse.test.tsx`: opens on `all-books`; Age group, Genre and Series in that order; the longer Series list shows only the 8 series that exist, in order, and reads one by handle; the Genre list ("All genres", the store's names A-Z, no counts, no Shopify names) read for the current list; a genre lists only its books and shows on its button; it combines with an age group, a series, the sort and "Available now" and stays when they change (the Genre list follows); a chosen genre with no books in the new list stays marked; "All genres" returns to every book; the empty messages name the genre; Back and a tap outside close the Genre list without changing it; **"Clear"** shows for a genre alone and resets the group and the genre while keeping "Available now" and the sort; **the Genre button keeps its place** (disabled while loading, the three buttons in the same order before and after), is removed when its list is empty, when the entries cannot be listed or when the values cannot be read, and stays with its genre when a chosen genre's new list fails; all books not available when `all-books` is missing.
+- `__tests__/app/collection.test.tsx`: the Genre button drawn and disabled from the first render, then enabled; the collection's genres by the store's names; a chosen genre read with the collection, "All genres" back to every book; the empty message names the genre; no button when the collection has no genres.
+
+**Search on the development store (architect's review of PR #20):** `npm run check:dev-store` keeps exact counts only for specific terms (harry 7 with 6 available, dahl 3, zzqxv 0) and the draft check; for broad words ("the", "kid") it checks only that "Available now" (`HIDE`) gives exactly the `availableForSale` books among the results, because Shopify's matching of broad words changed from 8 October 2026 (`SHOPIFY_INTEGRATION.md`, "Search (P6-06)").
+
+**Development store numbers for the phone check** (`npm run check:dev-store`, 8 October 2026): all books 29 with "Available now" on, 42 off. Genre list on Browse: All genres, Action & adventure, Biography, Comics & graphic novels, Crime & mystery, Fairy tale, Fantasy, Humor & comedy, Manga, Non-fiction, Picture book, Realistic fiction (never Design, Children, Drama, Documentary or Family). Fantasy (built-in): 10 on, 13 off. Manga (custom): 2 on, 4 off. "9-10 years" (`junior-readers`) offers 8 genres (no Fairy tale, Manga or Picture book); Fantasy there: 7 with "Available now". Series on Browse: Wimpy Kid, Harry Potter, Tintin, Geronimo Stilton, Read It Yourself, Cat Kid Comic Club, My Hero Academia, Secret Seven.
+
+**Phone check** (development build 3c8bf273, JavaScript from Metro, the standing permission D-095, Do Not Disturb on; no word typed apart from the server address if the dev client asks; never a screenshot with the keyboard showing):
+1. Browse: Age group, Genre and Series; the Genre list shows "All genres" and the 11 store names above, no Shopify name and no counts.
+2. Fantasy (built-in): 10 books with "Available now", 13 without; Manga (custom): 2 and 4; the button says "Genre: Manga".
+3. Fantasy with "9-10 years": 7; Fantasy with "Price, low to high": prices rise down the list.
+4. "All genres": all 29 books again (with "Available now").
+5. With the Genre list open, Android's back button once: the list closes, Browse stays, the genre unchanged; the same for a tap outside.
+6. From Home, the "9-10 years" chip: the collection screen has a Genre button listing 8 genres; one genre narrows the list.
+7. The Series list on Browse shows the 8 series above, in that order.
+8. A double tap on a card opens one page (one Back returns to Browse).
+9. Standing step (D-082, D-087): more than 5 minutes in the background, then back: no false offline notice.
+10. The app's own log shows no crash and no JavaScript error.
+
+**Passed on 8 October 2026** (all 10 steps; steps 1 to 8 from 08:05 to 08:16 IST, steps 9 and 10 from 13:18 to 13:27 IST after the phone had been disconnected; one stop for a notification banner; details in `CURRENT_STATUS.md`). Fantasy 10 and 13, Manga 2 and 4, Fantasy with "9-10 years" 7, all books 20 then 29, "9-10 years" on the collection screen 8 genres, Series 8, as expected.
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).
+
+### Release gate: before the live store is connected (P6-07, owner)
+
+Before any build points at the live store, all four checks below must pass on the live store, **read-only, with the app's public Storefront token** (the same reads as `npm run check:dev-store`; no Admin API, nothing written). If any fails, the build does not point at the live store until the owner decides.
+
+1. The `all-books` collection exists, is published to the app's channel only, and returns every book the app can see.
+2. The Genre filter (`filter.v.t.shopify.genre`) is offered on that collection and on a group.
+3. The genre entries (`metaobjects(type: "shopify--genre")`) can be listed, and every filter value joins to at least one store name (D-102).
+4. The eight custom genres show the store's names, not Shopify's: Manga, Picture Book, Realistic fiction, non fiction, Fairy tale, Mythology, Classic Literature, activity book (`SHOPIFY_AUDIT.md`, "Live website filters").
+
+Creating the collection on the live store is the owner's decision at that time (store addition 4, `SHOPIFY_INTEGRATION.md`). Nothing on the live store is touched before then. If the genre entries cannot be listed, the app shows no Genre button and never Shopify's built-in names (D-102).
 
 ## Edge cases
 

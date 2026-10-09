@@ -5,16 +5,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookGrid } from '@/components/BookGrid';
 import { bookSortOptions, BookListControls } from '@/components/BookListControls';
+import { GenrePicker, genreButtonShown } from '@/components/GenrePicker';
 import { emptyMessageFor, NOT_FOUND_MESSAGE, ScreenMessage } from '@/components/ScreenMessage';
 import { effectiveSort, type BookSort } from '@/config';
-import { useCollectionBooks } from '@/shopify/hooks/catalogue';
-import { colors, fonts, fontSize } from '@/theme/tokens';
+import { useCollectionBooks, useGenreOptions, type GenreOption } from '@/shopify/hooks/catalogue';
+import { colors, fonts, fontSize, spacing } from '@/theme/tokens';
 
 /**
  * One collection's books (P6-03, D-080), opened from a series tile, an age chip or "See all":
  * two columns, "Load more". "Available now" is on by default and the sort starts at Featured,
- * the collection's own order (P6-04, D-085, D-086). A stack screen with no tab bar, so the list
- * leaves room for Android's navigation bar itself.
+ * the collection's own order (P6-04, D-085, D-086). A Genre button above them (P6-07, D-101):
+ * drawn from the start, disabled while its list loads; "All genres" resets it. A stack screen
+ * with no tab bar, so the list leaves room for Android's navigation bar itself.
  */
 export default function CollectionScreen() {
   const params = useLocalSearchParams<{ handle?: string | string[] }>();
@@ -26,9 +28,15 @@ function Collection({ handle }: { readonly handle: string }) {
   const insets = useSafeAreaInsets();
   const [available, setAvailable] = useState(true);
   const [chosenSort, setChosenSort] = useState<BookSort | null>(null);
+  const [genre, setGenre] = useState<GenreOption | null>(null);
   const sort = effectiveSort(chosenSort, true);
-  const list = useMemo(() => ({ available, sort }), [available, sort]);
+  const genreFilter = genre?.filter ?? null;
+  const list = useMemo(
+    () => ({ available, sort, genre: genreFilter }),
+    [available, sort, genreFilter],
+  );
   const query = useCollectionBooks(handle, list);
+  const genres = useGenreOptions(handle, available);
   const first = query.data?.pages[0];
   // Built only when the pages change, so the list does not see a new array on every render.
   const books = useMemo(
@@ -65,6 +73,11 @@ function Collection({ handle }: { readonly handle: string }) {
   return (
     <View style={styles.screen}>
       {header}
+      {genreButtonShown(genres, genre) && (
+        <View style={styles.genreRow}>
+          <GenrePicker chosen={genre} onChoose={setGenre} state={genres} />
+        </View>
+      )}
       <BookListControls
         available={available}
         onAvailableChange={setAvailable}
@@ -75,7 +88,7 @@ function Collection({ handle }: { readonly handle: string }) {
       <BookGrid
         books={books}
         bottomInset={insets.bottom}
-        emptyMessage={emptyMessageFor(available)}
+        emptyMessage={emptyMessageFor(available, genre?.name)}
         error={query.error}
         hasData={first !== undefined}
         hasNextPage={query.hasNextPage}
@@ -92,4 +105,9 @@ function Collection({ handle }: { readonly handle: string }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
+  genreRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+  },
 });

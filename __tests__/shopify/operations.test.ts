@@ -104,14 +104,50 @@ it('finds the operations in src/shopify/', () => {
 // The book card shows no rating (owner, P6-02; D-073): its operations read no review metafield.
 it('reads no rating in the catalogue operations', () => {
   const catalogue = realOperations.filter(({ document }) =>
-    ['CollectionBooks', 'AllBooks', 'BookCardByHandle', 'CollectionHandles'].includes(
-      definitions(document)[0]?.name?.value ?? '',
-    ),
+    [
+      'CollectionBooks',
+      'BookCardByHandle',
+      'CollectionHandles',
+      'CollectionGenres',
+      'GenreEntries',
+    ].includes(definitions(document)[0]?.name?.value ?? ''),
   );
-  expect(catalogue).toHaveLength(4);
+  expect(catalogue).toHaveLength(5);
   for (const { document } of catalogue) {
     expect(document).not.toMatch(/reviews|rating|metafield/i);
   }
+});
+
+// Every customer list is a collection, all books included (D-100, replaces D-083): no catalogue
+// operation reads the root `products` query. Only the development-only test checkout does.
+it('reads no root products query outside the development checkout', () => {
+  const rootProducts = realOperations.filter(({ document }) =>
+    definitions(document).some((definition) =>
+      definition.selectionSet.selections.some(
+        (selection) => selection.kind === Kind.FIELD && selection.name.value === 'products',
+      ),
+    ),
+  );
+  expect(rootProducts.map(({ file }) => file.replace(/\\/g, '/'))).toEqual([
+    'src/shopify/devCheckout.ts',
+  ]);
+});
+
+// The Genre list shows the store's names only (D-102): Shopify's own filter value labels, its
+// built-in names, are never read.
+it('reads no Shopify filter value label in CollectionGenres', () => {
+  const genres = realOperations.find(
+    ({ document }) => definitions(document)[0]?.name?.value === 'CollectionGenres',
+  );
+  expect(genres).toBeDefined();
+  const selected: string[] = [];
+  visit(parse(genres?.document ?? ''), {
+    Field: (node) => {
+      selected.push(node.name.value);
+    },
+  });
+  expect(selected).not.toContain('label');
+  expect(selected).toEqual(expect.arrayContaining(['filters', 'id', 'values', 'count', 'input']));
 });
 
 // The book page shows the genre only (owner, answers 1 and 3, P6-05; D-090, D-092): no rating,

@@ -1,6 +1,6 @@
-# Next task (proposal): P6-07, the Genre filter and the longer series list
+# Next task (proposal): P6-08, the Price filter on Browse
 
-Status: proposal. P6-06 (search) is on branch `p6-06-search`, PR #19; see `CURRENT_STATUS.md`. P6-07 starts when the owner starts it, and only after the architect has mirrored the live store's filters in the development store (follow-up "Genre filter" below).
+Status: proposal. P6-07 (the Genre filter and the longer series list) is on branch `p6-07-genre-filter`, PR #20; see `CURRENT_STATUS.md`. P6-08 starts when the owner starts it, after PR #20 is merged.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -19,38 +19,48 @@ Status: proposal. P6-06 (search) is on branch `p6-06-search`, PR #19; see `CURRE
 | P6-03 (done, f9c3212) | The Home screen and the collection screen: Home content in configuration, only collections that exist, a square white cover frame, offline and error states, stale-only focus refetch, no dead card buttons, recovery from a false "offline" | D-075 to D-082 |
 | P6-04 (done, a57774a) | Browse: all books through the root `products` query, Age group and Series one at a time, "Available now" on by default (also on the collection screen), the website's sorts, lists that close on back and outside taps; the preview kept until Phase 8 | D-083 to D-089 |
 | P6-05 (done, 1876ac1) | The book page from every card: cover, author, title, the sentence for a rented-out book only, prices with the "Rent" or "Rented Out" badge, the description as native text from untrusted HTML, genre chips; no rating (Phase 13); `liveStock`; a description sample in the preview | D-090 to D-094 |
-| P6-06 (branch `p6-06-search`, PR #19) | Search: Storefront `search` (books only, partial last word), results as you type from 3 letters or the search key from 2, "Available now" off (`LAST`/`HIDE`), Relevance and the two price sorts, the count line and the website's no-results line, earlier results kept while a new term loads; the term never logged, sent to analytics or reported; the standing phone-check permission; one guard against double taps for every in-app open; a clear button | D-095 to D-099 |
-| P6-07 (proposed) | The Genre filter and the longer series list | |
+| P6-06 (done, ede0acd) | Search: Storefront `search` (books only, partial last word), results as you type from 3 letters or the search key from 2, "Available now" off (`LAST`/`HIDE`), Relevance and the two price sorts, the count line and the website's no-results line, earlier results kept while a new term loads; the term never logged, sent to analytics or reported; the standing phone-check permission; one guard against double taps for every in-app open; a clear button | D-095 to D-099 |
+| P6-07 (branch `p6-07-genre-filter`, PR #20) | The Genre filter (the store's own genre names, one at a time, combined with the group, "Available now" and the sort; on Browse and the collection screen), Browse's all books from the `all-books` collection, the longer series list | D-100 to D-103 |
+| P6-08 (proposed) | The Price filter on Browse | |
 | Later in Phase 6 | The catalogue analytics events (`view_collection`, `view_book`, `search`) in one task; the last Phase 6 task: the offline question (D-087) and the description-table fix | |
 
-## Goal of P6-07
+## Goal of P6-08
 
-Browse offers Genre as the website does (`PRODUCT_REQUIREMENTS.md`, Browse: "Filter by age group, genre, series, availability and price"; `SHOPIFY_AUDIT.md`, live "Books for Rent": Availability, Price, Genre, "More filters", Service City), and the Series list holds the architect's longer list instead of Home's 15 (D-084).
+Browse offers Price as the website does (`PRODUCT_REQUIREMENTS.md`, Browse: "Filter by age group, genre, series, availability and price"; `SHOPIFY_AUDIT.md`, "Live website filters": Availability, Price, Genre). Owner, P6-07: the price filter is its own small task after P6-07.
 
 ## Proposed scope
 
-1. **Gate before building:** on the development store, read the Storefront `filters` on a collection and on search after the architect's mirroring, and record which Genre filter Shopify offers (its id, type and values) against the saved `2026-10` schema and Shopify's documentation. If Genre is not offered as a Storefront filter, stop and ask (D-068: never parse tags or `productType`).
-2. A Genre button on Browse, one genre at a time, combined with "Available now" and the sort as the website allows; the same on the collection screen if the owner wants it.
-3. The longer series list in configuration (`src/config/browse.ts`), only series that exist in the store (D-076).
-4. `npm run check:dev-store` asserts the Genre filter's values and one genre's count.
+1. **Gate before building:** on the development store, read the Price filter on `all-books` and on a group (`filter.v.price`, type `PRICE_RANGE`; P6-07's gate saw one value, `{"price":{"min":0,"max":99.0}}`) and record how Shopify's `price` input combines with Genre and "Available now" and under every sort. Check against the saved `2026-10` schema (`PriceRangeFilter`) and Shopify's documentation; stop and ask if it differs.
+2. A Price control on Browse, combined with the group, the genre, "Available now" and the sort; the same on the collection screen if the owner wants it.
+3. "Clear" resets the price with the group and the genre (D-101), unless the owner decides otherwise.
+3a. **One filter row (architect's review of PR #20):** the price adds a fourth button, so the filter buttons and "Clear" become one row that scrolls sideways and never pushes "Available now" and the sort down (in P6-07 a long chosen label wraps "Clear" or Series to a second line; accepted until P6-08). Phone-check it with the longest labels (such as "Age group: 9-10 years", "Genre: Comics & graphic novels" and the longest series).
+4. `npm run check:dev-store` asserts the price range and one filtered count.
 5. Phone check on build 3c8bf273 if nothing native changes, under the standing permission (D-095), with the standing background step.
 
 ## Questions for the owner and the architect
 
-1. Has the development store's filter setup been mirrored from the live store (Genre, tag, Service City)? Which of these does the app offer: Genre only, or also "More filters" (tags) and Service City?
-2. Genre: one at a time (like Age group and Series) or several at once (the website's checkbox list)?
-3. Does Genre combine with an age group or series already chosen, or replace it (D-084 allows one group at a time)?
-4. The longer series list: handles and labels in the website's order (architect).
-5. Does search get the Genre filter too, or stay with "Available now" and the sort (D-096)?
+1. The control: fixed price bands (such as "Under ₹50", "₹50 to ₹99"), or a minimum and maximum the customer types, as the website does? The development store's prices are ₹34, ₹49, ₹74 and ₹99.
+2. Which price: the rental price (Shopify's `price`, the only one its filter uses), never the retail (compare-at) price. Confirm.
+3. On the collection screen opened from Home too, like Genre?
+4. Does search get the Price filter? (Genre was left out of search, P6-07 answer 4.)
+5. Wording for the button and its empty list.
 
 ## Out of scope
 
 - The catalogue analytics events (a later Phase 6 task, with the owner's choice of timing).
-- The offline question and the description-table fix (the last Phase 6 task).
+- The offline question, the description-table fix, tappable genre chips and browse by author (the last Phase 6 task, or by the end of Phase 6).
 - Cart and notify-me actions (Phase 8 and later).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P6-06)
+## Follow-ups (recorded, not part of P6-08)
+
+- **Release gate: before the live store is connected (P6-07, owner):** four read-only checks on the live store with the app's public token, all of which must pass (`TESTING.md`, "Release gate: before the live store is connected"): the `all-books` collection exists, is published to the app's channel only and returns every book the app can see; the Genre filter is offered on it and on a group; the genre entries can be listed and every filter value joins to at least one store name; the eight custom genres show the store's names. Creating the collection on the live store is the owner's decision at that time (store addition 4, `SHOPIFY_INTEGRATION.md`). Nothing on the live store is touched before then.
+- **Price filter on Browse (owner, P6-07):** its own small task, after P6-07: proposed above as P6-08.
+- **Development store search count (P6-07, resolved):** Shopify's matching of broad words changed on the development store from 8 October 2026; `npm run check:dev-store` now checks only the meaning of "Available now" for "the" and "kid" and keeps exact counts for harry, dahl and zzqxv (architect's review of PR #20; `SHOPIFY_INTEGRATION.md`).
+- **Act warnings on CI's Linux runner (P6-07, for P6-08):** CI run 37864413294 (`29d78a8`, green) still logs four React "not wrapped in act" warnings, all from TanStack's 0 ms update batch landing mid-test: `FilterButtons` and `Books` in `__tests__/app/browse.test.tsx`, `Collection` in `__tests__/app/collection.test.tsx`, `HookContainer` in `__tests__/shopify/hooks/devCheckout.test.tsx`. None reproduces on the Windows machine. In P6-08, find each test (tag `console.error` with `expect.getState().currentTestName`, run on Linux or in CI) and make it wait for the screen to settle; `main` had none before P6-07.
+- **Phone checks: notification banners (P6-07):** the 08:08 stop in P6-07's check came from a Do Not Disturb setting that let app notifications through; the owner is changing it. Before each check, Do Not Disturb must block app notifications, not only calls.
+- **Genre chips on the book page (owner, P6-07):** stay not tappable for now; decide in the last Phase 6 task.
+- **Browse by author (owner, P6-07):** not built yet; decide by the end of Phase 6.
 
 - **Release gate: analytics consent (from P4-04):** no build goes to any tester other than the owner until all of these hold (`TESTING.md`; D-048):
   - the consent request is built (Phase 7, at the placement the owner chooses between the two in D-048) and works;

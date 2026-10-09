@@ -4,7 +4,8 @@ import { FlatList, Modal, ScrollView, Switch, StyleSheet } from 'react-native';
 
 import CollectionScreen from '@/app/collection/[handle]';
 import { toBookCard, type BookCard } from '@/shopify/bookCard';
-import type { BookListOptions, CollectionBooksPage } from '@/shopify/catalogue';
+import type { BookListOptions, CollectionBooksPage, CollectionGenres } from '@/shopify/catalogue';
+import type { GenreEntry } from '@/shopify/genres';
 import { StorefrontError } from '@/shopify/errors';
 
 import { bookProduct } from '../helpers/catalogue';
@@ -51,12 +52,37 @@ jest.mock('@/query/online', () => ({
 
 type PageOptions = { handle: string; after: string | null; list?: BookListOptions };
 
+type GenresOptions = { handle: string; available: boolean };
+
 const mockFetchPage = jest.fn<Promise<CollectionBooksPage>, [PageOptions]>();
+const mockFetchGenres = jest.fn<Promise<CollectionGenres>, [GenresOptions]>();
+const mockFetchEntries = jest.fn<Promise<readonly GenreEntry[]>, []>();
 
 jest.mock('@/shopify/catalogue', () => ({
   ...jest.requireActual('@/shopify/catalogue'),
   fetchCollectionBooksPage: (options: PageOptions) => mockFetchPage(options),
+  fetchCollectionGenres: (options: GenresOptions) => mockFetchGenres(options),
+  fetchGenreEntries: () => mockFetchEntries(),
 }));
+
+// junior-readers' genres on the development store, two of them (Shopify labels 15732 "Drama").
+const gid = (id: number) => `gid://shopify/TaxonomyValue/${id}`;
+const genreFilter = (id: number) => ({ namespace: 'shopify', key: 'genre', value: gid(id) });
+const genreValue = (id: number, count: number) => ({
+  count,
+  input: JSON.stringify({ taxonomyMetafield: genreFilter(id) }),
+});
+const FANTASY = 20853;
+const REALISTIC = 15732;
+const JUNIOR_GENRES: CollectionGenres = {
+  kind: 'found',
+  locale: 'en-IN',
+  values: [genreValue(REALISTIC, 12), genreValue(FANTASY, 7)],
+};
+const ENTRIES: readonly GenreEntry[] = [
+  { label: 'Fantasy', taxonomyReference: gid(FANTASY) },
+  { label: 'Realistic fiction', taxonomyReference: gid(REALISTIC) },
+];
 
 const CONFIG = { currencyCode: 'INR', language: 'EN', country: 'IN' };
 
@@ -86,9 +112,20 @@ const HTTP_ERROR = new StorefrontError('http-error', { operationName: 'X', statu
 
 let client: QueryClient;
 
-async function renderScreen() {
+async function renderScreen({ settle = true }: { settle?: boolean } = {}) {
   await render(<CollectionScreen />, { wrapper: withScreen(client) });
   await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
+  if (settle) await genreSettled();
+}
+
+/**
+ * Waits until the Genre button has settled: enabled, or not drawn. Every screen reads its genre
+ * list as well as its books; without this, a test can end while that read is still landing.
+ */
+async function genreSettled() {
+  await waitFor(() =>
+    expect(screen.queryByTestId('genre')?.props.accessibilityState?.disabled ?? false).toBe(false),
+  );
 }
 
 function listProps() {
@@ -116,6 +153,8 @@ beforeEach(() => {
   mockParams = { handle: 'junior-readers' };
   mockHeaderTitle = undefined;
   mockFetchPage.mockReset().mockImplementation(async (options) => juniorPage(options));
+  mockFetchGenres.mockReset().mockResolvedValue(JUNIOR_GENRES);
+  mockFetchEntries.mockReset().mockResolvedValue(ENTRIES);
   mockRecheckNetwork.mockClear();
   mockPush.mockReset();
 });
@@ -175,6 +214,9 @@ it('keeps "Load more" as the retry after a page fails, and says so', async () =>
   await waitFor(() => expect(listProps().data).toHaveLength(26));
   expect(screen.queryByText('Something went wrong. Please try again.')).not.toBeOnTheScreen();
   expect(mockRecheckNetwork).toHaveBeenCalled();
+  // The list draws new cards in batches (every 50 ms by default); let a pending one run inside
+  // act, so no render lands after the test.
+  await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
 });
 
 const AVAILABLE_EMPTY =
@@ -202,7 +244,11 @@ describe('"Available now" and the sort (P6-04)', () => {
   it("opens with 'Available now' on and the collection's own order, Featured", async () => {
     await renderScreen();
 
-    expect(mockFetchPage.mock.calls[0]?.[0].list).toEqual({ available: true, sort: 'featured' });
+    expect(mockFetchPage.mock.calls[0]?.[0].list).toEqual({
+      available: true,
+      sort: 'featured',
+      genre: null,
+    });
     expect(screen.getByRole('switch', { name: 'Available now' }).props.value).toBe(true);
     expect(screen.getByRole('button', { name: 'Sort, Featured' })).toBeOnTheScreen();
   });
@@ -251,10 +297,102 @@ describe('"Available now" and the sort (P6-04)', () => {
       expect(mockFetchPage.mock.calls.at(-1)?.[0].list).toEqual({
         available: true,
         sort: 'price-descending',
+        genre: null,
       }),
     );
     expect(screen.getByRole('button', { name: 'Sort, Price, high to low' })).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Best selling' })).not.toBeOnTheScreen();
+  });
+});
+
+describe('Genre on the collection screen (P6-07, D-101)', () => {
+  const genreButton = () => screen.getByTestId('genre');
+
+  it('draws the Genre button from the start, disabled until its list is in', async () => {
+    let entriesReady: (entries: readonly GenreEntry[]) => void = () => undefined;
+    mockFetchEntries.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          entriesReady = resolve;
+        }),
+    );
+    await renderScreen({ settle: false });
+
+    expect(genreButton().props.accessibilityState).toEqual({ disabled: true });
+
+    await act(async () => {
+      entriesReady(ENTRIES);
+    });
+
+    await waitFor(() =>
+      expect(genreButton().props.accessibilityState).toEqual({ disabled: false }),
+    );
+  });
+
+  it("lists this collection's genres by the store's names, A-Z, after All genres", async () => {
+    await renderScreen();
+    await waitFor(() => expect(genreButton().props.accessibilityState.disabled).toBe(false));
+
+    await fireEvent.press(genreButton());
+
+    const names = screen
+      .getAllByRole('button')
+      .map((button) => (button.props as { accessibilityLabel?: string }).accessibilityLabel)
+      .filter((label) =>
+        ['All genres', 'Fantasy', 'Realistic fiction', 'Drama'].includes(label ?? ''),
+      );
+    expect(names).toEqual(['All genres', 'Fantasy', 'Realistic fiction']);
+    expect(mockFetchGenres.mock.calls[0]?.[0]).toMatchObject({
+      handle: 'junior-readers',
+      available: true,
+    });
+  });
+
+  it('reads the collection with the chosen genre, and "All genres" returns to every book', async () => {
+    await renderScreen();
+    await waitFor(() => expect(genreButton().props.accessibilityState.disabled).toBe(false));
+
+    await fireEvent.press(genreButton());
+    await fireEvent.press(screen.getByRole('button', { name: 'Fantasy' }));
+
+    await waitFor(() =>
+      expect(mockFetchPage.mock.calls.at(-1)?.[0]).toMatchObject({
+        handle: 'junior-readers',
+        list: { available: true, sort: 'featured', genre: genreFilter(FANTASY) },
+      }),
+    );
+    expect(screen.getByRole('button', { name: 'Genre, Fantasy' })).toBeOnTheScreen();
+
+    await fireEvent.press(genreButton());
+    await fireEvent.press(screen.getByRole('button', { name: 'All genres' }));
+
+    expect(await screen.findByRole('button', { name: 'Genre' })).toBeOnTheScreen();
+    expect(await screen.findByText('Junior 1')).toBeOnTheScreen();
+  });
+
+  it('names the genre in the empty message', async () => {
+    mockFetchPage.mockImplementation(async (options) =>
+      options.list?.genre === null ? juniorPage(options) : { ...juniorPage(options), books: [] },
+    );
+    await renderScreen();
+    await waitFor(() => expect(genreButton().props.accessibilityState.disabled).toBe(false));
+
+    await fireEvent.press(genreButton());
+    await fireEvent.press(screen.getByRole('button', { name: 'Realistic fiction' }));
+
+    expect(
+      await screen.findByText(
+        'No Realistic fiction books available right now. Switch off Available now to see rented-out books, or choose another genre.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  it('removes the Genre button when the collection has no genres', async () => {
+    mockFetchGenres.mockResolvedValue({ kind: 'found', locale: 'en-IN', values: [] });
+    await renderScreen();
+
+    await waitFor(() => expect(screen.queryByTestId('genre')).not.toBeOnTheScreen());
+    expect(screen.getByRole('button', { name: 'Sort, Featured' })).toBeOnTheScreen();
   });
 });
 

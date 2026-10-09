@@ -1,11 +1,13 @@
 import {
   CATALOGUE_PAGE_SIZE,
-  fetchAllBooksPage,
   fetchBook,
   fetchBookCard,
   fetchCollectionBooksPage,
+  fetchCollectionGenres,
   fetchCollectionHandles,
+  fetchGenreEntries,
   fetchSearchPage,
+  reportCatalogueFaultOnce,
   resetCatalogueReportsForTests,
   SEARCH_BOOKS_QUERY,
 } from '@/shopify/catalogue';
@@ -123,7 +125,7 @@ describe('fetchCollectionBooksPage with a sort and "Available now" (P6-04)', () 
     await fetchCollectionBooksPage({
       handle: 'junior-readers',
       after: null,
-      list: { available: true, sort: 'featured' },
+      list: { available: true, sort: 'featured', genre: null },
     });
 
     expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
@@ -142,7 +144,7 @@ describe('fetchCollectionBooksPage with a sort and "Available now" (P6-04)', () 
     await fetchCollectionBooksPage({
       handle: 'junior-readers',
       after: 'cursor-1',
-      list: { available: false, sort: 'price-descending' },
+      list: { available: false, sort: 'price-descending', genre: null },
     });
 
     expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
@@ -156,69 +158,100 @@ describe('fetchCollectionBooksPage with a sort and "Available now" (P6-04)', () 
   });
 });
 
-describe('fetchAllBooksPage (D-083)', () => {
-  function productsResponse(
-    nodes: unknown[],
-    pageInfo: { hasNextPage: boolean; endCursor: string | null } = {
-      hasNextPage: false,
-      endCursor: null,
-    },
-  ) {
-    return { products: { pageInfo, nodes } };
-  }
+const MANGA = {
+  namespace: 'shopify',
+  key: 'genre',
+  value: 'gid://shopify/TaxonomyValue/15730',
+};
 
-  it('reads one page of 20 from the root products query, available for sale, A-Z', async () => {
-    mockQuery.mockResolvedValue(productsResponse([]));
+describe('fetchCollectionBooksPage with a genre (P6-07, D-101)', () => {
+  it('sends the genre first, then "Available now"', async () => {
+    mockQuery.mockResolvedValue(collectionResponse([]));
+
+    await fetchCollectionBooksPage({
+      handle: 'junior-readers',
+      after: null,
+      list: { available: true, sort: 'title-ascending', genre: MANGA },
+    });
+
+    expect(mockQuery.mock.calls[0]?.[1].variables.filters).toEqual([
+      { taxonomyMetafield: MANGA },
+      { available: true },
+    ]);
+  });
+
+  it('sends the genre alone when "Available now" is off', async () => {
+    mockQuery.mockResolvedValue(collectionResponse([]));
+
+    await fetchCollectionBooksPage({
+      handle: 'all-books',
+      after: null,
+      list: { available: false, sort: 'title-ascending', genre: MANGA },
+    });
+
+    expect(mockQuery.mock.calls[0]?.[1].variables.filters).toEqual([{ taxonomyMetafield: MANGA }]);
+  });
+});
+
+describe("Browse's all books: the all-books collection (D-100, replaces D-083)", () => {
+  it('reads one page of 20 from the all-books collection, available for sale, A-Z', async () => {
+    mockQuery.mockResolvedValue(collectionResponse([]));
     const signal = new AbortController().signal;
 
-    await fetchAllBooksPage({
+    await fetchCollectionBooksPage({
+      handle: 'all-books',
       after: null,
-      list: { available: true, sort: 'title-ascending' },
+      list: { available: true, sort: 'title-ascending', genre: null },
       signal,
     });
 
-    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('query AllBooks('), {
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('query CollectionBooks('), {
       variables: {
+        handle: 'all-books',
         first: 20,
         after: null,
         sortKey: 'TITLE',
         reverse: false,
-        query: 'available_for_sale:true',
+        filters: [{ available: true }],
       },
       signal,
     });
   });
 
-  it('sends no search query when "Available now" is off', async () => {
-    mockQuery.mockResolvedValue(productsResponse([]));
+  it('sends no filter when "Available now" is off, with the collection date sort', async () => {
+    mockQuery.mockResolvedValue(collectionResponse([]));
 
-    await fetchAllBooksPage({
+    await fetchCollectionBooksPage({
+      handle: 'all-books',
       after: 'cursor-1',
-      list: { available: false, sort: 'created-descending' },
+      list: { available: false, sort: 'created-descending', genre: null },
     });
 
     expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
+      handle: 'all-books',
       first: 20,
       after: 'cursor-1',
-      sortKey: 'CREATED_AT',
+      sortKey: 'CREATED',
       reverse: true,
-      query: null,
+      filters: null,
     });
   });
 
   it('maps the books, rented-out ones included, and gives the next cursor', async () => {
     mockQuery.mockResolvedValue(
-      productsResponse([EXAMPLES.orderableAtZeroStock(), EXAMPLES.rentedOut()], {
+      collectionResponse([EXAMPLES.orderableAtZeroStock(), EXAMPLES.rentedOut()], {
         hasNextPage: true,
         endCursor: 'cursor-2',
       }),
     );
 
-    const page = await fetchAllBooksPage({
+    const page = await fetchCollectionBooksPage({
+      handle: 'all-books',
       after: null,
-      list: { available: false, sort: 'title-ascending' },
+      list: { available: false, sort: 'title-ascending', genre: null },
     });
 
+    if (page.kind !== 'found') throw new Error('expected a page');
     expect(page.nextCursor).toBe('cursor-2');
     expect(page.books.map((book) => [book.handle, book.availability])).toEqual([
       ['harry-potter-and-the-deathly-hallows-book-7', 'orderable-at-zero-stock'],
@@ -227,16 +260,149 @@ describe('fetchAllBooksPage (D-083)', () => {
   });
 
   it('gives no next cursor on the last page', async () => {
-    mockQuery.mockResolvedValue(
-      productsResponse([], { hasNextPage: false, endCursor: 'cursor-3' }),
-    );
+    mockQuery.mockResolvedValue(collectionResponse([], { hasNextPage: false, endCursor: 'c-3' }));
 
-    const page = await fetchAllBooksPage({
+    const page = await fetchCollectionBooksPage({
+      handle: 'all-books',
       after: 'cursor-2',
-      list: { available: true, sort: 'title-ascending' },
+      list: { available: true, sort: 'title-ascending', genre: null },
     });
 
-    expect(page.nextCursor).toBeNull();
+    expect(page).toMatchObject({ kind: 'found', nextCursor: null });
+  });
+
+  it('reports a missing all-books collection once, by code; another missing one is not reported', async () => {
+    mockQuery.mockResolvedValue({ collection: null });
+
+    const list = { available: true, sort: 'title-ascending', genre: null } as const;
+    await expect(
+      fetchCollectionBooksPage({ handle: 'all-books', after: null, list }),
+    ).resolves.toEqual({ kind: 'not-found' });
+    await fetchCollectionBooksPage({ handle: 'all-books', after: null, list });
+    await fetchCollectionBooksPage({ handle: 'no-such-series', after: null, list });
+
+    expect(mockReportUnexpected.mock.calls).toEqual([['catalogue/all-books-missing']]);
+  });
+});
+
+describe('reportCatalogueFaultOnce', () => {
+  it('reports each code once per session, by code only', () => {
+    reportCatalogueFaultOnce('catalogue/genre-without-name');
+    reportCatalogueFaultOnce('catalogue/genre-without-name');
+    reportCatalogueFaultOnce('catalogue/genre-shared-value');
+
+    expect(mockReportUnexpected.mock.calls).toEqual([
+      ['catalogue/genre-without-name'],
+      ['catalogue/genre-shared-value'],
+    ]);
+  });
+});
+
+describe('fetchCollectionGenres (P6-07, D-101)', () => {
+  const genreFilter = {
+    id: 'filter.v.t.shopify.genre',
+    values: [
+      {
+        count: 4,
+        input:
+          '{"taxonomyMetafield":{"namespace":"shopify","key":"genre","value":"gid://shopify/TaxonomyValue/15730"}}',
+      },
+    ],
+  };
+  const availability = {
+    id: 'filter.v.availability',
+    values: [{ count: 29, input: '{"available":true}' }],
+  };
+
+  it('reads the collection\'s filters with "Available now" and keeps the Genre filter\'s values', async () => {
+    mockQuery.mockResolvedValue({
+      collection: { products: { filters: [availability, genreFilter] } },
+    });
+    const signal = new AbortController().signal;
+
+    const genres = await fetchCollectionGenres({ handle: 'all-books', available: true, signal });
+
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('query CollectionGenres('), {
+      variables: { handle: 'all-books', filters: [{ available: true }] },
+      signal,
+    });
+    // The store's locale (EN, IN) comes with the values, for sorting the names (D-101).
+    expect(genres).toEqual({ kind: 'found', values: genreFilter.values, locale: 'en-IN' });
+  });
+
+  it('sends no filter with "Available now" off', async () => {
+    mockQuery.mockResolvedValue({ collection: { products: { filters: [genreFilter] } } });
+
+    await fetchCollectionGenres({ handle: 'junior-readers', available: false });
+
+    expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
+      handle: 'junior-readers',
+      filters: null,
+    });
+  });
+
+  it("never reads Shopify's own value labels", async () => {
+    mockQuery.mockResolvedValue({ collection: { products: { filters: [] } } });
+
+    await fetchCollectionGenres({ handle: 'all-books', available: false });
+
+    const query: string = mockQuery.mock.calls[0]?.[0];
+    const values = query.slice(query.indexOf('values {'));
+    expect(values).not.toMatch(/\blabel\b/);
+  });
+
+  it('gives no values when the collection has no Genre filter', async () => {
+    mockQuery.mockResolvedValue({ collection: { products: { filters: [availability] } } });
+
+    await expect(fetchCollectionGenres({ handle: 'all-books', available: true })).resolves.toEqual({
+      kind: 'found',
+      values: [],
+      locale: 'en-IN',
+    });
+  });
+
+  it('is not-found when the collection is missing', async () => {
+    mockQuery.mockResolvedValue({ collection: null });
+
+    await expect(fetchCollectionGenres({ handle: 'gone', available: true })).resolves.toEqual({
+      kind: 'not-found',
+    });
+  });
+});
+
+describe('fetchGenreEntries (P6-07, D-102)', () => {
+  const node = (label: string | null, reference: string | null) => ({
+    label: label === null ? null : { value: label },
+    taxonomyReference: reference === null ? null : { value: reference },
+  });
+
+  it('lists the shopify--genre entries, 250 a page, following pageInfo', async () => {
+    mockQuery
+      .mockResolvedValueOnce({
+        metaobjects: {
+          pageInfo: { hasNextPage: true, endCursor: 'c-1' },
+          nodes: [node('Manga', 'gid://shopify/TaxonomyValue/15730')],
+        },
+      })
+      .mockResolvedValueOnce({
+        metaobjects: {
+          pageInfo: { hasNextPage: false, endCursor: 'c-2' },
+          nodes: [node(null, null)],
+        },
+      });
+    const signal = new AbortController().signal;
+
+    const entries = await fetchGenreEntries({ signal });
+
+    expect(mockQuery).toHaveBeenNthCalledWith(1, expect.stringContaining('query GenreEntries('), {
+      variables: { type: 'shopify--genre', first: 250, after: null },
+      signal,
+    });
+    expect(mockQuery.mock.calls[1]?.[1].variables.after).toBe('c-1');
+    expect(entries).toEqual([
+      { label: 'Manga', taxonomyReference: 'gid://shopify/TaxonomyValue/15730' },
+      { label: null, taxonomyReference: null },
+    ]);
   });
 });
 

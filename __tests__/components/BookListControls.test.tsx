@@ -79,6 +79,39 @@ describe('ListPicker (P6-04)', () => {
   });
 });
 
+describe('ListPicker, disabled (P6-07)', () => {
+  it('keeps its place, is announced as disabled, and does not open', async () => {
+    await render(
+      <SafeAreaProvider initialMetrics={SAFE_AREA}>
+        <ListPicker
+          accessibilityLabel="Genre"
+          buttonLabel="Genre"
+          disabled
+          onSelect={jest.fn()}
+          options={OPTIONS}
+          selected={null}
+          testID="genre"
+          title="Genre"
+        />
+      </SafeAreaProvider>,
+    );
+
+    const button = screen.getByRole('button', { name: 'Genre' });
+    expect(button).toBeDisabled();
+    expect(screen.getByText('Genre')).toBeOnTheScreen();
+
+    await fireEvent.press(button);
+
+    expect(screen.queryByRole('button', { name: 'Up to 5 years' })).not.toBeOnTheScreen();
+  });
+
+  it('is enabled by default', async () => {
+    await renderPicker();
+
+    expect(screen.getByRole('button', { name: 'Age group' })).toBeEnabled();
+  });
+});
+
 describe('BookListControls (P6-04)', () => {
   async function renderControls(inGroup: boolean, onAvailableChange = jest.fn()) {
     await render(

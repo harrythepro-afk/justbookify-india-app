@@ -1,5 +1,5 @@
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
-import { cleanup } from '@testing-library/react-native';
+import { act, cleanup } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { createAppQueryClient } from '@/query/queryClient';
@@ -25,9 +25,13 @@ export function withQueryClient(client: QueryClient) {
 
 /**
  * Unmounts what the test rendered, then empties the client. In that order: a query that loses its
- * last screen after the cache is emptied starts a timer that would hold Jest open.
+ * last screen after the cache is emptied starts a timer that would hold Jest open. First, the
+ * cache's own update batch (TanStack sends updates on a 0 ms timer) runs inside act: one queued
+ * at the very end of a test would otherwise land after it, which React reports as an update "not
+ * wrapped in act" (seen on CI's Linux runner, P6-07).
  */
 export async function tearDownQueryClient(client: QueryClient | undefined): Promise<void> {
+  await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
   await cleanup();
   client?.clear();
 }
