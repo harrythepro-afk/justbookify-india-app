@@ -403,18 +403,46 @@ Unit tests; the Storefront client or the catalogue fetchers are mocked and nothi
 
 **Passed on 8 October 2026** (all 10 steps; steps 1 to 8 from 08:05 to 08:16 IST, steps 9 and 10 from 13:18 to 13:27 IST after the phone had been disconnected; one stop for a notification banner; details in `CURRENT_STATUS.md`). Fantasy 10 and 13, Manga 2 and 4, Fantasy with "9-10 years" 7, all books 20 then 29, "9-10 years" on the collection screen 8 genres, Series 8, as expected.
 
+### Browse's Price filter and one filter row (P6-08)
+
+Unit tests; the Storefront client or the catalogue fetchers are mocked and nothing reaches a store:
+- `__tests__/shopify/priceFilter.test.ts` (D-104): "Up to ₹34", "Up to ₹49", "Up to ₹74" and the lower-case phrase, in the configured order; nothing for no maxima; "₹49.50" and "₹1,00,000" as on the book card (D-073); a second store's labels built from its own currency, with no "₹".
+- `__tests__/config/browse.test.ts`: the maxima 34, 49 and 74, lowest first; the configuration holds numbers only (no "₹", "Rs", "INR" or "Up to").
+- `__tests__/shopify/catalogue.test.ts`: the genre, then `{ price: { max } }`, then "Available now"; the price alone with no `min`; the price with "Available now" and the price sort.
+- `__tests__/shopify/hooks/catalogue.test.tsx`: `usePriceOptions` gives the three labels with no read and no report; with no store configuration it gives null (no crash) and reports `catalogue/price-options-unavailable` once.
+- `__tests__/app/browse.test.tsx`: Age group, Genre, Price and Series in that order (Price also when the Genre button is loading or removed); the Price list ("All prices" marked, then the three); a choice is read and shows on its button ("Price: Up to ₹49") and to the screen reader ("Price, up to ₹49"); "All prices" returns to every book; a price combines with an age group, a series, a genre, "Available now" and the sort and stays when they change; no genre read for a price; the four empty messages; Back and a tap outside close the list without changing the price; no Price button, the books still shown, when the store configuration cannot be read; **"Clear"** shows for a price alone and resets the group, the genre and the price while keeping "Available now" and the sort; **one filter row**: every filter button inside one horizontal `ScrollView` with no wrap, "Clear" outside it and after it, the scrolling part taking the remaining width, the buttons' container unchanged when "Clear" appears and disappears, "Available now" and the sort outside the row and below it.
+- `__tests__/app/collection.test.tsx`: Genre then Price in one sideways row with no "Clear"; the chosen maximum read with the collection, "All prices" back to every book; a price combines with a genre, "Available now" and the sort; the empty message names the price; the Price button stays when the collection has no genres.
+- `__tests__/app/search.test.tsx`: no Genre and no Price filter; search sends only "Available now" and the sort.
+
+What Jest cannot show is the layout itself (widths, scrolling, whether anything moves on screen): the phone check below covers it.
+
+**Development store numbers for the phone check** (gate and `npm run check:dev-store`, 9 October 2026). All books, "Available now" on / off: all prices 29 / 42; up to ₹34 4 / 7; up to ₹49 16 / 23; up to ₹74 24 / 35. "9-10 years" (`junior-readers`): up to ₹49 13 / 18. Fantasy up to ₹49: 3 (on and off). Manga up to ₹34: 0 (the empty message with a genre). Fantasy, "9-10 years", up to ₹74, "Available now": 7. Longest labels: "Age group: Up to 5 years" (longer than "Age group: 9-10 years"), "Genre: Comics & graphic novels", "Price: Up to ₹74", "Series: Cat Kid Comic Club" (the longest series the development store has).
+
+**Phone check** (development build 3c8bf273, JavaScript from Metro, the standing permission D-095, Do Not Disturb on with app notifications blocked; no word typed apart from the server address if the dev client asks; never a screenshot with the keyboard showing):
+1. Browse: the row shows Age group, Genre, Price and Series; the Price list shows "All prices", "Up to ₹34", "Up to ₹49", "Up to ₹74".
+2. Each price on all books with "Available now": up to ₹34 4 books, up to ₹49 16, up to ₹74 24, every card at or below the price; "All prices" 29 again. With "Price, high to low", the first card is at the chosen price and none above it.
+3. Price with a genre (Fantasy up to ₹49: 3), with an age group ("9-10 years" up to ₹49: 13), with "Available now" off (up to ₹34: 7) and with a sort; Manga up to ₹34 shows the empty message with the genre.
+4. "Clear" resets the group, the genre and the price; "Available now" and the sort stay.
+5. From Home, the "9-10 years" chip: the collection screen has Genre and Price in one row and no "Clear"; up to ₹49 gives 13.
+6. The longest labels: "Age group: Up to 5 years" and "Age group: 9-10 years", "Genre: Comics & graphic novels", "Price: Up to ₹74", "Series: Cat Kid Comic Club". "Clear" stays visible at the right edge; the row scrolls sideways; "Available now" and the sort stay in the same place on every screenshot; no button moves sideways when "Clear" appears.
+7. Back and a tap outside close the Age group, Genre, Price and Series lists without changing the choice.
+8. A double tap on a card opens one page (one Back returns to Browse).
+9. Standing step (D-082, D-087): more than 5 minutes in the background, then back: no false offline notice.
+10. The app's own log shows no crash and no JavaScript error.
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).
 
 ### Release gate: before the live store is connected (P6-07, owner)
 
-Before any build points at the live store, all four checks below must pass on the live store, **read-only, with the app's public Storefront token** (the same reads as `npm run check:dev-store`; no Admin API, nothing written). If any fails, the build does not point at the live store until the owner decides.
+Before any build points at the live store, all five checks below must pass on the live store, **read-only, with the app's public Storefront token** (the same reads as `npm run check:dev-store`; no Admin API, nothing written). If any fails, the build does not point at the live store until the owner decides.
 
 1. The `all-books` collection exists, is published to the app's channel only, and returns every book the app can see.
 2. The Genre filter (`filter.v.t.shopify.genre`) is offered on that collection and on a group.
 3. The genre entries (`metaobjects(type: "shopify--genre")`) can be listed, and every filter value joins to at least one store name (D-102).
 4. The eight custom genres show the store's names, not Shopify's: Manga, Picture Book, Realistic fiction, non fiction, Fairy tale, Mythology, Classic Literature, activity book (`SHOPIFY_AUDIT.md`, "Live website filters").
+5. The Price filter (`filter.v.price`, type `PRICE_RANGE`) is offered on the `all-books` collection and on a group (owner, P6-08 plan review; D-104). The app sends a maximum whatever the store offers, so a store without the filter must be found here, not by customers.
 
 Creating the collection on the live store is the owner's decision at that time (store addition 4, `SHOPIFY_INTEGRATION.md`). Nothing on the live store is touched before then. If the genre entries cannot be listed, the app shows no Genre button and never Shopify's built-in names (D-102).
 
