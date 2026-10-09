@@ -124,6 +124,11 @@ async function waitPastPause() {
   await act(() => new Promise((resolve) => setTimeout(resolve, 450)));
 }
 
+/** Waits until no search is loading, so no update lands after the test. */
+async function searchSettled() {
+  await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
+}
+
 beforeEach(() => {
   client = createTestQueryClient();
   mockHeaderTitle = undefined;
@@ -205,6 +210,8 @@ describe('the clear button (P6-06 review)', () => {
 
     await type('');
     expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeOnTheScreen();
+    // Lets the typing pause end inside act.
+    await waitPastPause();
   });
 
   it('empties the field, brings back the hint and keeps the keyboard open', async () => {
@@ -247,6 +254,7 @@ describe('when it searches', () => {
 
     await waitPastPause();
     await waitFor(() => expect(terms()).toEqual(['har']));
+    await searchSettled();
   });
 
   it('sends one request for the last term when typing quickly', async () => {
@@ -278,6 +286,7 @@ describe('when it searches', () => {
     await waitPastPause();
 
     await waitFor(() => expect(terms()).toEqual(['roald dahl']));
+    await searchSettled();
   });
 
   it('shows the hint again when the term is shortened below the minimum', async () => {
@@ -287,6 +296,9 @@ describe('when it searches', () => {
 
     expect(screen.getByText(HINT)).toBeOnTheScreen();
     expect(screen.queryByTestId('search-books')).not.toBeOnTheScreen();
+    // The typing pause ends inside act, and the hint stays.
+    await waitPastPause();
+    expect(screen.getByText(HINT)).toBeOnTheScreen();
   });
 });
 

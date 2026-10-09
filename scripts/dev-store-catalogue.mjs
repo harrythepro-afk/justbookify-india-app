@@ -200,9 +200,9 @@ export const SEARCH = {
   },
   noResults: 'zzqxv',
   draftTerms: ['pelly', 'giraffe', 'the'],
-  availableNow: [
-    { term: 'harry', count: 6 },
-    { term: 'the', count: AVAILABLE_PRODUCT_COUNT },
-  ],
+  // With a count, the exact number too. Broad words ("the", "kid") have none: since 8 October
+  // 2026 Shopify's search has matched them differently (SHOPIFY_INTEGRATION.md, "Search
+  // (P6-06)"), so only their meaning is checked (architect's review of PR #20).
+  availableNow: [{ term: 'harry', count: 6 }, { term: 'the' }, { term: 'kid' }],
   priceSort: { term: 'harry', rentedOut: 'harry-potter' },
 };

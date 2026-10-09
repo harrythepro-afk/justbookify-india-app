@@ -782,20 +782,31 @@ async function checkSearch(config, products, problems) {
   const orderableHandles = new Set(
     products.filter((product) => availabilityOf(product) !== 'rentedOut').map((p) => p.handle),
   );
+  const availableSummary = [];
   for (const { term, count } of availableNow) {
     const all = await search(config, term);
     const hidden = await search(config, term, { unavailableProducts: 'HIDE' });
     const expected = all.nodes
       .filter((node) => node.availableForSale && orderableHandles.has(node.handle))
       .map((node) => node.handle);
+    if (all.nodes.length === 0) problems.push(`search "${term}" finds nothing to compare.`);
     sameHandles(
       `search "${term}" with HIDE`,
       new Set(hidden.nodes.map((node) => node.handle)),
       new Set(expected),
       problems,
     );
-    checkCounts(`search "${term}" with HIDE`, hidden.nodes.length, count, problems);
-    checkCounts(`search "${term}" with HIDE totalCount`, hidden.totalCount, count, problems);
+    checkCounts(
+      `search "${term}" with HIDE totalCount`,
+      hidden.totalCount,
+      hidden.nodes.length,
+      problems,
+    );
+    // Exact numbers only for specific terms; broad words are checked for meaning only.
+    if (count !== undefined) {
+      checkCounts(`search "${term}" with HIDE`, hidden.nodes.length, count, problems);
+    }
+    availableSummary.push(`"${term}" ${hidden.nodes.length} of ${all.nodes.length}`);
   }
 
   // The price sort: rented-out books come last only among books of the same price (D-096).
@@ -816,7 +827,8 @@ async function checkSearch(config, products, problems) {
   console.log(
     `Search: "${titleWord.term}" ${title.totalCount} (${orderable} orderable, rented-out last), ` +
       `"${author.term}" ${byAuthor.totalCount}, "${noResults}" ${none.totalCount}; the draft ` +
-      'never found; "Available now" (HIDE) gives exactly the orderable books; price sort checked.',
+      'never found; "Available now" (HIDE) gives exactly the orderable books ' +
+      `(${availableSummary.join(', ')}); price sort checked.`,
   );
 }
 
