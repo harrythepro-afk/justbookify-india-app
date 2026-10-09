@@ -1,6 +1,6 @@
-# Next task (proposal): P6-08, the Price filter on Browse
+# Next task (proposal): P6-09, the catalogue analytics events
 
-Status: proposal. P6-07 (the Genre filter and the longer series list) is on branch `p6-07-genre-filter`, PR #20; see `CURRENT_STATUS.md`. P6-08 starts when the owner starts it, after PR #20 is merged.
+Status: proposal. P6-08 (the Price filter on Browse and one filter row) is on branch `p6-08-price-filter`, PR #21; see `CURRENT_STATUS.md`. P6-09 starts when the owner starts it, after PR #21 is merged.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -20,44 +20,48 @@ Status: proposal. P6-07 (the Genre filter and the longer series list) is on bran
 | P6-04 (done, a57774a) | Browse: all books through the root `products` query, Age group and Series one at a time, "Available now" on by default (also on the collection screen), the website's sorts, lists that close on back and outside taps; the preview kept until Phase 8 | D-083 to D-089 |
 | P6-05 (done, 1876ac1) | The book page from every card: cover, author, title, the sentence for a rented-out book only, prices with the "Rent" or "Rented Out" badge, the description as native text from untrusted HTML, genre chips; no rating (Phase 13); `liveStock`; a description sample in the preview | D-090 to D-094 |
 | P6-06 (done, ede0acd) | Search: Storefront `search` (books only, partial last word), results as you type from 3 letters or the search key from 2, "Available now" off (`LAST`/`HIDE`), Relevance and the two price sorts, the count line and the website's no-results line, earlier results kept while a new term loads; the term never logged, sent to analytics or reported; the standing phone-check permission; one guard against double taps for every in-app open; a clear button | D-095 to D-099 |
-| P6-07 (branch `p6-07-genre-filter`, PR #20) | The Genre filter (the store's own genre names, one at a time, combined with the group, "Available now" and the sort; on Browse and the collection screen), Browse's all books from the `all-books` collection, the longer series list | D-100 to D-103 |
-| P6-08 (proposed) | The Price filter on Browse | |
-| Later in Phase 6 | The catalogue analytics events (`view_collection`, `view_book`, `search`) in one task; the last Phase 6 task: the offline question (D-087) and the description-table fix | |
+| P6-07 (done, eaa9702) | The Genre filter (the store's own genre names, one at a time, combined with the group, "Available now" and the sort; on Browse and the collection screen), Browse's all books from the `all-books` collection, the longer series list | D-100 to D-103 |
+| P6-08 (branch `p6-08-price-filter`, PR #21) | The Price filter ("All prices", then up to ₹34, ₹49, ₹74; a maximum only; store configuration, labels in the store's currency format) on Browse and the collection screen, not on search; one filter row that scrolls sideways with "Clear" pinned at its right edge; the CI act warnings fixed in the test setup | D-104 to D-106 |
+| P6-09 (proposed) | The catalogue analytics events (`view_collection`, `view_book`, `search`, `filter_applied`) | |
+| Later in Phase 6 | The last Phase 6 task: the offline question (D-087) and the description-table fix | |
 
-## Goal of P6-08
+## Goal of P6-09
 
-Browse offers Price as the website does (`PRODUCT_REQUIREMENTS.md`, Browse: "Filter by age group, genre, series, availability and price"; `SHOPIFY_AUDIT.md`, "Live website filters": Availability, Price, Genre). Owner, P6-07: the price filter is its own small task after P6-07.
+The catalogue screens send the events `ANALYTICS.md` already defines for them, under the consent rules that exist since P4-04 (D-048 to D-053): nothing is sent without consent, and no event carries free text. Screen views are already wired (D-053); these four are not (follow-up from P6-05).
 
 ## Proposed scope
 
-1. **Gate before building:** on the development store, read the Price filter on `all-books` and on a group (`filter.v.price`, type `PRICE_RANGE`; P6-07's gate saw one value, `{"price":{"min":0,"max":99.0}}`) and record how Shopify's `price` input combines with Genre and "Available now" and under every sort. Check against the saved `2026-10` schema (`PriceRangeFilter`) and Shopify's documentation; stop and ask if it differs.
-2. A Price control on Browse, combined with the group, the genre, "Available now" and the sort; the same on the collection screen if the owner wants it.
-3. "Clear" resets the price with the group and the genre (D-101), unless the owner decides otherwise.
-3a. **One filter row (architect's review of PR #20):** the price adds a fourth button, so the filter buttons and "Clear" become one row that scrolls sideways and never pushes "Available now" and the sort down (in P6-07 a long chosen label wraps "Clear" or Series to a second line; accepted until P6-08). Phone-check it with the longest labels (such as "Age group: 9-10 years", "Genre: Comics & graphic novels" and the longest series).
-4. `npm run check:dev-store` asserts the price range and one filtered count.
-5. Phone check on build 3c8bf273 if nothing native changes, under the standing permission (D-095), with the standing background step.
+1. `view_collection` (`collection_id`) when a collection screen opens, and for Browse's group or all books if the owner wants it (question 2).
+2. `view_book` (`product_id`, `available`) when the book page opens.
+3. `search` (`term_length`, `result_count`) when results are shown; **the term itself is never sent** (D-097).
+4. `filter_applied` (`filter_type`, `value`) when a filter changes on Browse or the collection screen: age group, series, genre, price, "Available now" and the sort, each value a fixed code (`analyticsToken()`), never a store name or free text.
+5. Each event through the existing typed functions and runtime guard (`src/analytics/`); tests show nothing is sent without consent and that every value is a code.
+6. A phone check in Firebase DebugView with consent on, and none with consent off, if the owner wants it (question 5). It needs `setprop debug.firebase.analytics.app`, which is outside the standing permission and needs the owner's yes, as in P4-04.
 
 ## Questions for the owner and the architect
 
-1. The control: fixed price bands (such as "Under ₹50", "₹50 to ₹99"), or a minimum and maximum the customer types, as the website does? The development store's prices are ₹34, ₹49, ₹74 and ₹99.
-2. Which price: the rental price (Shopify's `price`, the only one its filter uses), never the retail (compare-at) price. Confirm.
-3. On the collection screen opened from Home too, like Genre?
-4. Does search get the Price filter? (Genre was left out of search, P6-07 answer 4.)
-5. Wording for the button and its empty list.
+1. **Timing:** now, or after another task (the analytics events were left to the owner's choice of timing in P6-05)?
+2. **`view_collection` on Browse:** only the collection screen opened from Home, or also each group chosen on Browse (and all books)?
+3. **IDs:** `collection_id` as the collection handle (readable, store-specific) or Shopify's numeric ID; `product_id` as the product's numeric ID (`ANALYTICS.md` says IDs and codes only).
+4. **`filter_applied` values:** the age group or series as its handle, the genre as its taxonomy value number (not its name), the price as the maximum (34, 49, 74) or `all`, "Available now" as `on` or `off`, the sort as its code (such as `price_descending`). Is the sort a filter here, or not sent?
+5. **`search` timing:** once per term when its first page is shown (not again for "Load more", the sort or "Available now"), and a phone check in DebugView: yes or no?
 
 ## Out of scope
 
-- The catalogue analytics events (a later Phase 6 task, with the owner's choice of timing).
 - The offline question, the description-table fix, tappable genre chips and browse by author (the last Phase 6 task, or by the end of Phase 6).
-- Cart and notify-me actions (Phase 8 and later).
+- Cart and notify-me events (`select_book`, `notify_me_requested`, Phase 8 and later).
+- The consent request itself (Phase 7, release gate).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P6-08)
+## Follow-ups (recorded, not part of P6-09)
 
-- **Release gate: before the live store is connected (P6-07, owner):** four read-only checks on the live store with the app's public token, all of which must pass (`TESTING.md`, "Release gate: before the live store is connected"): the `all-books` collection exists, is published to the app's channel only and returns every book the app can see; the Genre filter is offered on it and on a group; the genre entries can be listed and every filter value joins to at least one store name; the eight custom genres show the store's names. Creating the collection on the live store is the owner's decision at that time (store addition 4, `SHOPIFY_INTEGRATION.md`). Nothing on the live store is touched before then.
-- **Price filter on Browse (owner, P6-07):** its own small task, after P6-07: proposed above as P6-08.
+- **Release gate: before the live store is connected (P6-07 and P6-08, owner):** five read-only checks on the live store with the app's public token, all of which must pass (`TESTING.md`, "Release gate: before the live store is connected"): the `all-books` collection exists, is published to the app's channel only and returns every book the app can see; the Genre filter is offered on it and on a group; the genre entries can be listed and every filter value joins to at least one store name; the eight custom genres show the store's names; the Price filter (`filter.v.price`) is offered on `all-books` and on a group (P6-08). Creating the collection on the live store is the owner's decision at that time (store addition 4, `SHOPIFY_INTEGRATION.md`). Nothing on the live store is touched before then.
+- **Price filter (P6-08, done on the branch):** D-104; the ₹0 book and "Mr Big" at ₹79 are owner items for the live store (`SHOPIFY_AUDIT.md`, "Live website prices").
+- **Filter row while scrolled to its end (P6-08 phone check, observation):** when a label lengthens while the row is scrolled to its end, the buttons to its left move left on screen (the row keeps its end in view). "Clear" does not appear or disappear then, so D-105 holds; the architect may want it changed.
+- **Double taps in phone checks (P6-08):** two `adb shell input tap` commands can land more than 0.5 seconds apart, which the guard allows (D-099); time the pair (both taps within about 0.5 s) before reading a second page as a defect.
+- **Wireless debugging (P6-08):** pairing worked from the owner's terminal, connecting did not ("failed to connect"; the cause was not found), so the check used USB. If wireless checks are wanted, `adb connect` and `adb disconnect` need adding to the standing permission (D-095) first.
 - **Development store search count (P6-07, resolved):** Shopify's matching of broad words changed on the development store from 8 October 2026; `npm run check:dev-store` now checks only the meaning of "Available now" for "the" and "kid" and keeps exact counts for harry, dahl and zzqxv (architect's review of PR #20; `SHOPIFY_INTEGRATION.md`).
-- **Act warnings on CI's Linux runner (P6-07, for P6-08):** CI run 37864413294 (`29d78a8`, green) still logs four React "not wrapped in act" warnings, all from TanStack's 0 ms update batch landing mid-test: `FilterButtons` and `Books` in `__tests__/app/browse.test.tsx`, `Collection` in `__tests__/app/collection.test.tsx`, `HookContainer` in `__tests__/shopify/hooks/devCheckout.test.tsx`. None reproduces on the Windows machine. In P6-08, find each test (tag `console.error` with `expect.getState().currentTestName`, run on Linux or in CI) and make it wait for the screen to settle; `main` had none before P6-07.
+- **Act warnings on CI's Linux runner (P6-07, resolved in P6-08):** `jest.setup.ts` wraps TanStack Query's deliveries in React's `act` (D-106, test only); CI run 37873582381 (`5de6013`) logs no "not wrapped in act" line and no `console.error`, where `main`'s run 37865413339 logged four.
 - **Phone checks: notification banners (P6-07):** the 08:08 stop in P6-07's check came from a Do Not Disturb setting that let app notifications through; the owner is changing it. Before each check, Do Not Disturb must block app notifications, not only calls.
 - **Genre chips on the book page (owner, P6-07):** stay not tappable for now; decide in the last Phase 6 task.
 - **Browse by author (owner, P6-07):** not built yet; decide by the end of Phase 6.

@@ -3,8 +3,10 @@
  * groups a customer can choose, and the sort options in the website's order and wording
  * (architect, live "Books for Rent" page, 7 October 2026; D-084, D-085); since P6-07, the
  * collection that holds every book (D-100), Shopify's Genre filter (D-101) and the longer series
- * list (D-103). Store-specific: a second store (Bahrain) gets its own content, never a change to
- * the screen. No genre name is configured: names come from the store (D-102).
+ * list (D-103); since P6-08, the Price filter's price points (D-104). Store-specific: a second
+ * store (Bahrain) gets its own content, never a change to the screen. No genre name is configured:
+ * names come from the store (D-102). No price label is configured either: each is built from the
+ * store's currency format (D-073).
  */
 
 import { HOME_CONTENT, type CollectionLink } from './home';
@@ -48,6 +50,12 @@ export type BrowseContent = {
    * of the store's genre entries, whose `label` is the name the app shows (D-102).
    */
   readonly genre: { readonly filterId: string; readonly entryType: string };
+  /**
+   * Shopify's Price filter (D-104): the maxima offered after "All prices", lowest first, in the
+   * store's currency. Each sends a maximum only and includes books at exactly that price; it
+   * compares the rental price (Shopify's `price`), never the compare-at price.
+   */
+  readonly price: { readonly maxima: readonly number[] };
   /** In the website's order, without "Most relevant" (D-085). */
   readonly sortOptions: readonly SortOption[];
   /** What a list opens with until the customer picks a sort. */
@@ -109,6 +117,9 @@ export const BROWSE_CONTENT: BrowseContent = {
   // Home keeps its 15; Browse lists them first, in Home's order, then the longer list (D-103).
   series: [...HOME_CONTENT.popularSeries, ...MORE_SERIES],
   genre: { filterId: 'filter.v.t.shopify.genre', entryType: 'shopify--genre' },
+  // The India store's rental prices are ₹34, ₹49, ₹74 and ₹99 (`SHOPIFY_AUDIT.md`); "Up to ₹99"
+  // would be every book, which "All prices" already is (owner and architect, P6-08 answer 1).
+  price: { maxima: [34, 49, 74] },
   sortOptions: [
     { sort: 'featured', label: 'Featured', groupOnly: true },
     { sort: 'best-selling', label: 'Best selling' },

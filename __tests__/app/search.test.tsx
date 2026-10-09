@@ -40,6 +40,12 @@ jest.mock('@/crashReporting/sentry', () => ({
   reportUnexpectedDataError: jest.fn(),
 }));
 
+// A configured store, so a Price button would have its labels if search drew one (P6-08).
+jest.mock('@/config/store', () => ({
+  ...jest.requireActual('@/config/store'),
+  getStoreConfig: () => ({ currencyCode: 'INR', language: 'EN', country: 'IN' }),
+}));
+
 const mockRecheckNetwork = jest.fn(() => Promise.resolve());
 jest.mock('@/query/online', () => ({
   ...jest.requireActual('@/query/online'),
@@ -441,6 +447,20 @@ describe('results', () => {
 });
 
 describe('"Available now" and the sort', () => {
+  it('offers no Genre and no Price filter (P6-07 answer 4, P6-08 answer 4)', async () => {
+    await renderScreen();
+    await searchFor('harry');
+
+    expect(screen.queryByTestId('genre')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('price')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: /^Price/ })).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('filter-row')).not.toBeOnTheScreen();
+    expect(Object.keys(mockFetchSearch.mock.calls[0]?.[0].search ?? {}).sort()).toEqual([
+      'available',
+      'sort',
+    ]);
+  });
+
   it('starts with "Available now" off and Relevance, as on the website', async () => {
     await renderScreen();
     await searchFor('harry');

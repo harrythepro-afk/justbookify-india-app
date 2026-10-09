@@ -43,6 +43,12 @@ jest.mock('@/crashReporting/sentry', () => ({
   reportUnexpectedDataError: jest.fn(),
 }));
 
+// The Price list's labels are built from the store configuration (P6-08, D-104).
+jest.mock('@/config/store', () => ({
+  ...jest.requireActual('@/config/store'),
+  getStoreConfig: () => ({ currencyCode: 'INR', language: 'EN', country: 'IN' }),
+}));
+
 // "Try again" re-reads the network before it refetches (D-082).
 const mockRecheckNetwork = jest.fn(() => Promise.resolve());
 jest.mock('@/query/online', () => ({
@@ -248,6 +254,7 @@ describe('"Available now" and the sort (P6-04)', () => {
       available: true,
       sort: 'featured',
       genre: null,
+      maxPrice: null,
     });
     expect(screen.getByRole('switch', { name: 'Available now' }).props.value).toBe(true);
     expect(screen.getByRole('button', { name: 'Sort, Featured' })).toBeOnTheScreen();
@@ -298,6 +305,7 @@ describe('"Available now" and the sort (P6-04)', () => {
         available: true,
         sort: 'price-descending',
         genre: null,
+        maxPrice: null,
       }),
     );
     expect(screen.getByRole('button', { name: 'Sort, Price, high to low' })).toBeOnTheScreen();
@@ -358,7 +366,7 @@ describe('Genre on the collection screen (P6-07, D-101)', () => {
     await waitFor(() =>
       expect(mockFetchPage.mock.calls.at(-1)?.[0]).toMatchObject({
         handle: 'junior-readers',
-        list: { available: true, sort: 'featured', genre: genreFilter(FANTASY) },
+        list: { available: true, sort: 'featured', genre: genreFilter(FANTASY), maxPrice: null },
       }),
     );
     expect(screen.getByRole('button', { name: 'Genre, Fantasy' })).toBeOnTheScreen();
@@ -393,6 +401,97 @@ describe('Genre on the collection screen (P6-07, D-101)', () => {
 
     await waitFor(() => expect(screen.queryByTestId('genre')).not.toBeOnTheScreen());
     expect(screen.getByRole('button', { name: 'Sort, Featured' })).toBeOnTheScreen();
+  });
+});
+
+describe('Price on the collection screen (P6-08, D-104, D-105)', () => {
+  const lastList = () => mockFetchPage.mock.calls.at(-1)?.[0].list;
+
+  async function choose(button: string, option: string) {
+    await fireEvent.press(screen.getByRole('button', { name: button }));
+    await fireEvent.press(screen.getByRole('button', { name: option }));
+  }
+
+  it('draws Genre and Price in one row that scrolls sideways, with no "Clear"', async () => {
+    await renderScreen();
+
+    const scroll = screen.getByTestId('filter-scroll');
+    expect(scroll.props.horizontal).toBe(true);
+    expect(screen.queryAllByTestId(/^(genre|price)$/).map((button) => button.props.testID)).toEqual(
+      ['genre', 'price'],
+    );
+    expect(screen.queryByTestId('clear-filters')).not.toBeOnTheScreen();
+  });
+
+  it('reads the collection with the chosen maximum, and "All prices" returns to every book', async () => {
+    mockFetchPage.mockImplementation(async (options) =>
+      options.list?.maxPrice === null
+        ? juniorPage(options)
+        : { ...juniorPage(options), books: JUNIOR.slice(0, 2), nextCursor: null },
+    );
+    await renderScreen();
+
+    await choose('Price', 'Up to ₹34');
+
+    await waitFor(() =>
+      expect(lastList()).toEqual({
+        available: true,
+        sort: 'featured',
+        genre: null,
+        maxPrice: 34,
+      }),
+    );
+    expect(screen.getByRole('button', { name: 'Price, up to ₹34' })).toBeOnTheScreen();
+    await waitFor(() => expect(listProps().data).toHaveLength(2));
+    expect(screen.queryByTestId('clear-filters')).not.toBeOnTheScreen();
+
+    await choose('Price, up to ₹34', 'All prices');
+
+    await waitFor(() => expect(listProps().data).toHaveLength(20));
+    expect(screen.getByRole('button', { name: 'Price' })).toBeOnTheScreen();
+  });
+
+  it('combines with a genre, "Available now" and the sort, and stays when they change', async () => {
+    await renderScreen();
+    await choose('Price', 'Up to ₹49');
+    await choose('Genre', 'Fantasy');
+    await choose('Sort, Featured', 'Price, low to high');
+    await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', false);
+
+    await waitFor(() =>
+      expect(lastList()).toEqual({
+        available: false,
+        sort: 'price-ascending',
+        genre: genreFilter(FANTASY),
+        maxPrice: 49,
+      }),
+    );
+    expect(screen.getByRole('button', { name: 'Price, up to ₹49' })).toBeOnTheScreen();
+    await genreSettled();
+    await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
+  });
+
+  it('names the price in the empty message', async () => {
+    mockFetchPage.mockImplementation(async (options) =>
+      options.list?.maxPrice === null ? juniorPage(options) : { ...juniorPage(options), books: [] },
+    );
+    await renderScreen();
+
+    await choose('Price', 'Up to ₹74');
+
+    expect(
+      await screen.findByText(
+        'No books up to ₹74 available right now. Switch off Available now to see rented-out books, or choose another price.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  it('keeps the Price button when the collection has no genres', async () => {
+    mockFetchGenres.mockResolvedValue({ kind: 'found', locale: 'en-IN', values: [] });
+    await renderScreen();
+
+    await waitFor(() => expect(screen.queryByTestId('genre')).not.toBeOnTheScreen());
+    expect(screen.getByRole('button', { name: 'Price' })).toBeOnTheScreen();
   });
 });
 

@@ -5,17 +5,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookGrid } from '@/components/BookGrid';
 import { bookSortOptions, BookListControls } from '@/components/BookListControls';
+import { FilterRow } from '@/components/FilterRow';
 import { GenrePicker, genreButtonShown } from '@/components/GenrePicker';
+import { PricePicker } from '@/components/PricePicker';
 import { emptyMessageFor, NOT_FOUND_MESSAGE, ScreenMessage } from '@/components/ScreenMessage';
 import { effectiveSort, type BookSort } from '@/config';
-import { useCollectionBooks, useGenreOptions, type GenreOption } from '@/shopify/hooks/catalogue';
-import { colors, fonts, fontSize, spacing } from '@/theme/tokens';
+import {
+  useCollectionBooks,
+  useGenreOptions,
+  usePriceOptions,
+  type GenreOption,
+  type PriceOption,
+} from '@/shopify/hooks/catalogue';
+import { colors, fonts, fontSize } from '@/theme/tokens';
 
 /**
  * One collection's books (P6-03, D-080), opened from a series tile, an age chip or "See all":
  * two columns, "Load more". "Available now" is on by default and the sort starts at Featured,
- * the collection's own order (P6-04, D-085, D-086). A Genre button above them (P6-07, D-101):
- * drawn from the start, disabled while its list loads; "All genres" resets it. A stack screen
+ * the collection's own order (P6-04, D-085, D-086). Genre and Price buttons above them in one row
+ * that scrolls sideways (P6-07, P6-08; D-101, D-104, D-105): Genre drawn from the start, disabled
+ * while its list loads; "All genres" and "All prices" reset each. No "Clear" here. A stack screen
  * with no tab bar, so the list leaves room for Android's navigation bar itself.
  */
 export default function CollectionScreen() {
@@ -29,14 +38,17 @@ function Collection({ handle }: { readonly handle: string }) {
   const [available, setAvailable] = useState(true);
   const [chosenSort, setChosenSort] = useState<BookSort | null>(null);
   const [genre, setGenre] = useState<GenreOption | null>(null);
+  const [price, setPrice] = useState<PriceOption | null>(null);
   const sort = effectiveSort(chosenSort, true);
   const genreFilter = genre?.filter ?? null;
+  const maxPrice = price?.max ?? null;
   const list = useMemo(
-    () => ({ available, sort, genre: genreFilter }),
-    [available, sort, genreFilter],
+    () => ({ available, sort, genre: genreFilter, maxPrice }),
+    [available, sort, genreFilter, maxPrice],
   );
   const query = useCollectionBooks(handle, list);
   const genres = useGenreOptions(handle, available);
+  const prices = usePriceOptions();
   const first = query.data?.pages[0];
   // Built only when the pages change, so the list does not see a new array on every render.
   const books = useMemo(
@@ -73,10 +85,11 @@ function Collection({ handle }: { readonly handle: string }) {
   return (
     <View style={styles.screen}>
       {header}
-      {genreButtonShown(genres, genre) && (
-        <View style={styles.genreRow}>
+      {(genreButtonShown(genres, genre) || prices !== null) && (
+        <FilterRow onClear={null}>
           <GenrePicker chosen={genre} onChoose={setGenre} state={genres} />
-        </View>
+          <PricePicker chosen={price} onChoose={setPrice} options={prices} />
+        </FilterRow>
       )}
       <BookListControls
         available={available}
@@ -88,7 +101,7 @@ function Collection({ handle }: { readonly handle: string }) {
       <BookGrid
         books={books}
         bottomInset={insets.bottom}
-        emptyMessage={emptyMessageFor(available, genre?.name)}
+        emptyMessage={emptyMessageFor(available, genre?.name, price?.phrase)}
         error={query.error}
         hasData={first !== undefined}
         hasNextPage={query.hasNextPage}
@@ -105,9 +118,4 @@ function Collection({ handle }: { readonly handle: string }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  genreRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
-  },
 });

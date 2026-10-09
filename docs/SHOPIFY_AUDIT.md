@@ -126,6 +126,17 @@ Recorded in P6-07 from the architect's reading of the website's "Books for Rent"
 - **The app always shows the store's own name** (the genre entry's `label`, such as Manga), never Shopify's built-in name (owner, answer 5, P6-07; D-102).
 - **No real "all" collection** (P6-04): Storefront filters work only on a collection's products and on search, so Genre across all books needs a collection that holds every book. On the live store that collection (`all-books`) is store addition 4, the owner's decision at the live-store connection (D-100).
 
+### Live website prices, architect's view (9 October 2026, view only)
+
+Recorded in P6-08 from the architect's reading of the website's "Books for Rent" page. Nothing on the live store was changed or read through an API. The app's Price filter follows it (owner and architect, P6-08 answers).
+
+- **The website's Price filter** is two text boxes, From and To, under the line "The highest price is ₹ 99.00". The page parameters are `filter.v.price.gte` and `filter.v.price.lte`, so both ends are inclusive on the website.
+- **2,014 books.** Rental prices: ₹34 (298 books), ₹49 (671), ₹74 (680), ₹99 (363).
+- **Two outliers**, both owner items for the live store: "Horrible geography - Intrepid Explorer" at ₹0 (rented out) and "Mr Big" at ₹79.
+- **The ₹0 book and the app:** the `all-books` collection's rule (price greater than 0, store addition 4) leaves a ₹0 book out of Browse's all books; that is accepted (owner, P6-08). Inside a group that holds it, with "Available now" off, a ₹0 book would show under every price choice, because the app sends a maximum only and Shopify's minimum defaults to 0. It is rented out, so it never shows with "Available now" on. Recorded, not handled in the app (owner, answer 5, P6-08).
+- **"Mr Big" at ₹79** shows only under "All prices" in the app, not under "Up to ₹74".
+- **The app** offers one choice at a time: "All prices", "Up to ₹34", "Up to ₹49", "Up to ₹74", by the rental price (Shopify's `price`), never the compare-at price (owner and architect, answers 1 and 2, P6-08).
+
 ### Live book page, architect's view (8 October 2026, view only)
 
 Recorded in P6-05 from the architect's reading of the live page of `harry-potter-and-the-half-blood-prince-book-6`. Nothing on the live store was changed or read through an API. The app's book page follows it, with the differences in D-090 to D-092.

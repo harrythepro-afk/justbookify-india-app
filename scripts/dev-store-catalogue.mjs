@@ -144,6 +144,25 @@ export const GROUP_GENRES = {
 // One built-in and one custom genre, filtered on all-books and checked book by book.
 export const GENRE_EXAMPLES = { builtIn: 20853, custom: 15730 };
 
+// The Price filter (P6-08 gate, 9 October 2026): Shopify's default filter, offered on all-books and
+// on a group. Prices on all-books: ₹34 7 books (4 available), ₹49 16 (12), ₹74 12 (8), ₹99 7 (5).
+export const PRICE_FILTER = {
+  id: 'filter.v.price',
+  type: 'PRICE_RANGE',
+  groupHandle: 'junior-readers',
+};
+
+// Each maximum the app offers (src/config/browse.ts) on all-books: the books at or below it,
+// without and with "Available now".
+export const PRICE_MAXIMA = [
+  { max: 34, count: 7, available: 4 },
+  { max: 49, count: 23, available: 16 },
+  { max: 74, count: 35, available: 24 },
+];
+
+// One combined count: Fantasy (built-in) up to ₹49 with "Available now", on all-books.
+export const PRICE_COMBINED = { genre: 20853, max: 49, count: 3 };
+
 export const NO_COVER_HANDLES = [
   'ruskin-bond-great-stories-for-children',
   'peter-and-the-wolf-read-it-yourself',

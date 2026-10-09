@@ -19,9 +19,22 @@ export const BOOK_NOT_FOUND_MESSAGE = 'This book is not available.';
 
 /**
  * What an empty list says, by whether "Available now" is on (owner, P6-04) and, with a genre
- * chosen, naming the genre by the store's name (owner, P6-07 plan review; D-101).
+ * chosen, naming the genre by the store's name (owner, P6-07 plan review; D-101). With a price
+ * chosen, naming the price ("up to ₹34"), alone or after the genre (owner, P6-08 plan review;
+ * D-104).
  */
-export function emptyMessageFor(available: boolean, genreName?: string): string {
+export function emptyMessageFor(
+  available: boolean,
+  genreName?: string,
+  pricePhrase?: string,
+): string {
+  if (pricePhrase !== undefined) {
+    const books = genreName === undefined ? 'books' : `${genreName} books`;
+    const another = genreName === undefined ? 'price' : 'genre or price';
+    return available
+      ? `No ${books} ${pricePhrase} available right now. Switch off Available now to see rented-out books, or choose another ${another}.`
+      : `No ${books} ${pricePhrase} here. Choose another ${another}.`;
+  }
   if (genreName !== undefined) {
     return available
       ? `No ${genreName} books available right now. Switch off Available now to see rented-out books, or choose another genre.`

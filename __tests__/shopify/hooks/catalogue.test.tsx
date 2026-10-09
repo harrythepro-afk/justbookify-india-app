@@ -8,6 +8,7 @@ import {
   useCollectionBooks,
   useCollectionHandles,
   useGenreOptions,
+  usePriceOptions,
 } from '@/shopify/hooks/catalogue';
 import { resetCatalogueReportsForTests } from '@/shopify/catalogue';
 import { storefrontKeys } from '@/shopify/queryKeys';
@@ -171,8 +172,8 @@ describe('useCollectionBooks with a sort and "Available now" (P6-04)', () => {
   });
 
   it('caches each combination of sort and "Available now" on its own', async () => {
-    const on = { available: true, sort: 'featured', genre: null } as const;
-    const off = { available: false, sort: 'featured', genre: null } as const;
+    const on = { available: true, sort: 'featured', genre: null, maxPrice: null } as const;
+    const off = { available: false, sort: 'featured', genre: null, maxPrice: null } as const;
     const { result, rerender } = await renderHook(
       ({ list }: { list: typeof on | typeof off }) => useCollectionBooks('junior-readers', list),
       { wrapper: withQueryClient(client), initialProps: { list: on } },
@@ -216,7 +217,7 @@ describe("Browse's all books through useCollectionBooks (D-100, replaces D-083)"
   });
 
   it('reads 20 books at a time from the all-books collection, never the whole catalogue', async () => {
-    const list = { available: true, sort: 'title-ascending', genre: null } as const;
+    const list = { available: true, sort: 'title-ascending', genre: null, maxPrice: null } as const;
     const { result } = await renderHook(() => useCollectionBooks('all-books', list), {
       wrapper: withQueryClient(client),
     });
@@ -244,7 +245,12 @@ describe("Browse's all books through useCollectionBooks (D-100, replaces D-083)"
       key: 'genre',
       value: 'gid://shopify/TaxonomyValue/15730',
     };
-    const list = { available: false, sort: 'price-ascending', genre: manga } as const;
+    const list = {
+      available: false,
+      sort: 'price-ascending',
+      genre: manga,
+      maxPrice: null,
+    } as const;
     const { result } = await renderHook(() => useCollectionBooks('all-books', list), {
       wrapper: withQueryClient(client),
     });
@@ -462,6 +468,47 @@ describe('useGenreOptions (P6-07, D-101, D-102)', () => {
     if (result.current.kind !== 'ready') throw new Error('expected ready');
     expect(result.current.options.map((option) => option.name)).toEqual(['Fantasy']);
     expect(mockReportUnexpected.mock.calls).toEqual([['catalogue/genre-without-name']]);
+  });
+});
+
+describe('usePriceOptions (P6-08, D-104)', () => {
+  beforeEach(() => {
+    mockReportUnexpected.mockClear();
+  });
+
+  it("gives the configured maxima in the store's currency format, with no read", async () => {
+    const { result } = await renderHook(() => usePriceOptions(), {
+      wrapper: withQueryClient(client),
+    });
+
+    expect(result.current?.map((option) => option.label)).toEqual([
+      'Up to ₹34',
+      'Up to ₹49',
+      'Up to ₹74',
+    ]);
+    expect(result.current?.map((option) => option.max)).toEqual([34, 49, 74]);
+    expect(mockQuery).not.toHaveBeenCalled();
+    expect(mockReportUnexpected).not.toHaveBeenCalled();
+  });
+
+  it('is null, not a crash, when the store configuration cannot be read; reported once by code', async () => {
+    mockStoreConfig = () => {
+      throw new Error('Missing or invalid store configuration');
+    };
+    try {
+      const first = await renderHook(() => usePriceOptions(), {
+        wrapper: withQueryClient(client),
+      });
+      const second = await renderHook(() => usePriceOptions(), {
+        wrapper: withQueryClient(client),
+      });
+
+      expect(first.result.current).toBeNull();
+      expect(second.result.current).toBeNull();
+      expect(mockReportUnexpected.mock.calls).toEqual([['catalogue/price-options-unavailable']]);
+    } finally {
+      mockStoreConfig = () => STORE_CONFIG;
+    }
   });
 });
 
