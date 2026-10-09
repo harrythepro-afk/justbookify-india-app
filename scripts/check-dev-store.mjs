@@ -19,7 +19,10 @@
 // of rented-out books. For the Genre filter (P6-07) it reads the filter on all-books and on a group,
 // lists the store's genre entries, joins them through the app's own toGenreOptions (the names the
 // app shows), and checks that one built-in and one custom genre each list exactly their books,
-// with "Available now" and under every sort.
+// with "Available now" and under every sort. For the Price filter (P6-08) it reads the filter on
+// all-books and on a group, checks that each maximum the app offers is inclusive (the books at
+// exactly that price are returned, and left out just below it) and compares the rental price,
+// and checks one combined count: a maximum, a genre and "Available now" under every sort.
 //
 // Run with `npm run check:dev-store`. Read-only: named queries, no mutations. Never prints the
 // token or the domain. Not run in CI, which has no .env.local. Point it at a development store
@@ -44,6 +47,9 @@ import {
   GENRES,
   GROUP_GENRES,
   METAFIELDS,
+  PRICE_COMBINED,
+  PRICE_FILTER,
+  PRICE_MAXIMA,
   NO_COVER_HANDLES,
   SEARCH,
   VISIBLE_PRODUCT_COUNT,
@@ -99,6 +105,9 @@ const PRODUCTS_QUERY = `query DevStoreCatalogue(
         nodes {
           availableForSale
           currentlyNotInStock
+          price {
+            amount
+          }
         }
       }
       metafields(identifiers: [${METAFIELD_IDENTIFIERS}]) {
@@ -651,6 +660,85 @@ async function checkGenres(config, products, problems) {
   );
 }
 
+// The rental price, Shopify's `price`: what the Price filter compares (P6-08 gate b).
+const priceOf = (product) => Number(product.variants.nodes[0]?.price?.amount);
+
+const handlesOf = (nodes) => new Set((nodes ?? []).map((product) => product.handle));
+
+async function checkPrices(config, products, problems) {
+  // The filter is offered on all-books and on a group (gate a).
+  for (const handle of [ALL_BOOKS_HANDLE, PRICE_FILTER.groupHandle]) {
+    const data = await storefrontRequest(config, COLLECTION_FILTERS_QUERY, {
+      handle,
+      filters: null,
+    });
+    const filter = data?.collection?.products?.filters?.find((f) => f.id === PRICE_FILTER.id);
+    if (!filter) {
+      problems.push(`price on ${handle}: no ${PRICE_FILTER.id} filter.`);
+    } else if (filter.type !== PRICE_FILTER.type) {
+      problems.push(`price on ${handle}: the filter is ${filter.type}.`);
+    }
+  }
+
+  // Each maximum is inclusive and compares the rental price (gate b): exactly the books at or
+  // below it, with and without "Available now"; the books at exactly that price leave just below.
+  for (const { max, count, available } of PRICE_MAXIMA) {
+    const atOrBelow = new Set(products.filter((p) => priceOf(p) <= max).map((p) => p.handle));
+    checkCounts(`price up to ${max}`, atOrBelow.size, count, problems);
+    const got = handlesOf(await collectionHandles(config, ALL_BOOKS_HANDLE, [{ price: { max } }]));
+    sameHandles(`price up to ${max}`, got, atOrBelow, problems);
+    const availableSet = new Set(
+      products
+        .filter((p) => atOrBelow.has(p.handle) && availabilityOf(p) !== 'rentedOut')
+        .map((p) => p.handle),
+    );
+    checkCounts(`price up to ${max}, available`, availableSet.size, available, problems);
+    const gotAvailable = handlesOf(
+      await collectionHandles(config, ALL_BOOKS_HANDLE, [{ price: { max } }, { available: true }]),
+    );
+    sameHandles(`price up to ${max}, available,`, gotAvailable, availableSet, problems);
+    const below = handlesOf(
+      await collectionHandles(config, ALL_BOOKS_HANDLE, [{ price: { max: max - 0.01 } }]),
+    );
+    const atMax = products.filter((p) => priceOf(p) === max).map((p) => p.handle);
+    if (atMax.length === 0) problems.push(`price: no book at exactly ${max}.`);
+    const leaked = atMax.filter((handle) => below.has(handle));
+    if (leaked.length > 0) {
+      problems.push(`price up to ${max - 0.01} still returns ${leaked.join(', ')}.`);
+    }
+  }
+
+  // One combined count: a maximum, a genre and "Available now", the same under every sort (gate c).
+  const { max, genre, count } = PRICE_COMBINED;
+  const gid = taxonomyGid(genre);
+  const filters = [
+    { taxonomyMetafield: { namespace: 'shopify', key: 'genre', value: gid } },
+    { price: { max } },
+    { available: true },
+  ];
+  const expected = new Set(
+    [...booksOfGenre(products, gid)].filter((handle) => {
+      const product = products.find((p) => p.handle === handle);
+      return priceOf(product) <= max && availabilityOf(product) !== 'rentedOut';
+    }),
+  );
+  checkCounts(`genre ${genre}, price up to ${max}, available`, expected.size, count, problems);
+  for (const sort of COLLECTION_SORTS) {
+    const got = handlesOf(await collectionHandles(config, ALL_BOOKS_HANDLE, filters, sort));
+    sameHandles(
+      `genre ${genre}, price up to ${max}, available, ${sort[0]}${sort[1] ? ' reversed' : ''},`,
+      got,
+      expected,
+      problems,
+    );
+  }
+  console.log(
+    `Price: ${PRICE_FILTER.id} on ${ALL_BOOKS_HANDLE} and ${PRICE_FILTER.groupHandle}; up to ` +
+      `${PRICE_MAXIMA.map((m) => `${m.max} (${m.count}, ${m.available} available)`).join(', ')}, ` +
+      `inclusive; genre ${genre} up to ${max} with "Available now": ${count} under every sort.`,
+  );
+}
+
 async function checkBookPage(config, problems) {
   const handle = EXAMPLES.allMetafields;
   const data = await storefrontRequest(config, BOOK_PAGE_QUERY, { handle });
@@ -962,6 +1050,9 @@ async function checkCatalogue(config) {
 
   // The Genre filter (P6-07).
   await checkGenres(config, products, problems);
+
+  // The Price filter (P6-08).
+  await checkPrices(config, products, problems);
 
   if (problems.length > 0) {
     fail(`the sample catalogue differs:\n- ${problems.join('\n- ')}`);
