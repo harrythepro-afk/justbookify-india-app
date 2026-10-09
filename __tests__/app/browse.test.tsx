@@ -1119,6 +1119,37 @@ describe('one filter row (P6-08, D-105; architect, review of PR #20)', () => {
     expect(screen.getByRole('button', { name: 'Price' })).toBeOnTheScreen();
   });
 
+  it('scrolls back when the buttons get shorter than the place the row is scrolled to (phone check)', async () => {
+    await renderScreen();
+    const scrollTo = (ScrollView.prototype as unknown as { scrollTo: jest.Mock }).scrollTo;
+    scrollTo.mockClear();
+    const layout = { nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 44 } } };
+    const scrolledTo = (x: number) => ({ nativeEvent: { contentOffset: { x, y: 0 } } });
+
+    // Long labels, the row scrolled to its end: nothing to correct.
+    await fireEvent(scroll(), 'layout', layout);
+    await fireEvent(scroll(), 'contentSizeChange', 800, 44);
+    await fireEvent.scroll(scroll(), scrolledTo(500));
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    // "Clear": the buttons now fit, so the row goes back to its start.
+    await fireEvent(scroll(), 'contentSizeChange', 280, 44);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenLastCalledWith({ x: 0, animated: false });
+
+    // A label gets shorter but the buttons still overflow: back to the new end only.
+    await fireEvent(scroll(), 'contentSizeChange', 800, 44);
+    await fireEvent.scroll(scroll(), scrolledTo(500));
+    await fireEvent(scroll(), 'contentSizeChange', 650, 44);
+    expect(scrollTo).toHaveBeenLastCalledWith({ x: 350, animated: false });
+
+    // Longer buttons, or a wider row, never move it.
+    scrollTo.mockClear();
+    await fireEvent(scroll(), 'contentSizeChange', 900, 44);
+    await fireEvent(scroll(), 'layout', layout);
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
   it('keeps "Available now" and the sort outside the row, below it', async () => {
     await renderScreen();
 
