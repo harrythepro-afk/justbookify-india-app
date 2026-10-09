@@ -1,6 +1,6 @@
 # Next task (proposal): P6-09, the catalogue analytics events
 
-Status: proposal. P6-08 (the Price filter on Browse and one filter row) is on branch `p6-08-price-filter`, PR #21; see `CURRENT_STATUS.md`. P6-09 starts when the owner starts it, after PR #21 is merged.
+Status: started on 9 October 2026, on branch `p6-09-catalogue-events`, with the owner's and the architect's answers (recorded in `DECISIONS.md` from D-107). P6-08 is merged (`c757ff2`, PR #21).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -21,7 +21,7 @@ Status: proposal. P6-08 (the Price filter on Browse and one filter row) is on br
 | P6-05 (done, 1876ac1) | The book page from every card: cover, author, title, the sentence for a rented-out book only, prices with the "Rent" or "Rented Out" badge, the description as native text from untrusted HTML, genre chips; no rating (Phase 13); `liveStock`; a description sample in the preview | D-090 to D-094 |
 | P6-06 (done, ede0acd) | Search: Storefront `search` (books only, partial last word), results as you type from 3 letters or the search key from 2, "Available now" off (`LAST`/`HIDE`), Relevance and the two price sorts, the count line and the website's no-results line, earlier results kept while a new term loads; the term never logged, sent to analytics or reported; the standing phone-check permission; one guard against double taps for every in-app open; a clear button | D-095 to D-099 |
 | P6-07 (done, eaa9702) | The Genre filter (the store's own genre names, one at a time, combined with the group, "Available now" and the sort; on Browse and the collection screen), Browse's all books from the `all-books` collection, the longer series list | D-100 to D-103 |
-| P6-08 (branch `p6-08-price-filter`, PR #21) | The Price filter ("All prices", then up to ₹34, ₹49, ₹74; a maximum only; store configuration, labels in the store's currency format) on Browse and the collection screen, not on search; one filter row that scrolls sideways with "Clear" pinned at its right edge; the CI act warnings fixed in the test setup | D-104 to D-106 |
+| P6-08 (done, c757ff2) | The Price filter ("All prices", then up to ₹34, ₹49, ₹74; a maximum only; store configuration, labels in the store's currency format) on Browse and the collection screen, not on search; one filter row that scrolls sideways with "Clear" pinned at its right edge; the CI act warnings fixed in the test setup | D-104 to D-106 |
 | P6-09 (proposed) | The catalogue analytics events (`view_collection`, `view_book`, `search`, `filter_applied`) | |
 | Later in Phase 6 | The last Phase 6 task: the offline question (D-087) and the description-table fix | |
 
