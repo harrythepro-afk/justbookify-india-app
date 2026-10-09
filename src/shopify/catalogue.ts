@@ -318,14 +318,16 @@ query GenreEntries(
 }` as const;
 
 /**
- * How a Browse or collection list is read (D-085, D-086, D-101). `available` is "Available now":
- * Shopify's `availableForSale`, so books orderable at zero stock are included. `genre` is the
- * chosen genre's filter, or null for all genres.
+ * How a Browse or collection list is read (D-085, D-086, D-101, D-104). `available` is "Available
+ * now": Shopify's `availableForSale`, so books orderable at zero stock are included. `genre` is the
+ * chosen genre's filter, or null for all genres. `maxPrice` is the chosen price's maximum in the
+ * store's currency (the rental price, inclusive), or null for all prices.
  */
 export type BookListOptions = {
   readonly available: boolean;
   readonly sort: BookSort;
   readonly genre: GenreFilter | null;
+  readonly maxPrice: number | null;
 };
 
 /** How a search is read (D-096): "Available now" and the sort. */
@@ -390,10 +392,14 @@ export function resetCatalogueReportsForTests(): void {
   reportedFaults.clear();
 }
 
-/** The filters for a list: the chosen genre, then "Available now"; null when neither is on. */
+/**
+ * The filters for a list: the chosen genre, the chosen price (a maximum only, so Shopify's minimum
+ * stays 0; D-104), then "Available now"; null when none is on.
+ */
 function listFilters(list: BookListOptions) {
   const filters = [
     ...(list.genre === null ? [] : [{ taxonomyMetafield: list.genre }]),
+    ...(list.maxPrice === null ? [] : [{ price: { max: list.maxPrice } }]),
     ...(list.available ? [{ available: true }] : []),
   ];
   return filters.length === 0 ? null : filters;
@@ -404,7 +410,8 @@ function listFilters(list: BookListOptions) {
  * published to the app's channel) is `not-found`, not an error; for the collection that holds
  * every book (D-100) it is also reported once, because configuration names it. Without `list`,
  * every book in the collection's own order (Home's New arrivals, the development preview); with
- * it, the sort, "Available now" and the genre (D-085, D-086, D-101). `signal` cancels the call;
+ * it, the sort, "Available now", the genre and the price (D-085, D-086, D-101, D-104). `signal`
+ * cancels the call;
  * the query cache passes its own (D-061).
  */
 export async function fetchCollectionBooksPage(options: {

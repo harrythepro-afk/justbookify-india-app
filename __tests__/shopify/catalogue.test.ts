@@ -125,7 +125,7 @@ describe('fetchCollectionBooksPage with a sort and "Available now" (P6-04)', () 
     await fetchCollectionBooksPage({
       handle: 'junior-readers',
       after: null,
-      list: { available: true, sort: 'featured', genre: null },
+      list: { available: true, sort: 'featured', genre: null, maxPrice: null },
     });
 
     expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
@@ -144,7 +144,7 @@ describe('fetchCollectionBooksPage with a sort and "Available now" (P6-04)', () 
     await fetchCollectionBooksPage({
       handle: 'junior-readers',
       after: 'cursor-1',
-      list: { available: false, sort: 'price-descending', genre: null },
+      list: { available: false, sort: 'price-descending', genre: null, maxPrice: null },
     });
 
     expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
@@ -171,7 +171,7 @@ describe('fetchCollectionBooksPage with a genre (P6-07, D-101)', () => {
     await fetchCollectionBooksPage({
       handle: 'junior-readers',
       after: null,
-      list: { available: true, sort: 'title-ascending', genre: MANGA },
+      list: { available: true, sort: 'title-ascending', genre: MANGA, maxPrice: null },
     });
 
     expect(mockQuery.mock.calls[0]?.[1].variables.filters).toEqual([
@@ -186,10 +186,58 @@ describe('fetchCollectionBooksPage with a genre (P6-07, D-101)', () => {
     await fetchCollectionBooksPage({
       handle: 'all-books',
       after: null,
-      list: { available: false, sort: 'title-ascending', genre: MANGA },
+      list: { available: false, sort: 'title-ascending', genre: MANGA, maxPrice: null },
     });
 
     expect(mockQuery.mock.calls[0]?.[1].variables.filters).toEqual([{ taxonomyMetafield: MANGA }]);
+  });
+});
+
+describe('fetchCollectionBooksPage with a price (P6-08, D-104)', () => {
+  it('sends the genre, then the price as a maximum only, then "Available now"', async () => {
+    mockQuery.mockResolvedValue(collectionResponse([]));
+
+    await fetchCollectionBooksPage({
+      handle: 'junior-readers',
+      after: null,
+      list: { available: true, sort: 'featured', genre: MANGA, maxPrice: 49 },
+    });
+
+    expect(mockQuery.mock.calls[0]?.[1].variables.filters).toEqual([
+      { taxonomyMetafield: MANGA },
+      { price: { max: 49 } },
+      { available: true },
+    ]);
+  });
+
+  it('sends the price alone when nothing else is chosen, with no minimum', async () => {
+    mockQuery.mockResolvedValue(collectionResponse([]));
+
+    await fetchCollectionBooksPage({
+      handle: 'all-books',
+      after: null,
+      list: { available: false, sort: 'price-descending', genre: null, maxPrice: 34 },
+    });
+
+    const filters = mockQuery.mock.calls[0]?.[1].variables.filters;
+    expect(filters).toEqual([{ price: { max: 34 } }]);
+    expect(filters[0].price).not.toHaveProperty('min');
+  });
+
+  it('sends the price with "Available now" and the sort', async () => {
+    mockQuery.mockResolvedValue(collectionResponse([]));
+
+    await fetchCollectionBooksPage({
+      handle: 'all-books',
+      after: null,
+      list: { available: true, sort: 'price-ascending', genre: null, maxPrice: 74 },
+    });
+
+    expect(mockQuery.mock.calls[0]?.[1].variables).toMatchObject({
+      sortKey: 'PRICE',
+      reverse: false,
+      filters: [{ price: { max: 74 } }, { available: true }],
+    });
   });
 });
 
@@ -201,7 +249,7 @@ describe("Browse's all books: the all-books collection (D-100, replaces D-083)",
     await fetchCollectionBooksPage({
       handle: 'all-books',
       after: null,
-      list: { available: true, sort: 'title-ascending', genre: null },
+      list: { available: true, sort: 'title-ascending', genre: null, maxPrice: null },
       signal,
     });
 
@@ -224,7 +272,7 @@ describe("Browse's all books: the all-books collection (D-100, replaces D-083)",
     await fetchCollectionBooksPage({
       handle: 'all-books',
       after: 'cursor-1',
-      list: { available: false, sort: 'created-descending', genre: null },
+      list: { available: false, sort: 'created-descending', genre: null, maxPrice: null },
     });
 
     expect(mockQuery.mock.calls[0]?.[1].variables).toEqual({
@@ -248,7 +296,7 @@ describe("Browse's all books: the all-books collection (D-100, replaces D-083)",
     const page = await fetchCollectionBooksPage({
       handle: 'all-books',
       after: null,
-      list: { available: false, sort: 'title-ascending', genre: null },
+      list: { available: false, sort: 'title-ascending', genre: null, maxPrice: null },
     });
 
     if (page.kind !== 'found') throw new Error('expected a page');
@@ -265,7 +313,7 @@ describe("Browse's all books: the all-books collection (D-100, replaces D-083)",
     const page = await fetchCollectionBooksPage({
       handle: 'all-books',
       after: 'cursor-2',
-      list: { available: true, sort: 'title-ascending', genre: null },
+      list: { available: true, sort: 'title-ascending', genre: null, maxPrice: null },
     });
 
     expect(page).toMatchObject({ kind: 'found', nextCursor: null });
@@ -274,7 +322,7 @@ describe("Browse's all books: the all-books collection (D-100, replaces D-083)",
   it('reports a missing all-books collection once, by code; another missing one is not reported', async () => {
     mockQuery.mockResolvedValue({ collection: null });
 
-    const list = { available: true, sort: 'title-ascending', genre: null } as const;
+    const list = { available: true, sort: 'title-ascending', genre: null, maxPrice: null } as const;
     await expect(
       fetchCollectionBooksPage({ handle: 'all-books', after: null, list }),
     ).resolves.toEqual({ kind: 'not-found' });

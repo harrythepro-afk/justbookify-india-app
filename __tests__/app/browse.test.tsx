@@ -34,6 +34,14 @@ jest.mock('@/crashReporting/sentry', () => ({
   reportUnexpectedDataError: (code: string) => mockReportUnexpected(code),
 }));
 
+// The Price list's labels are built from the store configuration (P6-08, D-104).
+const STORE_CONFIG = { currencyCode: 'INR', language: 'EN', country: 'IN' };
+let mockStoreConfig: () => typeof STORE_CONFIG = () => STORE_CONFIG;
+jest.mock('@/config/store', () => ({
+  ...jest.requireActual('@/config/store'),
+  getStoreConfig: () => mockStoreConfig(),
+}));
+
 // "Try again" re-reads the network before it refetches (D-082).
 const mockRecheckNetwork = jest.fn(() => Promise.resolve());
 jest.mock('@/query/online', () => ({
@@ -170,6 +178,11 @@ async function renderScreen({ settle = true }: { settle?: boolean } = {}) {
   if (settle) await genreSettled();
 }
 
+/** Waits until the books for the current list are in, so no update lands after a test. */
+async function booksSettled() {
+  await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
+}
+
 /**
  * Waits until the Genre button has settled: enabled, or not drawn. Every screen reads its genre
  * list as well as its books; without this, a test can end while that read is still landing.
@@ -199,7 +212,7 @@ function genreButton() {
 /** The filter buttons in the row, in the order they are drawn, by their own name. */
 function filterButtonNames(): string[] {
   return screen
-    .queryAllByTestId(/^(age-group|genre|series)$/)
+    .queryAllByTestId(/^(age-group|genre|price|series)$/)
     .map((button) => (button.props.accessibilityLabel as string).split(',')[0] ?? '');
 }
 
@@ -250,7 +263,7 @@ describe('Browse, "Books for Rent" (P6-04)', () => {
     expect(screen.getByRole('header', { name: 'Books for Rent' })).toBeOnTheScreen();
     expect(allCalls()[0]).toMatchObject({
       after: null,
-      list: { available: true, sort: 'title-ascending', genre: null },
+      list: { available: true, sort: 'title-ascending', genre: null, maxPrice: null },
     });
     expect(groupCalls()).toEqual([]);
     expect(screen.getByRole('switch', { name: 'Available now' }).props.value).toBe(true);
@@ -267,11 +280,11 @@ describe('Browse, "Books for Rent" (P6-04)', () => {
     expect(screen.getByRole('button', { name: 'Best selling' })).toBeOnTheScreen();
   });
 
-  it('draws Age group, Genre and Series, in that order', async () => {
+  it('draws Age group, Genre, Price and Series, in that order (D-104)', async () => {
     await renderScreen();
     await waitFor(() => expect(genreButton().props.accessibilityState.disabled).toBe(false));
 
-    expect(filterButtonNames()).toEqual(['Age group', 'Genre', 'Series']);
+    expect(filterButtonNames()).toEqual(['Age group', 'Genre', 'Price', 'Series']);
   });
 
   it('offers only the configured collections the store has (D-076)', async () => {
@@ -337,7 +350,7 @@ describe('Browse, "Books for Rent" (P6-04)', () => {
       expect(groupCalls().at(-1)).toMatchObject({
         handle: 'junior-readers',
         after: null,
-        list: { available: true, sort: 'featured', genre: null },
+        list: { available: true, sort: 'featured', genre: null, maxPrice: null },
       }),
     );
     expect(await screen.findByText('First of junior-readers')).toBeOnTheScreen();
@@ -380,6 +393,7 @@ describe('Browse, "Books for Rent" (P6-04)', () => {
         available: true,
         sort: 'price-descending',
         genre: null,
+        maxPrice: null,
       }),
     );
 
@@ -390,6 +404,7 @@ describe('Browse, "Books for Rent" (P6-04)', () => {
         available: true,
         sort: 'price-descending',
         genre: null,
+        maxPrice: null,
       }),
     );
     expect(screen.getByRole('button', { name: 'Sort, Price, high to low' })).toBeOnTheScreen();
@@ -426,6 +441,7 @@ describe('Browse, "Books for Rent" (P6-04)', () => {
       available: false,
       sort: 'title-ascending',
       genre: null,
+      maxPrice: null,
     });
     expect(screen.getByText('Rented Out')).toBeOnTheScreen();
     // No cart or notify-me button until they are wired (D-081).
@@ -557,6 +573,7 @@ describe('Genre (P6-07, D-101, D-102)', () => {
         available: true,
         sort: 'title-ascending',
         genre: genreFilter(MANGA),
+        maxPrice: null,
       }),
     );
     expect(screen.getByRole('button', { name: 'Genre, Manga' })).toBeOnTheScreen();
@@ -571,7 +588,7 @@ describe('Genre (P6-07, D-101, D-102)', () => {
     await waitFor(() =>
       expect(groupCalls().at(-1)).toMatchObject({
         handle: 'junior-readers',
-        list: { available: true, sort: 'featured', genre: genreFilter(FANTASY) },
+        list: { available: true, sort: 'featured', genre: genreFilter(FANTASY), maxPrice: null },
       }),
     );
     // The genre list follows the group.
@@ -589,6 +606,7 @@ describe('Genre (P6-07, D-101, D-102)', () => {
         available: true,
         sort: 'price-ascending',
         genre: genreFilter(FANTASY),
+        maxPrice: null,
       }),
     );
 
@@ -598,6 +616,7 @@ describe('Genre (P6-07, D-101, D-102)', () => {
         available: false,
         sort: 'price-ascending',
         genre: genreFilter(FANTASY),
+        maxPrice: null,
       }),
     );
     await waitFor(() =>
@@ -620,7 +639,7 @@ describe('Genre (P6-07, D-101, D-102)', () => {
     await waitFor(() =>
       expect(groupCalls().at(-1)).toMatchObject({
         handle: 'harry-potter-series',
-        list: { genre: genreFilter(FANTASY) },
+        list: { genre: genreFilter(FANTASY), maxPrice: null },
       }),
     );
   });
@@ -723,6 +742,7 @@ describe('Genre (P6-07, D-101, D-102)', () => {
           available: false,
           sort: 'price-descending',
           genre: null,
+          maxPrice: null,
         }),
       );
       expect(screen.getByRole('button', { name: 'Age group' })).toBeOnTheScreen();
@@ -744,7 +764,7 @@ describe('Genre (P6-07, D-101, D-102)', () => {
       );
       await renderScreen({ settle: false });
 
-      expect(filterButtonNames()).toEqual(['Age group', 'Genre', 'Series']);
+      expect(filterButtonNames()).toEqual(['Age group', 'Genre', 'Price', 'Series']);
       expect(genreButton().props.accessibilityState).toEqual({ disabled: true });
       await fireEvent.press(genreButton());
       expect(screen.queryByRole('button', { name: 'All genres' })).not.toBeOnTheScreen();
@@ -756,21 +776,21 @@ describe('Genre (P6-07, D-101, D-102)', () => {
       await waitFor(() =>
         expect(genreButton().props.accessibilityState).toEqual({ disabled: false }),
       );
-      expect(filterButtonNames()).toEqual(['Age group', 'Genre', 'Series']);
+      expect(filterButtonNames()).toEqual(['Age group', 'Genre', 'Price', 'Series']);
     });
 
     it('is removed when the list is known to be empty', async () => {
       mockFetchGenres.mockResolvedValue({ kind: 'found', locale: 'en-IN', values: [] });
       await renderScreen();
 
-      await waitFor(() => expect(filterButtonNames()).toEqual(['Age group', 'Series']));
+      await waitFor(() => expect(filterButtonNames()).toEqual(['Age group', 'Price', 'Series']));
     });
 
     it('is removed when the genre entries cannot be listed: no Shopify name is ever shown', async () => {
       mockFetchEntries.mockRejectedValue(HTTP_ERROR);
       await renderScreen();
 
-      await waitFor(() => expect(filterButtonNames()).toEqual(['Age group', 'Series']));
+      await waitFor(() => expect(filterButtonNames()).toEqual(['Age group', 'Price', 'Series']));
       expect(screen.queryByText(/Design|Drama/)).not.toBeOnTheScreen();
     });
 
@@ -778,7 +798,7 @@ describe('Genre (P6-07, D-101, D-102)', () => {
       mockFetchGenres.mockRejectedValue(HTTP_ERROR);
       await renderScreen();
 
-      await waitFor(() => expect(filterButtonNames()).toEqual(['Age group', 'Series']));
+      await waitFor(() => expect(filterButtonNames()).toEqual(['Age group', 'Price', 'Series']));
       // The books still show.
       expect(listData()).toHaveLength(20);
     });
@@ -803,6 +823,311 @@ describe('Genre (P6-07, D-101, D-102)', () => {
       await fireEvent.press(genreButton());
       expect(genreNames()).toEqual(['All genres', 'Manga']);
     });
+  });
+});
+
+describe('Price (P6-08, D-104)', () => {
+  const priceList = () => screen.getByTestId('price-list');
+  const priceButton = () => screen.getByTestId('price');
+  const priceOptions = () =>
+    within(priceList())
+      .getAllByRole('button')
+      .filter((button) => button.props.accessibilityLabel !== 'Close');
+
+  it('lists "All prices", then up to ₹34, ₹49 and ₹74, with "All prices" marked', async () => {
+    await renderScreen();
+
+    await fireEvent.press(priceButton());
+
+    expect(priceOptions().map((option) => option.props.accessibilityLabel)).toEqual([
+      'All prices',
+      'Up to ₹34',
+      'Up to ₹49',
+      'Up to ₹74',
+    ]);
+    expect(priceOptions().map((option) => option.props.accessibilityState.selected)).toEqual([
+      true,
+      false,
+      false,
+      false,
+    ]);
+    expect(priceButton().props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('reads the chosen maximum, and shows it on the button and to the screen reader', async () => {
+    allBooksWith((list) => (list.maxPrice === null ? ALL.slice(0, 20) : ALL.slice(0, 3)));
+    await renderScreen();
+
+    await choose('Price', 'Up to ₹49');
+
+    await waitFor(() =>
+      expect(allCalls().at(-1)?.list).toEqual({
+        available: true,
+        sort: 'title-ascending',
+        genre: null,
+        maxPrice: 49,
+      }),
+    );
+    expect(screen.getByRole('button', { name: 'Price, up to ₹49' })).toBeOnTheScreen();
+    expect(within(priceButton()).getByText('Price: Up to ₹49')).toBeOnTheScreen();
+    await waitFor(() => expect(listData()).toHaveLength(3));
+    await fireEvent.press(priceButton());
+    expect(screen.getByRole('button', { name: 'Up to ₹49' }).props.accessibilityState).toEqual({
+      selected: true,
+    });
+
+    // "All prices": every book again (the first list, already in the cache).
+    await fireEvent.press(screen.getByRole('button', { name: 'All prices' }));
+    await waitFor(() => expect(listData()).toHaveLength(20));
+    expect(screen.getByRole('button', { name: 'Price' })).toBeOnTheScreen();
+    await booksSettled();
+  });
+
+  it('combines with an age group, a genre, "Available now" and the sort, and stays when they change', async () => {
+    await renderScreen();
+    await choose('Price', 'Up to ₹74');
+    await waitFor(() => expect(allCalls().at(-1)?.list.maxPrice).toBe(74));
+
+    await choose('Age group', '9-10 years');
+    await waitFor(() =>
+      expect(groupCalls().at(-1)).toMatchObject({
+        handle: 'junior-readers',
+        list: { available: true, sort: 'featured', genre: null, maxPrice: 74 },
+      }),
+    );
+    await genreReady();
+    await choose('Genre', 'Fantasy');
+    await waitFor(() =>
+      expect(groupCalls().at(-1)?.list).toEqual({
+        available: true,
+        sort: 'featured',
+        genre: genreFilter(FANTASY),
+        maxPrice: 74,
+      }),
+    );
+    await choose('Sort, Featured', 'Price, high to low');
+    await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', false);
+
+    await waitFor(() =>
+      expect(groupCalls().at(-1)?.list).toEqual({
+        available: false,
+        sort: 'price-descending',
+        genre: genreFilter(FANTASY),
+        maxPrice: 74,
+      }),
+    );
+    expect(screen.getByRole('button', { name: 'Price, up to ₹74' })).toBeOnTheScreen();
+    await genreSettled();
+    await booksSettled();
+  });
+
+  it('combines with a series', async () => {
+    await renderScreen();
+    await choose('Series', 'Harry Potter');
+    await choose('Price', 'Up to ₹34');
+
+    await waitFor(() =>
+      expect(groupCalls().at(-1)).toMatchObject({
+        handle: 'harry-potter-series',
+        list: { maxPrice: 34 },
+      }),
+    );
+    await genreSettled();
+    await booksSettled();
+  });
+
+  it('does not change the Genre list: no genre read for a price (owner, P6-08 answer 2)', async () => {
+    await renderScreen();
+    const reads = genreReads();
+
+    await choose('Price', 'Up to ₹34');
+    await waitFor(() => expect(allCalls().at(-1)?.list.maxPrice).toBe(34));
+    await booksSettled();
+
+    expect(genreReads()).toEqual(reads);
+    await fireEvent.press(genreButton());
+    expect(
+      within(screen.getByTestId('genre-list'))
+        .getAllByRole('button')
+        .map((button) => button.props.accessibilityLabel as string),
+    ).toEqual(['Close', 'All genres', 'Fantasy', 'Manga', 'Realistic fiction']);
+  });
+
+  it("names the price in the empty message, alone and after a genre (owner's wording)", async () => {
+    allBooksWith((list) => (list.maxPrice === null ? ALL.slice(0, 20) : []));
+    await renderScreen();
+
+    await choose('Price', 'Up to ₹34');
+    expect(
+      await screen.findByText(
+        'No books up to ₹34 available right now. Switch off Available now to see rented-out books, or choose another price.',
+      ),
+    ).toBeOnTheScreen();
+
+    await choose('Genre', 'Manga');
+    expect(
+      await screen.findByText(
+        'No Manga books up to ₹34 available right now. Switch off Available now to see rented-out books, or choose another genre or price.',
+      ),
+    ).toBeOnTheScreen();
+
+    await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', false);
+    expect(
+      await screen.findByText('No Manga books up to ₹34 here. Choose another genre or price.'),
+    ).toBeOnTheScreen();
+
+    await choose('Genre, Manga', 'All genres');
+    expect(
+      await screen.findByText('No books up to ₹34 here. Choose another price.'),
+    ).toBeOnTheScreen();
+    await genreSettled();
+  });
+
+  it("closes the list on Android's back button and on a tap outside, without changing the price", async () => {
+    await renderScreen();
+    await choose('Price', 'Up to ₹49');
+    await waitFor(() => expect(allCalls().at(-1)?.list.maxPrice).toBe(49));
+    await booksSettled();
+    const reads = mockFetchBooks.mock.calls.length;
+
+    await fireEvent.press(priceButton());
+    expect(screen.getByRole('button', { name: 'All prices' })).toBeOnTheScreen();
+    // Android's back button reaches an open Modal as onRequestClose.
+    await fireEvent(priceList(), 'requestClose');
+    expect(screen.queryByRole('button', { name: 'All prices' })).not.toBeOnTheScreen();
+
+    await fireEvent.press(priceButton());
+    await fireEvent.press(screen.getByTestId('price-outside'));
+    expect(screen.queryByRole('button', { name: 'All prices' })).not.toBeOnTheScreen();
+
+    expect(screen.getByRole('button', { name: 'Price, up to ₹49' })).toBeOnTheScreen();
+    expect(mockFetchBooks.mock.calls.length).toBe(reads);
+  });
+
+  it('is not drawn when the store configuration cannot be read; the books still show', async () => {
+    mockStoreConfig = () => {
+      throw new Error('Missing or invalid store configuration');
+    };
+    try {
+      await renderScreen();
+
+      expect(filterButtonNames()).toEqual(['Age group', 'Genre', 'Series']);
+      expect(listData()).toHaveLength(20);
+      expect(mockReportUnexpected).toHaveBeenCalledWith('catalogue/price-options-unavailable');
+    } finally {
+      mockStoreConfig = () => STORE_CONFIG;
+    }
+  });
+
+  describe('"Clear" (owner, P6-08 answer 6)', () => {
+    it('shows when only a price is chosen', async () => {
+      await renderScreen();
+      expect(screen.queryByRole('button', { name: CLEAR })).not.toBeOnTheScreen();
+
+      await choose('Price', 'Up to ₹34');
+
+      expect(screen.getByRole('button', { name: CLEAR })).toBeOnTheScreen();
+      await waitFor(() => expect(allCalls().at(-1)?.list.maxPrice).toBe(34));
+      await booksSettled();
+    });
+
+    it('resets the group, the genre and the price, and keeps "Available now" and the sort', async () => {
+      await renderScreen();
+      await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', false);
+      await choose('Sort, Alphabetically, A-Z', 'Price, low to high');
+      await choose('Age group', '9-10 years');
+      await genreReady();
+      await choose('Genre', 'Fantasy');
+      await choose('Price', 'Up to ₹49');
+      await waitFor(() =>
+        expect(groupCalls().at(-1)?.list).toEqual({
+          available: false,
+          sort: 'price-ascending',
+          genre: genreFilter(FANTASY),
+          maxPrice: 49,
+        }),
+      );
+
+      await fireEvent.press(screen.getByRole('button', { name: CLEAR }));
+
+      await waitFor(() =>
+        expect(allCalls().at(-1)?.list).toEqual({
+          available: false,
+          sort: 'price-ascending',
+          genre: null,
+          maxPrice: null,
+        }),
+      );
+      expect(filterButtonNames()).toEqual(['Age group', 'Genre', 'Price', 'Series']);
+      expect(screen.getByRole('button', { name: 'Price' })).toBeOnTheScreen();
+      expect(screen.getByRole('switch', { name: 'Available now' }).props.value).toBe(false);
+      expect(screen.getByRole('button', { name: 'Sort, Price, low to high' })).toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: CLEAR })).not.toBeOnTheScreen();
+      await genreSettled();
+      await booksSettled();
+    });
+  });
+});
+
+describe('one filter row (P6-08, D-105; architect, review of PR #20)', () => {
+  const scroll = () => screen.getByTestId('filter-scroll');
+  const row = () => screen.getByTestId('filter-row');
+
+  it('puts every filter button in one row that scrolls sideways and never wraps', async () => {
+    await renderScreen();
+
+    expect(scroll().props.horizontal).toBe(true);
+    for (const id of ['age-group', 'genre', 'price', 'series']) {
+      expect(within(scroll()).getByTestId(id)).toBeOnTheScreen();
+    }
+    const content = StyleSheet.flatten(scroll().props.contentContainerStyle);
+    expect(content.flexDirection).toBe('row');
+    expect(content.flexWrap).toBeUndefined();
+    expect(StyleSheet.flatten(row().props.style).flexWrap).toBeUndefined();
+  });
+
+  it('pins "Clear" at the right edge, outside the scrolling part, after it', async () => {
+    await renderScreen();
+    await choose('Price', 'Up to ₹74');
+
+    const clear = screen.getByTestId('clear-filters');
+    expect(within(scroll()).queryByTestId('clear-filters')).not.toBeOnTheScreen();
+    expect(within(row()).getByTestId('clear-filters')).toBe(clear);
+    const children = screen.queryAllByTestId(/^(filter-scroll|clear-filters)$/);
+    expect(children.map((child) => child.props.testID)).toEqual(['filter-scroll', 'clear-filters']);
+    // The scrolling part takes the width "Clear" leaves.
+    expect(StyleSheet.flatten(scroll().props.style)).toMatchObject({ flexGrow: 1, flexShrink: 1 });
+    await waitFor(() => expect(allCalls().at(-1)?.list.maxPrice).toBe(74));
+    await booksSettled();
+  });
+
+  it('keeps the buttons left-aligned and in place when "Clear" appears and disappears', async () => {
+    await renderScreen();
+    const contentBefore = StyleSheet.flatten(scroll().props.contentContainerStyle);
+    expect(contentBefore.justifyContent ?? 'flex-start').toBe('flex-start');
+
+    await choose('Price', 'Up to ₹34');
+    expect(screen.getByTestId('clear-filters')).toBeOnTheScreen();
+    expect(StyleSheet.flatten(scroll().props.contentContainerStyle)).toEqual(contentBefore);
+    expect(filterButtonNames()).toEqual(['Age group', 'Genre', 'Price', 'Series']);
+    await waitFor(() => expect(allCalls().at(-1)?.list.maxPrice).toBe(34));
+    await booksSettled();
+
+    await fireEvent.press(screen.getByRole('button', { name: CLEAR }));
+    expect(screen.queryByTestId('clear-filters')).not.toBeOnTheScreen();
+    expect(StyleSheet.flatten(scroll().props.contentContainerStyle)).toEqual(contentBefore);
+    expect(screen.getByRole('button', { name: 'Price' })).toBeOnTheScreen();
+  });
+
+  it('keeps "Available now" and the sort outside the row, below it', async () => {
+    await renderScreen();
+
+    expect(within(row()).queryByTestId('available-now')).not.toBeOnTheScreen();
+    expect(within(row()).queryByTestId('sort')).not.toBeOnTheScreen();
+    const order = screen
+      .queryAllByTestId(/^(filter-row|available-now|sort)$/)
+      .map((element) => element.props.testID);
+    expect(order).toEqual(['filter-row', 'available-now', 'sort']);
   });
 });
 

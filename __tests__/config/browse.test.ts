@@ -95,6 +95,16 @@ describe('BROWSE_CONTENT (P6-04)', () => {
   });
 });
 
+describe('the Price filter (P6-08, D-104)', () => {
+  it('offers up to ₹34, ₹49 and ₹74, lowest first; "Up to ₹99" would be every book', () => {
+    expect(BROWSE_CONTENT.price.maxima).toEqual([34, 49, 74]);
+  });
+
+  it('configures numbers only: every label is built from the store currency format', () => {
+    expect(JSON.stringify(BROWSE_CONTENT.price)).not.toMatch(/₹|Rs|INR|Up to/);
+  });
+});
+
 describe('effectiveSort (D-085)', () => {
   it('defaults to A-Z for all books and Featured inside a group', () => {
     expect(effectiveSort(null, false)).toBe('title-ascending');

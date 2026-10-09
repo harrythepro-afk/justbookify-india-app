@@ -8,6 +8,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
+import { BROWSE_CONTENT, getStoreConfig } from '@/config';
 import { freshness } from '@/query/freshness';
 import { useRefetchStaleOnFocus } from '@/query/screenFocus';
 
@@ -22,10 +23,12 @@ import {
   type BookListOptions,
 } from '../catalogue';
 import { toGenreOptions, type GenreOption } from '../genres';
+import { toPriceOptions, type PriceOption } from '../priceFilter';
 import { storefrontKeys } from '../queryKeys';
 
 export { CATALOGUE_PAGE_SIZE, type BookListOptions, type CollectionBooksPage } from '../catalogue';
 export type { GenreFilter, GenreOption } from '../genres';
+export type { PriceOption } from '../priceFilter';
 export type { BookPage } from '../bookPage';
 export type { RichSpan, RichTextBlock } from '../richText';
 // The development preview shows a sample description through the book page's parser (D-094).
@@ -43,8 +46,8 @@ export { recheckNetwork, useIsOffline } from '@/query/online';
 /**
  * A collection's books by handle (D-068), page by page. Each page is `found` or `not-found`;
  * `fetchNextPage()` reads the next one while `hasNextPage` is true. Without `list`, every book
- * in the collection's own order; with it, a sort, "Available now" and a genre (D-085, D-086,
- * D-101), each combination cached on its own. Browse's all books are a collection too (D-100).
+ * in the collection's own order; with it, a sort, "Available now", a genre and a price (D-085,
+ * D-086, D-101, D-104), each combination cached on its own. Browse's all books are a collection too (D-100).
  */
 export function useCollectionBooks(handle: string, list?: BookListOptions) {
   const queryKey = storefrontKeys.catalogue.collectionBooks(handle, list);
@@ -108,6 +111,29 @@ export function useGenreOptions(handle: string, available: boolean): GenreListSt
     (values.data === undefined && values.isError) ||
     (entries.data === undefined && entries.isError);
   return failed ? { kind: 'unavailable' } : { kind: 'loading' };
+}
+
+const PRICE_OPTIONS_UNAVAILABLE = 'catalogue/price-options-unavailable';
+
+/**
+ * The Price list's options (P6-08, D-104): the configured maxima, lowest first, each labelled in
+ * the store's currency format ("Up to ₹49"). No read: the list is the same for every collection.
+ * Null when the store configuration cannot be read, so there is no Price button and never a
+ * crash while drawing (the book read then fails and says so itself); reported once per session,
+ * by code only.
+ */
+export function usePriceOptions(): readonly PriceOption[] | null {
+  const options = useMemo(() => {
+    try {
+      return toPriceOptions(BROWSE_CONTENT.price.maxima, getStoreConfig());
+    } catch {
+      return null;
+    }
+  }, []);
+  useEffect(() => {
+    if (options === null) reportCatalogueFaultOnce(PRICE_OPTIONS_UNAVAILABLE);
+  }, [options]);
+  return options;
 }
 
 /** One book's card by handle; `null` when no such book is published to the app's channel. */
