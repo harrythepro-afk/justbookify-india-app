@@ -100,6 +100,7 @@ beforeEach(() => {
     const start = after === null ? 0 : 20;
     return {
       kind: 'found',
+      id: 'gid://shopify/Collection/1',
       title: 'Junior Readers',
       books: JUNIOR.slice(start, start + 20),
       nextCursor: after === null ? 'end-0' : null,

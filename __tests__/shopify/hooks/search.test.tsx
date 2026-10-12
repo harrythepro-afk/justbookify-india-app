@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { freshness } from '@/query/freshness';
-import { useSearchBooks, type SearchOptions } from '@/shopify/hooks/search';
+import { useSearchBooks, useSearchMatchLists, type SearchOptions } from '@/shopify/hooks/search';
 import { storefrontKeys } from '@/shopify/queryKeys';
 
 import { bookProduct } from '../../helpers/catalogue';
@@ -177,4 +177,86 @@ it('keeps the previous results on screen while a new term loads (owner, change a
   await waitFor(() => expect(result.current.isPlaceholderData).toBe(false));
   expect(result.current.data?.pages[0]?.books[0]?.handle).toBe('dahl-1');
   expect(result.current.data?.pages[0]?.totalCount).toBe(3);
+});
+
+describe('useSearchMatchLists (P6-09, D-109)', () => {
+  const HARRY = 'gid://shopify/Collection/411000000001';
+  const SIX_TO_EIGHT = 'gid://shopify/Collection/411000000006';
+
+  /** Answers the collection listing and the genre entries; anything else fails. */
+  function answerCatalogue(options: { handles?: 'fail'; entries?: 'fail' | 'hold' } = {}) {
+    mockQuery.mockImplementation((operation: string) => {
+      if (operation.includes('query CollectionHandles(')) {
+        if (options.handles === 'fail') return Promise.reject(new Error('boom'));
+        return Promise.resolve({
+          collections: {
+            pageInfo: { hasNextPage: false, endCursor: null },
+            nodes: [
+              { id: HARRY, handle: 'harry-potter-series' },
+              { id: SIX_TO_EIGHT, handle: 'emerging-readers' },
+              { id: 'gid://shopify/Collection/9', handle: 'not-configured' },
+            ],
+          },
+        });
+      }
+      if (operation.includes('query GenreEntries(')) {
+        if (options.entries === 'fail') return Promise.reject(new Error('boom'));
+        if (options.entries === 'hold') return new Promise(() => undefined);
+        return Promise.resolve({
+          metaobjects: {
+            pageInfo: { hasNextPage: false, endCursor: null },
+            nodes: [
+              {
+                label: { value: ' Manga ' },
+                taxonomyReference: { value: 'gid://shopify/TaxonomyValue/15730' },
+              },
+              {
+                label: { value: '' },
+                taxonomyReference: { value: 'gid://shopify/TaxonomyValue/1' },
+              },
+              { label: { value: 'No value' }, taxonomyReference: null },
+            ],
+          },
+        });
+      }
+      return Promise.reject(new Error(`unexpected ${operation.slice(0, 30)}`));
+    });
+  }
+
+  it('gives the configured series and age groups the store has, by their shown names, and the store genres', async () => {
+    answerCatalogue();
+    const { result } = await renderHook(() => useSearchMatchLists(), {
+      wrapper: withQueryClient(client),
+    });
+
+    await waitFor(() => expect(result.current).not.toBeNull());
+    expect(result.current).toEqual({
+      series: [{ name: 'Harry Potter', collectionGid: HARRY }],
+      ageGroups: [{ name: '6-8 years', collectionGid: SIX_TO_EIGHT }],
+      genres: [{ name: 'Manga', taxonomyValueGid: 'gid://shopify/TaxonomyValue/15730' }],
+      commonWords: expect.arrayContaining(['the', 'and', 'of']),
+    });
+  });
+
+  it('is null until both reads are in', async () => {
+    answerCatalogue({ entries: 'hold' });
+    const { result } = await renderHook(() => useSearchMatchLists(), {
+      wrapper: withQueryClient(client),
+    });
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(result.current).toBeNull();
+  });
+
+  it('leaves a failed read’s lists empty, so only that kind of match is missed', async () => {
+    answerCatalogue({ handles: 'fail' });
+    const { result } = await renderHook(() => useSearchMatchLists(), {
+      wrapper: withQueryClient(client),
+    });
+
+    await waitFor(() => expect(result.current).not.toBeNull());
+    expect(result.current?.series).toEqual([]);
+    expect(result.current?.ageGroups).toEqual([]);
+    expect(result.current?.genres).toHaveLength(1);
+  });
 });

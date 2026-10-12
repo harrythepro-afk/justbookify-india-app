@@ -175,8 +175,9 @@ it('reads only the genre metafield on the book page, and no rating', () => {
   expect(metafields).toEqual([{ namespace: 'shopify', key: 'genre' }]);
 });
 
-// Home's series tiles are text only (owner, P6-03; D-076): the listing reads handles, no image.
-it('reads only handles in the collection listing', () => {
+// Home's series tiles are text only (owner, P6-03; D-076): the listing reads handles, no image;
+// and each collection's ID, which analytics sends for a chosen or matched collection (D-107).
+it('reads only handles and IDs in the collection listing', () => {
   const listing = realOperations.find(
     ({ document }) => definitions(document)[0]?.name?.value === 'CollectionHandles',
   );
@@ -193,6 +194,7 @@ it('reads only handles in the collection listing', () => {
     'hasNextPage',
     'endCursor',
     'nodes',
+    'id',
     'handle',
   ]);
 });

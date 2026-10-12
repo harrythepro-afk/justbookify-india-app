@@ -38,7 +38,13 @@ function collectionResponse(
     endCursor: null,
   },
 ) {
-  return { collection: { title: 'Junior Readers', products: { pageInfo, nodes } } };
+  return {
+    collection: {
+      id: 'gid://shopify/Collection/4242',
+      title: 'Junior Readers',
+      products: { pageInfo, nodes },
+    },
+  };
 }
 
 beforeEach(() => {
@@ -71,7 +77,12 @@ describe('fetchCollectionBooksPage', () => {
 
     const page = await fetchCollectionBooksPage({ handle: 'junior-readers', after: null });
 
-    expect(page).toMatchObject({ kind: 'found', title: 'Junior Readers', nextCursor: 'cursor-2' });
+    expect(page).toMatchObject({
+      kind: 'found',
+      id: 'gid://shopify/Collection/4242',
+      title: 'Junior Readers',
+      nextCursor: 'cursor-2',
+    });
     expect(page.kind === 'found' && page.books.map((book) => book.handle)).toEqual([
       'the-diary-of-a-wimpy-kid-no-brainer',
       'the-gruffalo',
@@ -661,7 +672,10 @@ describe('fetchCollectionHandles (D-076)', () => {
     return {
       collections: {
         pageInfo: { hasNextPage, endCursor },
-        nodes: handles.map((handle) => ({ handle })),
+        nodes: handles.map((handle, index) => ({
+          id: `gid://shopify/Collection/${index + 1}`,
+          handle,
+        })),
       },
     };
   }
@@ -674,7 +688,11 @@ describe('fetchCollectionHandles (D-076)', () => {
 
     const handles = await fetchCollectionHandles({ signal });
 
-    expect([...handles]).toEqual(['early-readers', 'harry-potter-series', 'tintin-series']);
+    expect([...handles]).toEqual([
+      ['early-readers', 'gid://shopify/Collection/1'],
+      ['harry-potter-series', 'gid://shopify/Collection/2'],
+      ['tintin-series', 'gid://shopify/Collection/3'],
+    ]);
     expect(mockQuery).toHaveBeenCalledTimes(1);
     expect(mockQuery.mock.calls[0]?.[1]).toEqual({
       variables: { first: 250, after: null },
@@ -689,7 +707,7 @@ describe('fetchCollectionHandles (D-076)', () => {
 
     const handles = await fetchCollectionHandles({});
 
-    expect([...handles]).toEqual(['a', 'b', 'c']);
+    expect([...handles.keys()]).toEqual(['a', 'b', 'c']);
     expect(
       mockQuery.mock.calls.map(
         (call) => (call[1] as { variables: { after: string | null } }).variables.after,
@@ -700,7 +718,7 @@ describe('fetchCollectionHandles (D-076)', () => {
   it('stops when Shopify says there is a next page but gives no cursor', async () => {
     mockQuery.mockResolvedValueOnce(listing(['a'], true, null));
 
-    expect([...(await fetchCollectionHandles({}))]).toEqual(['a']);
+    expect([...(await fetchCollectionHandles({})).keys()]).toEqual(['a']);
     expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 

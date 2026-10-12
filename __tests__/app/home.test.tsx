@@ -9,7 +9,7 @@ import { toBookCard, type BookCard } from '@/shopify/bookCard';
 import type { CollectionBooksPage } from '@/shopify/catalogue';
 import { StorefrontError } from '@/shopify/errors';
 
-import { bookProduct } from '../helpers/catalogue';
+import { bookProduct, collectionGid, collectionMap } from '../helpers/catalogue';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
 import { withScreen } from '../helpers/screen';
 
@@ -89,7 +89,7 @@ jest.mock('@/query/online', () => ({
   recheckNetwork: () => mockRecheckNetwork(),
 }));
 
-const mockFetchHandles = jest.fn<Promise<ReadonlySet<string>>, []>();
+const mockFetchHandles = jest.fn<Promise<ReadonlyMap<string, string>>, []>();
 const mockFetchPage = jest.fn<Promise<CollectionBooksPage>, [{ handle: string }]>();
 
 jest.mock('@/shopify/catalogue', () => ({
@@ -100,7 +100,7 @@ jest.mock('@/shopify/catalogue', () => ({
 
 // The development store's 23 collections (`TESTING.md`, "Sample catalogue (P6-01)"): 5 of the 15
 // series, all 5 age groups and new-arrivals.
-const DEV_STORE_HANDLES = new Set([
+const DEV_STORE_HANDLES = collectionMap([
   'frontpage',
   'early-readers',
   'emerging-readers',
@@ -140,6 +140,7 @@ function card(index: number, availableForSale = true): BookCard {
 function arrivals(count: number): CollectionBooksPage {
   return {
     kind: 'found',
+    id: collectionGid('new-arrivals'),
     title: 'New Arrivals',
     books: Array.from({ length: count }, (_, index) => card(index + 1, index !== 1)),
     nextCursor: null,

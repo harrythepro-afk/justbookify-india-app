@@ -80,19 +80,13 @@ export type GenreListState =
  */
 export function useGenreOptions(handle: string, available: boolean): GenreListState {
   const valuesKey = storefrontKeys.catalogue.collectionGenres(handle, available);
-  const entriesKey = storefrontKeys.catalogue.genreEntries();
   useRefetchStaleOnFocus(valuesKey);
-  useRefetchStaleOnFocus(entriesKey);
   const values = useQuery({
     queryKey: valuesKey,
     queryFn: ({ signal }) => fetchCollectionGenres({ handle, available, signal }),
     ...freshness.catalogue,
   });
-  const entries = useQuery({
-    queryKey: entriesKey,
-    queryFn: ({ signal }) => fetchGenreEntries({ signal }),
-    ...freshness.catalogue,
-  });
+  const entries = useGenreEntries();
 
   const joined = useMemo(() => {
     if (values.data === undefined || entries.data === undefined) return null;
@@ -111,6 +105,20 @@ export function useGenreOptions(handle: string, available: boolean): GenreListSt
     (values.data === undefined && values.isError) ||
     (entries.data === undefined && entries.isError);
   return failed ? { kind: 'unavailable' } : { kind: 'loading' };
+}
+
+/**
+ * Every genre entry of the store (D-102): its name and the taxonomy value it stands for. Shared
+ * by every Genre list and by search's catalogue matching (P6-09, D-109), under one cache key.
+ */
+export function useGenreEntries() {
+  const queryKey = storefrontKeys.catalogue.genreEntries();
+  useRefetchStaleOnFocus(queryKey);
+  return useQuery({
+    queryKey,
+    queryFn: ({ signal }) => fetchGenreEntries({ signal }),
+    ...freshness.catalogue,
+  });
 }
 
 const PRICE_OPTIONS_UNAVAILABLE = 'catalogue/price-options-unavailable';
@@ -163,8 +171,9 @@ export function useBook(handle: string) {
 }
 
 /**
- * The handles of every collection published to the app's channel (D-076), so a screen shows
- * only the configured collections that exist.
+ * Every collection published to the app's channel (D-076), each handle with its GID, so a screen
+ * shows only the configured collections that exist, and analytics can send a chosen one's ID
+ * (P6-09, D-107).
  */
 export function useCollectionHandles() {
   const queryKey = storefrontKeys.catalogue.collectionHandles();
