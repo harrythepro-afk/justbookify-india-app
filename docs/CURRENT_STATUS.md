@@ -1,6 +1,6 @@
 # Current status
 
-Last updated: 9 October 2026 (P6-08, the Price filter on Browse and one filter row, merged as `c757ff2`, PR #21. P6-09, the catalogue usage events, started on branch `p6-09-catalogue-events`).
+Last updated: 12 October 2026 (P6-09, the catalogue usage events, on branch `p6-09-catalogue-events`; P6-08 merged as `c757ff2`, PR #21).
 
 ## Phase
 
@@ -440,6 +440,18 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
     - **Wireless debugging first (owner's choice), then USB:** the owner paired the phone over Wi-Fi in their own terminal (the pairing code never reached Claude); `adb connect` from the owner's terminal failed ("failed to connect"), and adb listed only `offline` wireless entries, so the check ran over USB. The owner approved `adb connect` and `adb disconnect` for this check.
     - adb commands, all on the USB phone by its serial (kept in a scratch file, never printed): `devices` (about 15, including one `devices -l` with its model and product fields removed from the output); `disconnect` (2, owner-approved, to drop stale wireless entries; they reappeared, so every later command named the USB phone); `reverse tcp:8081 tcp:8081` (2: the first refused with "more than one device") and `reverse --list` (3); `wm size` (1); `monkey` to launch (2: the start and the end of the background step); the focus check (`dumpsys window | grep -q` on the focused window) before every input and screenshot; `input tap` 67 (including two double taps of two taps each); `input swipe` 44; `input keyevent KEYCODE_BACK` 8; `input keyevent KEYCODE_HOME` 1; `exec-out screencap` about 60, every screenshot deleted the same day; `pidof` and `logcat -d --pid` once, the log copy deleted; `reverse --remove tcp:8081` at the end. No text was typed. No screenshot showed the keyboard or anything outside JustBookify. Metro stopped (its Expo CLI process on port 8081 stopped by process ID); port 8081 free.
 
+- P6-09 (branch `p6-09-catalogue-events`), 9 to 12 October 2026: the catalogue usage events.
+  - Housekeeping (first commit, `1108b1c`): P6-08 recorded as merged (`c757ff2`, PR #21).
+  - Decisions (plan accepted by the owner, 9 October 2026, with answers 1 to 5 and the owner's decision on search matches): D-107 (the catalogue events and their codes), D-108 (when `search` is sent and its parameters; **amends `ANALYTICS.md`'s rule "Search terms are measured by length, not content"**), D-109 (the search-match rules), D-110 (the guard's dependent parameters and the taxonomy value ID).
+  - Analytics (`3038b1b`): `src/analytics/guard.ts` checks a parameter whose kind follows a code (`filter_applied.value` by `filter_type`, `search.match_id` by `match_type`, absent for `other`); `analyticsTaxonomyValueId()`; typed unions `FilterAppliedParams` and `SearchParams`; `catalogueEvents.ts` (the codes and the three catalogue events), `searchMatch.ts` (the rules) and `searchEvent.ts` (the 2-second, search-key and book-open timing). The common-word list is store configuration (`SEARCH_CONTENT.matchCommonWords`).
+  - Data (`fdf5559`): `CollectionHandles` selects each collection's `id` (`fetchCollectionHandles` gives a handle-to-GID map) and `CollectionBooks` selects `collection.id`; types regenerated. `useGenreEntries` shares the genre entries' cache key with the Genre list; `useSearchMatchLists` gives the configured series and age groups the store has and the store's genre names. `npm run check:dev-store` runs the app's own matcher on the four phone-check words and prints the numbers the phone check compares with DebugView (a resolve hook inside the script lets Node load the app's `.ts` files that import without an extension; no new package).
+  - Screens (`3094c98`): the collection screen, Browse, the book page and search send their events; each handler still sets its state as before and only skips the event for a repeated choice. `BookGrid` gains an optional `onOpenBook`, used by search to send a pending event before the book opens. The search screen reads its match lists right after its results, so its focus hooks keep their order.
+  - Existing tests: the old `trackSearch({ term_length, result_count })` call gained `match_type: 'other'` (the event now has it); found collection pages in fixtures gained an `id`; handle fixtures became maps; the `CollectionHandles` selection test now expects `id` and `handle`. No expectation was removed or loosened.
+  - Checks on 12 October 2026: lint, format check, type check, `codegen:check` and `audit:gate` pass (a new moderate `sprintf-js` advisory is listed as info, not gated); tests: 1,268 in 67 files, 184 new; no "not wrapped in act" line and no console.error in the log (`npm run test:ci`). `npm run check:dev-store` passes: harry series 528438755603 (7), dahl author `roald_dahl` (3), zzqxv other (0), tintin series 528439279891 (0).
+  - Negative checks (each change reverted): letting a term of common words match a word run fails 1 match test; letting the guard accept a `match_id` with `other` fails 2 tests; sending `filter_applied` for the sort already in use fails 1 Browse test.
+  - **Test-writing lessons:** a hook test with fake timers needs `await act(async () => jest.advanceTimersByTime(...))`; with a synchronous `act`, React did not run the next render's effects. The search screen's event tests wait out the real 2 seconds, so each has a 15-second limit.
+  - No new package, no native change: the phone check uses build 3c8bf273.
+
 ## What works
 
 - `npm run lint`, `format:check`, `typecheck`, `test` (86 tests) and `audit:gate` pass on `main` after P3-02. `npx expo-doctor` passes 21 of 21 checks.
@@ -485,6 +497,8 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
 - **Development store search matches fewer books since 8 October 2026** (P6-07): resolved in the architect's review of PR #20. `npm run check:dev-store` checks broad words ("the", "kid") only by the meaning of "Available now" and keeps exact counts for harry, dahl and zzqxv (`SHOPIFY_INTEGRATION.md`).
 
 ## Last passing build
+
+Branch `p6-09-catalogue-events` (P6-09), 12 October 2026 (at `3094c98`): lint, format check, type check, `codegen:check`, tests (1,268 in 67 files, 184 new; no "not wrapped in act" line and no console.error in the log, `npm run test:ci`) and audit gate pass locally; `npm run check:dev-store` passes, with the search-match check. Android development build **3c8bf273** runs it (no native change).
 
 Branch `p6-08-price-filter` (P6-08), 9 October 2026 (at `45ef305`): lint, format check, type check, tests (1,084, `npm run test:ci`) and audit gate pass locally; `npm run check:dev-store` passes, with the new price checks. CI green on PR #21 at `5de6013` with no "not wrapped in act" line. Android development build **3c8bf273** runs it (no native change).
 

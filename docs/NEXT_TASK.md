@@ -1,6 +1,6 @@
-# Next task (proposal): P6-09, the catalogue analytics events
+# Next task (proposal): P6-10, the last Phase 6 task
 
-Status: started on 9 October 2026, on branch `p6-09-catalogue-events`, with the owner's and the architect's answers (recorded in `DECISIONS.md` from D-107). P6-08 is merged (`c757ff2`, PR #21).
+Status: proposal. P6-09 (the catalogue usage events) is on branch `p6-09-catalogue-events`; see `CURRENT_STATUS.md`. P6-10 starts when the owner starts it, after P6-09's pull request is merged.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -22,41 +22,40 @@ Status: started on 9 October 2026, on branch `p6-09-catalogue-events`, with the 
 | P6-06 (done, ede0acd) | Search: Storefront `search` (books only, partial last word), results as you type from 3 letters or the search key from 2, "Available now" off (`LAST`/`HIDE`), Relevance and the two price sorts, the count line and the website's no-results line, earlier results kept while a new term loads; the term never logged, sent to analytics or reported; the standing phone-check permission; one guard against double taps for every in-app open; a clear button | D-095 to D-099 |
 | P6-07 (done, eaa9702) | The Genre filter (the store's own genre names, one at a time, combined with the group, "Available now" and the sort; on Browse and the collection screen), Browse's all books from the `all-books` collection, the longer series list | D-100 to D-103 |
 | P6-08 (done, c757ff2) | The Price filter ("All prices", then up to ₹34, ₹49, ₹74; a maximum only; store configuration, labels in the store's currency format) on Browse and the collection screen, not on search; one filter row that scrolls sideways with "Clear" pinned at its right edge; the CI act warnings fixed in the test setup | D-104 to D-106 |
-| P6-09 (proposed) | The catalogue analytics events (`view_collection`, `view_book`, `search`, `filter_applied`) | |
-| Later in Phase 6 | The last Phase 6 task: the offline question (D-087) and the description-table fix | |
+| P6-09 (branch `p6-09-catalogue-events`) | The catalogue usage events under consent: `view_collection` (collection screen, a group chosen on Browse), `view_book`, `filter_applied` (codes only, the customer's own changes), `search` (2 seconds on screen, the search key or a book opened; length, count and the store's own catalogue item matched, never the term); the guard's dependent parameters | D-107 to D-110 |
+| P6-10 (proposed) | The last Phase 6 task: the offline question (D-087), the description-table fix, and the owner's decisions on tappable genre chips and browse by author | |
 
-## Goal of P6-09
+## Goal of P6-10
 
-The catalogue screens send the events `ANALYTICS.md` already defines for them, under the consent rules that exist since P4-04 (D-048 to D-053): nothing is sent without consent, and no event carries free text. Screen views are already wired (D-053); these four are not (follow-up from P6-05).
+Close Phase 6: settle the items left to its last task, so Phase 7 (login) starts on a finished catalogue.
 
 ## Proposed scope
 
-1. `view_collection` (`collection_id`) when a collection screen opens, and for Browse's group or all books if the owner wants it (question 2).
-2. `view_book` (`product_id`, `available`) when the book page opens.
-3. `search` (`term_length`, `result_count`) when results are shown; **the term itself is never sent** (D-097).
-4. `filter_applied` (`filter_type`, `value`) when a filter changes on Browse or the collection screen: age group, series, genre, price, "Available now" and the sort, each value a fixed code (`analyticsToken()`), never a store name or free text.
-5. Each event through the existing typed functions and runtime guard (`src/analytics/`); tests show nothing is sent without consent and that every value is a code.
-6. A phone check in Firebase DebugView with consent on, and none with consent off, if the owner wants it (question 5). It needs `setprop debug.firebase.analytics.app`, which is outside the standing permission and needs the owner's yes, as in P4-04.
+1. **The offline question (D-087, risk 22).** Queries pause while the phone looks offline, with D-082's safety net ("Try again" re-reads the network first, and a stale false "offline" recovers on return to the foreground). Evidence so far: one false "offline" in the P6-03 phone check (7 October 2026, risk 22) and none in the standing background step of P6-04 to P6-09. Propose keeping the current behaviour and closing the question, or a change, with that evidence.
+2. **The description-table fix** (architect's review of PR #18): cells of one table row run together with no space ("AB"). Separate them, with a test, in `src/shopify/richText.ts`.
+3. **Genre chips on the book page** (owner, P6-07): stay plain text, or open Browse with that genre chosen.
+4. **Browse by author** (owner, P6-07): build now, later, or not in version 1.
+5. Unit tests for each change; a phone check if anything on screen changes.
 
 ## Questions for the owner and the architect
 
-1. **Timing:** now, or after another task (the analytics events were left to the owner's choice of timing in P6-05)?
-2. **`view_collection` on Browse:** only the collection screen opened from Home, or also each group chosen on Browse (and all books)?
-3. **IDs:** `collection_id` as the collection handle (readable, store-specific) or Shopify's numeric ID; `product_id` as the product's numeric ID (`ANALYTICS.md` says IDs and codes only).
-4. **`filter_applied` values:** the age group or series as its handle, the genre as its taxonomy value number (not its name), the price as the maximum (34, 49, 74) or `all`, "Available now" as `on` or `off`, the sort as its code (such as `price_descending`). Is the sort a filter here, or not sent?
-5. **`search` timing:** once per term when its first page is shown (not again for "Load more", the sort or "Available now"), and a phone check in DebugView: yes or no?
+1. **Offline:** keep queries pausing offline with D-082's safety net and close D-087, or change it?
+2. **Description tables:** cells separated by a space, or by " | " (a row read as one line), or each cell on its own line?
+3. **Genre chips:** keep them as plain text, or make each open Browse with that genre chosen (all books, "Available now" on)?
+4. **Browse by author:** in this task, a later phase, or not in version 1? If now: from the author on the book page, from search, or a Browse list?
+5. **Phone check:** only if something on screen changes (2 to 4), or always?
 
 ## Out of scope
 
-- The offline question, the description-table fix, tappable genre chips and browse by author (the last Phase 6 task, or by the end of Phase 6).
-- Cart and notify-me events (`select_book`, `notify_me_requested`, Phase 8 and later).
+- Cart, notify-me and checkout events (Phase 8 and later).
 - The consent request itself (Phase 7, release gate).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P6-09)
+## Follow-ups (recorded, not part of P6-10)
 
 - **Release gate: before the live store is connected (P6-07 and P6-08, owner):** five read-only checks on the live store with the app's public token, all of which must pass (`TESTING.md`, "Release gate: before the live store is connected"): the `all-books` collection exists, is published to the app's channel only and returns every book the app can see; the Genre filter is offered on it and on a group; the genre entries can be listed and every filter value joins to at least one store name; the eight custom genres show the store's names; the Price filter (`filter.v.price`) is offered on `all-books` and on a group (P6-08). Creating the collection on the live store is the owner's decision at that time (store addition 4, `SHOPIFY_INTEGRATION.md`). Nothing on the live store is touched before then.
-- **Price filter (P6-08, done on the branch):** D-104; the ₹0 book and "Mr Big" at ₹79 are owner items for the live store (`SHOPIFY_AUDIT.md`, "Live website prices").
+- **Catalogue usage events (P6-09, on the branch):** D-107 to D-110; `view_collection`, `view_book`, `filter_applied` and `search` are wired (`ANALYTICS.md`, "Catalogue events"). Search matches on the live store follow its own collections and genre entries; the release gate "before the live store is connected" already checks that the entries can be listed.
+- **Price filter (P6-08, done, `c757ff2`):** D-104; the ₹0 book and "Mr Big" at ₹79 are owner items for the live store (`SHOPIFY_AUDIT.md`, "Live website prices").
 - **Filter row while scrolled to its end (P6-08 phone check, observation):** when a label lengthens while the row is scrolled to its end, the buttons to its left move left on screen (the row keeps its end in view). "Clear" does not appear or disappear then, so D-105 holds; the architect may want it changed.
 - **Double taps in phone checks (P6-08):** two `adb shell input tap` commands can land more than 0.5 seconds apart, which the guard allows (D-099); time the pair (both taps within about 0.5 s) before reading a second page as a defect.
 - **Wireless debugging (P6-08):** pairing worked from the owner's terminal, connecting did not ("failed to connect"; the cause was not found), so the check used USB. If wireless checks are wanted, `adb connect` and `adb disconnect` need adding to the standing permission (D-095) first.
@@ -77,6 +76,8 @@ The catalogue screens send the events `ANALYTICS.md` already defines for them, u
   - the 14-month retention;
   - install-source reporting;
   - the events and data Firebase sends by itself once consent is granted (`ANALYTICS.md`);
+  - the app's own events, including the catalogue events since P6-09 (`view_collection`, `view_book`, `filter_applied`, `search`; `ANALYTICS.md`, "Events" and "Catalogue events");
+  - that, under consent, the app records which catalogue item a search matched, by its ID or code, never the search term itself (P6-09, D-108, D-109);
   - crash reports (Sentry);
   - Firebase.
 - **Analytics retention (owner, D-051):** set event data retention to 14 months, with "Reset user data on new activity" off, in the development Google Analytics property now, and in the staging and production properties when they are created.
@@ -111,7 +112,7 @@ The catalogue screens send the events `ANALYTICS.md` already defines for them, u
 - **Double tap (P6-06 phone check, fixed in PR #19, D-099):** a book card and the search button opened their screen twice on a fast double tap. One guard for every in-app open now ignores a second open within 0.5 seconds.
 - **Description tables (architect's review of PR #18):** cells in one table row run together with no space ("AB"). Fix in the last Phase 6 task, with a test.
 - **Development store descriptions (architect's review of PR #18):** all 42 are a single `<p>` with no `<br>` or `<strong>`, so their headings and bullets run together on the book page. No re-import now. Before the release-build check, the owner pastes full descriptions into a few books in the development admin.
-- **Analytics events for catalogue screens (P6-05):** `view_collection` and `view_book` (`ANALYTICS.md`) are not wired; screen views are (D-053). Wire them in one task, with the owner's choice of timing.
+- **Analytics events for catalogue screens (P6-05):** done in P6-09 (D-107 to D-110).
 - **Book page in a release build:** the description and the full-width cover are checked on the development build only; include a long real description in the release-build list check (`TESTING.md`, "Release gate: list performance").
 - **Bottom inset:** Browse is a tab screen, so its tab bar already takes the inset, as on Home; any new stack screen adds it (D-080).
 - **Cold test start (P6-03, owner to decide):** with Jest's cache off, the first render in `account.test.tsx`, `tabs.test.tsx` and `BookCard.test.tsx` still takes 2.4 to 4.1 s (under the 5-second limit). A public-import touch does not move it (`CURRENT_STATUS.md`); no deep import is used without the owner's yes.

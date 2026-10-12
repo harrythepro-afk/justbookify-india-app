@@ -40,11 +40,13 @@ Event data is kept for 14 months in each Google Analytics property, with "Reset 
 ## How events are sent (D-053)
 
 - One typed function per event in `src/analytics/events.ts`, for example `trackViewBook({ product_id, available })`.
-- **IDs** come from `analyticsProductId()`, `analyticsCollectionId()` and `analyticsOrderId()`. Each takes a Shopify GID and keeps the numeric part.
+- **IDs** come from `analyticsProductId()`, `analyticsCollectionId()`, `analyticsOrderId()` and, for a genre, `analyticsTaxonomyValueId()` (P6-09). Each takes a Shopify GID and keeps the numeric part.
 - **Fixed codes** (filter types, stages, error codes, channels) come from `analyticsToken()`: lowercase snake case, starting with a letter. Free text does not type-check.
 - **The guard** (`src/analytics/guard.ts`) checks every event again and drops the whole event if any parameter fails. Sentry is told which event and parameter, never the value.
+- **A parameter whose kind depends on a code** (D-110): `filter_applied`'s `value` follows its `filter_type`, and `search`'s `match_id` follows its `match_type` (and is not sent for `other`). The guard checks the pairing, and the TypeScript types rule out a wrong one.
 - **Screens** are named by their file route with groups removed: `index`, `browse`, `cart`, `my-books`, `account`, `dev-checkout`, `dev-catalogue`, `collection/[handle]`, `book/[handle]` (P6-05). Never the address or its parameters.
 - `app_open` fires with `source` `cold_start` or `foreground`. The phases that build the other screens wire their events.
+- **Catalogue events (P6-09):** `view_collection`, `view_book`, `filter_applied` and `search` are wired (below, "Catalogue events").
 - Nothing is sent under Jest, or before or without consent.
 
 ## What Firebase sends by itself once consent is granted
@@ -79,13 +81,53 @@ Besides the app's own events, Firebase Analytics sends events and data of its ow
 
 Google Analytics also derives device model, operating system version, language and an approximate location (country and city, from the network address) for its reports. Firebase keeps an app instance ID, which a withdrawal resets.
 
-**The privacy policy's app section (risk 21) must cover these automatic events and data as well as the app's own events.** If a later phase adds an SDK that brings more automatic events (for example, push notifications in Phase 12), this list and the privacy policy are updated together.
+**The privacy policy's app section (risk 21) must cover these automatic events and data as well as the app's own events,** including the catalogue events (`view_collection`, `view_book`, `filter_applied`, `search`) and the fact that, under consent, the app records which catalogue item a search matched (P6-09, D-109). If a later phase adds an SDK that brings more automatic events (for example, push notifications in Phase 12), this list and the privacy policy are updated together.
+
+## Catalogue events (P6-09, D-107 to D-110)
+
+Wired in `src/analytics/catalogueEvents.ts` (codes and the three catalogue events), `searchEvent.ts` (when `search` is sent) and `searchMatch.ts` (what a term matched). Every value is one of Shopify's numeric IDs or one of the app's codes; never a handle, a title, a name or the typed term.
+
+**`view_collection`** (`collection_id`): once per opening of the collection screen (from Home), when it shows its collection; and when an age group or a series is chosen on Browse. Not for all books (Browse's screen view covers them), and not again for "Load more", the sort, "Available now", a genre or a price.
+
+**`view_book`** (`product_id`, `available`): once per opening of the book page, when it first shows its book. `available` is `yes` when the book can be ordered (a book orderable at zero stock is `yes`), `no` when it is rented out.
+
+**`filter_applied`** (`filter_type`, `value`): on Browse and the collection screen, never on search; only when the customer changes a choice. Never for the defaults when a screen opens, for a change the screen makes itself, or for the option already chosen.
+
+| filter_type | value |
+| --- | --- |
+| `age_group` (Browse) | the collection's numeric ID |
+| `series` (Browse) | the collection's numeric ID |
+| `genre` | the taxonomy value's number; `all` for "All genres" |
+| `price` | `up_to_34`, `up_to_49`, `up_to_74`: `up_to_` and each configured maximum (`BROWSE_CONTENT.price.maxima`), never typed by hand; `all` for "All prices" |
+| `available` | `on` or `off` |
+| `sort` | the sort's name in snake case: `featured`, `best_selling`, `title_ascending`, `title_descending`, `price_ascending`, `price_descending`, `created_ascending`, `created_descending` |
+| `clear` (Browse) | `all`; one event, none for the choices it resets |
+
+Choosing an age group or a series sends `view_collection` and then `filter_applied` with the same number.
+
+**`search`** (`term_length`, `result_count`, `match_type`, `match_id`):
+- **When:** once per term in one visit to the search screen, when that term's results have stayed on screen for 2 seconds; at once when the search key was pressed for it (as soon as its results arrive), or when a book is opened from its results before then. Never twice for the same term (letter case ignored), and not again for "Load more", the sort or "Available now". Nothing for a term that is replaced or cleared, or whose read fails, before then.
+- `term_length`: the letters and digits in the cleaned term, counted as the search counts them (D-097).
+- `result_count`: Shopify's `totalCount`, at most 1,000, including 0.
+- `match_type`: `title`, `author`, `series`, `age_group`, `genre` or `other`. `match_id`: the matched item's ID or code (below); none for `other`.
+
+**Search-match rules (D-109).** The cleaned term is matched against the books on its own first page of results (their titles and authors), the configured series and age groups the store has (by their shown names) and the store's genre names (D-102), so a match works when the search finds nothing too.
+1. The term and every name are normalised alike: accents removed, lowercase, apostrophes deleted, every other character that is not a letter or a digit a space. `DAHL`, `Dahl!` and `dahl` are the same; `J.K. Rowling` is `j k rowling`; `6-8 years` is `6 8 years`.
+2. A term that uses Shopify's search syntax (a word starting with `-`; a colon, a quote mark, an asterisk or a bracket; `AND`, `OR` or `NOT` in capitals) is `other`.
+3. **Level 1:** the term is the whole name.
+4. **Level 2:** the term's words are consecutive whole words in the name. **Partial words never match** (`harr` is not `harry`). A term made **only of common words** (store configuration, `SEARCH_CONTENT.matchCommonWords`: a, an, the, and, of, in, on, at, to, for, with, by, is, my) matches only at level 1, so "the" never matches a book or a series because its name contains it.
+5. **A term that matches two things:** a type matches only when all its hits share one ID; an ambiguous type is skipped. Level 1 comes before level 2; within a level the order is series, age group, genre, author, title. "harry" is the Harry Potter series (seven titles hold it, one series does); "Harry Potter" is the series even though one book has that exact title.
+6. **`match_id`:** a title is the product's number, a series or an age group the collection's number, a genre the taxonomy value's number, an author `analyticsToken()` of the store's own author name (`roald_dahl`, at most 40 characters). An author name that cannot be made into a code never matches.
+
+A typed word can therefore appear in an event only inside the store's own code it matched (`dahl` inside `roald_dahl`), never on its own (owner, P6-09 plan review).
+
+On the development store (`npm run check:dev-store`): harry is the series `harry-potter-series`, dahl the author `roald_dahl`, zzqxv `other`, tintin the series `tintin-series` with 0 results.
 
 ## Rules
 
 - Snake case event names. IDs, never titles or free text.
 - No names, emails, phone numbers or addresses. The app never asks for or records a child's name or date of birth. Age-group filters and the books viewed are recorded as IDs and codes.
-- Search terms are measured by length, not content.
+- **The search term itself is never sent, logged or reported.** The `search` event records its length and, only when it matches the store's own catalogue, that item's ID or code (D-108, amending this rule's earlier wording "Search terms are measured by length, not content", owner's decision of 9 October 2026).
 - The analytics user ID is random or a salted one-way value, never the email, a phone number or the raw Shopify customer ID (D-050).
 - Analytics starts only after the customer's consent (opt-in, D-048).
 - Crash reports (Sentry) follow the same rules; the scrubbing is described in `SECURITY.md` and D-042.
@@ -98,10 +140,10 @@ Google Analytics also derives device model, operating system version, language a
 | sign_up | First successful login for a new customer | none |
 | login | Login succeeds | none |
 | logout | Customer logs out | none |
-| search | Results shown | term_length, result_count |
-| filter_applied | A filter changes | filter_type, value |
-| view_collection | Collection opens | collection_id |
-| view_book | Book detail opens | product_id, available |
+| search | One term's results stayed on screen for 2 seconds, or at once after the search key or when a book is opened from them; once per term per visit (D-108) | term_length, result_count, match_type, match_id (not with `other`) |
+| filter_applied | The customer changes a filter, "Available now" or the sort, or taps "Clear", on Browse or the collection screen (D-107) | filter_type, value |
+| view_collection | The collection screen shows its collection; an age group or series is chosen on Browse (D-107) | collection_id |
+| view_book | The book page shows its book, once per opening (D-107) | product_id, available |
 | select_book | Book added to the cart | product_id, cart_size |
 | remove_book | Book removed from the cart | product_id, cart_size |
 | book_unavailable_shown | A selected book went unavailable | product_id, stage |
