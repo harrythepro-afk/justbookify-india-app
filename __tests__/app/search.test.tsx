@@ -5,9 +5,10 @@ import { FlatList, Keyboard, Modal, ScrollView, Switch, StyleSheet, TextInput } 
 import SearchScreen from '@/app/search';
 import { toBookCard, type BookCard } from '@/shopify/bookCard';
 import type { SearchBooksPage, SearchOptions } from '@/shopify/catalogue';
+import type { GenreEntry } from '@/shopify/genres';
 import { StorefrontError } from '@/shopify/errors';
 
-import { bookProduct } from '../helpers/catalogue';
+import { bookProduct, collectionGid, collectionMap } from '../helpers/catalogue';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
 import { withScreen } from '../helpers/screen';
 
@@ -38,6 +39,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/crashReporting/sentry', () => ({
   reportStorefrontProblem: jest.fn(),
   reportUnexpectedDataError: jest.fn(),
+  reportAnalyticsProblem: (problem: string) => mockReportAnalytics(problem),
 }));
 
 // A configured store, so a Price button would have its labels if search drew one (P6-08).
@@ -55,13 +57,29 @@ jest.mock('@/query/online', () => ({
 type FetchOptions = { term: string; after: string | null; search: SearchOptions };
 
 const mockFetchSearch = jest.fn<Promise<SearchBooksPage>, [FetchOptions]>();
+// What a term is matched against besides its results (D-109): the store's collections and genres.
+const mockFetchHandles = jest.fn<Promise<ReadonlyMap<string, string>>, []>();
+const mockFetchGenreEntries = jest.fn<Promise<readonly GenreEntry[]>, []>();
+
+// Usage events (P6-09): the real typed functions and guard run; only Firebase's send is recorded.
+const mockSendEvent = jest.fn((_name: string, _params: unknown) => Promise.resolve());
+const mockReportAnalytics = jest.fn();
+let mockConsent = true;
+jest.mock('@/analytics/firebase', () => ({
+  sendEvent: (name: string, params: unknown) => mockSendEvent(name, params),
+  sendScreenView: () => Promise.resolve(),
+}));
+jest.mock('@/analytics/consent', () => ({ isAnalyticsConsentGranted: () => mockConsent }));
 
 jest.mock('@/shopify/catalogue', () => ({
   ...jest.requireActual('@/shopify/catalogue'),
   fetchSearchPage: (options: FetchOptions) => mockFetchSearch(options),
+  fetchCollectionHandles: () => mockFetchHandles(),
+  fetchGenreEntries: () => mockFetchGenreEntries(),
 }));
 
 const CONFIG = { currencyCode: 'INR', language: 'EN', country: 'IN' };
+const MANGA_GID = 'gid://shopify/TaxonomyValue/15730';
 
 function card(handle: string): BookCard {
   const result = toBookCard(bookProduct({ handle, title: handle }), CONFIG);
@@ -136,6 +154,15 @@ async function searchSettled() {
 }
 
 beforeEach(() => {
+  mockSendEvent.mockClear();
+  mockReportAnalytics.mockClear();
+  mockConsent = true;
+  mockFetchHandles
+    .mockReset()
+    .mockResolvedValue(collectionMap(['harry-potter-series', 'tintin-series', 'emerging-readers']));
+  mockFetchGenreEntries
+    .mockReset()
+    .mockResolvedValue([{ label: 'Manga', taxonomyReference: MANGA_GID }]);
   client = createTestQueryClient();
   mockHeaderTitle = undefined;
   mockFocusEffect = undefined;
@@ -570,4 +597,193 @@ describe('privacy (D-097)', () => {
       [{ pathname: '/book/[handle]', params: { handle: 'harry-1' } }],
     ]);
   });
+});
+
+describe('the search usage event (P6-09, D-108, D-109)', () => {
+  const sent = () => mockSendEvent.mock.calls;
+  const idOf = (handle: string) => collectionGid(handle).slice('gid://shopify/Collection/'.length);
+
+  // These tests wait out the real 2 seconds, sometimes twice, so each has more than Jest's 5.
+  const LONG = 15_000;
+
+  /** Longer than the 2 seconds a term's results stay on screen before its event. */
+  async function waitPastTwoSeconds() {
+    await act(() => new Promise((resolve) => setTimeout(resolve, 2100)));
+  }
+
+  function dahlBooks(): SearchBooksPage {
+    const books = ['the-bfg', 'matilda', 'danny'].map((handle) => {
+      const result = toBookCard(
+        bookProduct({ handle, title: handle, vendor: 'Roald Dahl' }),
+        CONFIG,
+      );
+      if (result === null) throw new Error('expected a card');
+      return result;
+    });
+    return { books, totalCount: 3, nextCursor: null };
+  }
+
+  it(
+    'is sent 2 seconds after a typed term’s results show: its length, the count, a series',
+    async () => {
+      await renderScreen();
+      await searchFor('harry');
+      expect(sent()).toEqual([]);
+
+      await waitPastTwoSeconds();
+
+      expect(sent()).toEqual([
+        [
+          'search',
+          {
+            term_length: 5,
+            result_count: 7,
+            match_type: 'series',
+            match_id: idOf('harry-potter-series'),
+          },
+        ],
+      ]);
+    },
+    LONG,
+  );
+
+  it(
+    'is sent at once after the search key, here for the author, by the store’s name',
+    async () => {
+      mockFetchSearch.mockImplementation(async ({ term, after }) =>
+        term === 'dahl' ? dahlBooks() : results(term, 0, after),
+      );
+      await renderScreen();
+      await type('dahl');
+      await fireEvent(field(), 'submitEditing');
+
+      await waitFor(() =>
+        expect(sent()).toEqual([
+          [
+            'search',
+            { term_length: 4, result_count: 3, match_type: 'author', match_id: 'roald_dahl' },
+          ],
+        ]),
+      );
+      await waitPastTwoSeconds();
+      expect(sent()).toHaveLength(1);
+    },
+    LONG,
+  );
+
+  it(
+    'says other, with no match_id, for a term that matches nothing and finds nothing',
+    async () => {
+      await renderScreen();
+      await searchFor('zzqxv');
+      await waitPastTwoSeconds();
+
+      expect(sent()).toEqual([
+        ['search', { term_length: 5, result_count: 0, match_type: 'other' }],
+      ]);
+    },
+    LONG,
+  );
+
+  it(
+    'matches a series the store has even when the search finds nothing',
+    async () => {
+      await renderScreen();
+      await searchFor('tintin');
+      await waitPastTwoSeconds();
+
+      expect(sent()).toEqual([
+        [
+          'search',
+          {
+            term_length: 6,
+            result_count: 0,
+            match_type: 'series',
+            match_id: idOf('tintin-series'),
+          },
+        ],
+      ]);
+    },
+    LONG,
+  );
+
+  it(
+    'is sent at once when a book is opened before the 2 seconds (owner, plan review)',
+    async () => {
+      await renderScreen();
+      await searchFor('harry');
+
+      await fireEvent.press(screen.getByRole('link', { name: /harry-2/ }));
+
+      expect(sent()).toHaveLength(1);
+      expect(sent()[0]?.[0]).toBe('search');
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/book/[handle]',
+        params: { handle: 'harry-2' },
+      });
+      await waitPastTwoSeconds();
+      expect(sent()).toHaveLength(1);
+    },
+    LONG,
+  );
+
+  it(
+    'is not sent again for "Available now", the sort or the same term later',
+    async () => {
+      await renderScreen();
+      await searchFor('harry');
+      await waitPastTwoSeconds();
+
+      await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', true);
+      await searchSettled();
+      await searchFor('Harry');
+      await waitPastTwoSeconds();
+
+      expect(sent()).toHaveLength(1);
+    },
+    LONG,
+  );
+
+  it(
+    'is not sent for a term cleared before the 2 seconds',
+    async () => {
+      await renderScreen();
+      await searchFor('harry');
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
+      await waitPastTwoSeconds();
+
+      expect(sent()).toEqual([]);
+    },
+    LONG,
+  );
+
+  it(
+    'never carries a typed word that is not the store’s own code',
+    async () => {
+      await renderScreen();
+      await searchFor('priya sharma');
+      await waitPastTwoSeconds();
+
+      expect(sent()).toEqual([
+        ['search', { term_length: 11, result_count: 0, match_type: 'other' }],
+      ]);
+      expect(JSON.stringify(sent())).not.toMatch(/priya|sharma/i);
+      expect(mockReportAnalytics).not.toHaveBeenCalled();
+    },
+    LONG,
+  );
+
+  it(
+    'is not sent without consent',
+    async () => {
+      mockConsent = false;
+      await renderScreen();
+      await searchFor('harry');
+      await waitPastTwoSeconds();
+
+      expect(sent()).toEqual([]);
+    },
+    LONG,
+  );
 });

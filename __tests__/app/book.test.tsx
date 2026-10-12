@@ -32,6 +32,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/crashReporting/sentry', () => ({
   reportStorefrontProblem: jest.fn(),
   reportUnexpectedDataError: jest.fn(),
+  reportAnalyticsProblem: (problem: string) => mockReportAnalytics(problem),
 }));
 
 // "Try again" re-reads the network before it refetches (D-082).
@@ -42,6 +43,16 @@ jest.mock('@/query/online', () => ({
 }));
 
 const mockFetchBook = jest.fn<Promise<BookPage | null>, [{ handle: string }]>();
+
+// Usage events (P6-09): the real typed functions and guard run; only Firebase's send is recorded.
+const mockSendEvent = jest.fn((_name: string, _params: unknown) => Promise.resolve());
+const mockReportAnalytics = jest.fn();
+let mockConsent = true;
+jest.mock('@/analytics/firebase', () => ({
+  sendEvent: (name: string, params: unknown) => mockSendEvent(name, params),
+  sendScreenView: () => Promise.resolve(),
+}));
+jest.mock('@/analytics/consent', () => ({ isAnalyticsConsentGranted: () => mockConsent }));
 
 jest.mock('@/shopify/catalogue', () => ({
   ...jest.requireActual('@/shopify/catalogue'),
@@ -120,6 +131,9 @@ function textsInOrder(): string[] {
 }
 
 beforeEach(() => {
+  mockSendEvent.mockClear();
+  mockReportAnalytics.mockClear();
+  mockConsent = true;
   client = createTestQueryClient();
   mockParams = { handle: 'the-gruffalo' };
   mockHeader = undefined;
@@ -328,5 +342,51 @@ describe('priceSummary', () => {
     expect(priceSummary({ price: '₹49', retailPrice: null, orderable: false })).toBe(
       '₹49, Rented out',
     );
+  });
+});
+
+describe('view_book (P6-09, D-107)', () => {
+  const sent = () => mockSendEvent.mock.calls;
+  const numberOf = (book: BookPage) => book.id.slice('gid://shopify/Product/'.length);
+
+  it('is sent once, with the product’s number, when the page shows its book', async () => {
+    const book = BOOKS.inStock();
+    await renderBook(book);
+
+    expect(sent()).toEqual([['view_book', { product_id: numberOf(book), available: 'yes' }]]);
+  });
+
+  it('says no for a rented-out book', async () => {
+    const rentedOut = BOOKS.rentedOut();
+    await renderBook(rentedOut);
+    expect(sent()).toEqual([['view_book', { product_id: numberOf(rentedOut), available: 'no' }]]);
+  });
+
+  it('says yes for a book orderable at zero stock (R8)', async () => {
+    const zeroStock = BOOKS.orderableAtZeroStock();
+    await renderBook(zeroStock);
+    expect(sent()).toEqual([['view_book', { product_id: numberOf(zeroStock), available: 'yes' }]]);
+  });
+
+  it('is not sent again when the page reads Shopify again', async () => {
+    await renderBook(BOOKS.inStock());
+    mockFetchBook.mockResolvedValue(BOOKS.rentedOut());
+
+    await act(() => client.refetchQueries());
+    await waitFor(() => expect(mockFetchBook).toHaveBeenCalledTimes(2));
+
+    expect(sent()).toHaveLength(1);
+  });
+
+  it('is not sent for a book that does not exist', async () => {
+    await renderBook(null);
+    expect(sent()).toEqual([]);
+  });
+
+  it('is not sent without consent', async () => {
+    mockConsent = false;
+    await renderBook(BOOKS.inStock());
+    expect(sent()).toEqual([]);
+    expect(mockReportAnalytics).not.toHaveBeenCalled();
   });
 });

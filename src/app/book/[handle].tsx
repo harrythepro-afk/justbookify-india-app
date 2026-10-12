@@ -1,6 +1,9 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { trackBookShown } from '@/analytics/catalogueEvents';
 
 import { BookCover } from '@/components/BookCover';
 import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
@@ -36,6 +39,8 @@ export function priceSummary(book: Pick<BookPage, 'price' | 'retailPrice' | 'ord
  * and never the sentence (R8, D-073). No rating (D-092) and no cart buttons until Phase 8
  * (D-081). Shopify is read again every time the page opens (`liveStock`, D-093). A stack screen
  * with no tab bar, so the page leaves room for Android's navigation bar itself (D-080).
+ * `view_book` is sent once per opening, when the page first shows its book, with whether it can
+ * be ordered then; a refetch never sends it again (P6-09, D-107).
  */
 export default function BookScreen() {
   const params = useLocalSearchParams<{ handle?: string | string[] }>();
@@ -48,6 +53,14 @@ function Book({ handle }: { readonly handle: string }) {
   const isOffline = useIsOffline();
   const query = useBook(handle);
   const hasData = query.data !== undefined;
+
+  const viewed = useRef(false);
+  const shown = query.data ?? null;
+  useEffect(() => {
+    if (viewed.current || shown === null) return;
+    viewed.current = true;
+    trackBookShown(shown.id, shown.orderable);
+  }, [shown]);
 
   const header = (
     <Stack.Screen
