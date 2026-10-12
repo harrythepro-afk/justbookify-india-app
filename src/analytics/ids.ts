@@ -11,6 +11,8 @@ type Brand<Name extends string> = string & { readonly [brand]: Name };
 export type AnalyticsProductId = Brand<'AnalyticsProductId'>;
 export type AnalyticsCollectionId = Brand<'AnalyticsCollectionId'>;
 export type AnalyticsOrderId = Brand<'AnalyticsOrderId'>;
+/** A genre as Shopify's taxonomy numbers it (D-110): the store's genre names are never sent. */
+export type AnalyticsTaxonomyValueId = Brand<'AnalyticsTaxonomyValueId'>;
 /** A fixed snake-case code chosen by the app, such as a filter type, a stage or an error code. */
 export type AnalyticsToken = Brand<'AnalyticsToken'>;
 
@@ -43,6 +45,11 @@ export function analyticsCollectionId(gid: string): AnalyticsCollectionId | unde
 /** From a Shopify order GID; undefined for anything else. */
 export function analyticsOrderId(gid: string): AnalyticsOrderId | undefined {
   return numericId(gid, 'Order') as AnalyticsOrderId | undefined;
+}
+
+/** From a Shopify taxonomy value GID, such as a genre's; undefined for anything else. */
+export function analyticsTaxonomyValueId(gid: string): AnalyticsTaxonomyValueId | undefined {
+  return numericId(gid, 'TaxonomyValue') as AnalyticsTaxonomyValueId | undefined;
 }
 
 /** A snake-case code; undefined for anything else, including any run of seven digits. */

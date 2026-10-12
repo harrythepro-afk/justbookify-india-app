@@ -31,6 +31,11 @@ export type SearchContent = {
   readonly typingPauseMs: number;
   /** The longest term sent, in characters (code points). */
   readonly maxTermLength: number;
+  /**
+   * Words that never match the catalogue on their own (D-109): a term made only of these matches
+   * a series, an age group, a genre, an author or a title only when it is the whole name.
+   */
+  readonly matchCommonWords: readonly string[];
 };
 
 function browseLabel(sort: BookSort): string {
@@ -52,6 +57,23 @@ export const SEARCH_CONTENT: SearchContent = {
   searchKeyMinimum: 2,
   typingPauseMs: 300,
   maxTermLength: 100,
+  // Owner and architect, P6-09 plan review (answer 3).
+  matchCommonWords: [
+    'a',
+    'an',
+    'the',
+    'and',
+    'of',
+    'in',
+    'on',
+    'at',
+    'to',
+    'for',
+    'with',
+    'by',
+    'is',
+    'my',
+  ],
 };
 
 /** Shopify's search count stops at 1,000 (`totalCount`, Storefront API 2026-10). */

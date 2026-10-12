@@ -44,6 +44,94 @@ describe('guardEvent', () => {
   });
 });
 
+describe('guardEvent: a parameter whose kind follows a code (D-110)', () => {
+  const FILTER = {
+    filter_type: ['age_group', 'genre', 'available', 'clear'],
+    value: {
+      dependsOn: 'filter_type',
+      kinds: {
+        age_group: ['collectionId'],
+        genre: ['taxonomyValueId', ['all']],
+        available: [['on', 'off']],
+        clear: [['all']],
+      },
+    },
+  } as const;
+  const MATCH = {
+    match_type: ['title', 'author', 'other'],
+    match_id: {
+      dependsOn: 'match_type',
+      kinds: { title: ['productId'], author: ['token'], other: 'absent' },
+    },
+  } as const;
+
+  it.each([
+    [
+      { filter_type: 'age_group', value: '412345678901' },
+      { filter_type: 'age_group', value: '412345678901' },
+    ],
+    [
+      { filter_type: 'genre', value: '15730' },
+      { filter_type: 'genre', value: '15730' },
+    ],
+    [
+      { filter_type: 'genre', value: 'all' },
+      { filter_type: 'genre', value: 'all' },
+    ],
+    [
+      { filter_type: 'available', value: 'off' },
+      { filter_type: 'available', value: 'off' },
+    ],
+    [
+      { filter_type: 'clear', value: 'all' },
+      { filter_type: 'clear', value: 'all' },
+    ],
+  ] as const)('passes %p', (params, sent) => {
+    expect(guardEvent(FILTER, params)).toEqual({ ok: true, params: sent });
+  });
+
+  it.each([
+    ['a code where an ID belongs', { filter_type: 'age_group', value: 'teens' }],
+    ['a name where an ID belongs', { filter_type: 'age_group', value: 'Up to 5 years' }],
+    ['a value outside its list', { filter_type: 'available', value: 'yes' }],
+    ['a genre name', { filter_type: 'genre', value: 'Manga' }],
+    ['a phone number as a genre', { filter_type: 'genre', value: '+919876543210' }],
+    ['clear with another value', { filter_type: 'clear', value: 'on' }],
+    ['a missing value', { filter_type: 'clear' }],
+  ] as const)('drops %s, naming the value', (_case, params) => {
+    expect(guardEvent(FILTER, params)).toEqual({ ok: false, param: 'value' });
+  });
+
+  it('drops an unknown code, whose value cannot be checked', () => {
+    expect(guardEvent(FILTER, { filter_type: 'price', value: 'up_to_49' })).toMatchObject({
+      ok: false,
+    });
+  });
+
+  it('sends nothing for a parameter its code marks absent, and refuses one given anyway', () => {
+    expect(guardEvent(MATCH, { match_type: 'other' })).toEqual({
+      ok: true,
+      params: { match_type: 'other' },
+    });
+    expect(guardEvent(MATCH, { match_type: 'other', match_id: 'zzqxv' })).toEqual({
+      ok: false,
+      param: 'match_id',
+    });
+  });
+
+  it('requires the parameter for every other code', () => {
+    expect(guardEvent(MATCH, { match_type: 'author' })).toEqual({ ok: false, param: 'match_id' });
+    expect(guardEvent(MATCH, { match_type: 'author', match_id: 'roald_dahl' })).toEqual({
+      ok: true,
+      params: { match_type: 'author', match_id: 'roald_dahl' },
+    });
+    expect(guardEvent(MATCH, { match_type: 'title', match_id: 'roald_dahl' })).toEqual({
+      ok: false,
+      param: 'match_id',
+    });
+  });
+});
+
 describe('isSafeScreenName', () => {
   it.each(['index', 'account', 'my-books', 'book/[id]', 'shop/[...slug]'])('accepts %p', (name) => {
     expect(isSafeScreenName(name)).toBe(true);

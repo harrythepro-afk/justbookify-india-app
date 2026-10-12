@@ -8,8 +8,30 @@ import type {
   AnalyticsCollectionId,
   AnalyticsOrderId,
   AnalyticsProductId,
+  AnalyticsTaxonomyValueId,
   AnalyticsToken,
 } from './ids';
+
+/** What `filter_applied`'s `filter_type` may be (D-107). */
+export const FILTER_TYPES = [
+  'age_group',
+  'series',
+  'genre',
+  'price',
+  'available',
+  'sort',
+  'clear',
+] as const;
+
+/** What `search`'s `match_type` may be (D-108, D-109). */
+export const SEARCH_MATCH_TYPES = [
+  'title',
+  'author',
+  'series',
+  'age_group',
+  'genre',
+  'other',
+] as const;
 
 /**
  * The events in `docs/ANALYTICS.md`, one typed function each (D-053). Snake-case names; IDs,
@@ -22,8 +44,37 @@ export const ANALYTICS_EVENTS = {
   sign_up: {},
   login: {},
   logout: {},
-  search: { term_length: 'count', result_count: 'count' },
-  filter_applied: { filter_type: 'token', value: 'token' },
+  search: {
+    term_length: 'count',
+    result_count: 'count',
+    match_type: SEARCH_MATCH_TYPES,
+    match_id: {
+      dependsOn: 'match_type',
+      kinds: {
+        title: ['productId'],
+        author: ['token'],
+        series: ['collectionId'],
+        age_group: ['collectionId'],
+        genre: ['taxonomyValueId'],
+        other: 'absent',
+      },
+    },
+  },
+  filter_applied: {
+    filter_type: FILTER_TYPES,
+    value: {
+      dependsOn: 'filter_type',
+      kinds: {
+        age_group: ['collectionId'],
+        series: ['collectionId'],
+        genre: ['taxonomyValueId', ['all']],
+        price: ['token'],
+        available: [['on', 'off']],
+        sort: ['token'],
+        clear: [['all']],
+      },
+    },
+  },
   view_collection: { collection_id: 'collectionId' },
   view_book: { product_id: 'productId', available: 'yes/no' },
   select_book: { product_id: 'productId', cart_size: 'count' },
@@ -65,16 +116,50 @@ type ValueOf<Kind> = Kind extends readonly string[]
     ? KindValues[Kind]
     : never;
 
-export type AnalyticsEventParams<Name extends AnalyticsEventName> = {
-  readonly [Param in keyof (typeof ANALYTICS_EVENTS)[Name]]: ValueOf<
-    (typeof ANALYTICS_EVENTS)[Name][Param]
-  >;
-};
+/**
+ * `filter_applied` (D-107): the value's kind follows the filter type, so a wrong pairing does not
+ * type-check. The guard's dependent kind checks the same pairing at runtime (D-110).
+ */
+export type FilterAppliedParams =
+  | { readonly filter_type: 'age_group' | 'series'; readonly value: AnalyticsCollectionId }
+  | { readonly filter_type: 'genre'; readonly value: AnalyticsTaxonomyValueId | 'all' }
+  | { readonly filter_type: 'price' | 'sort'; readonly value: AnalyticsToken }
+  | { readonly filter_type: 'available'; readonly value: 'on' | 'off' }
+  | { readonly filter_type: 'clear'; readonly value: 'all' };
+
+/**
+ * `search` (D-108): the term's length and Shopify's count, and what the term matched in the
+ * store's own catalogue, as that item's ID or code (D-109); nothing for `other`. Never the term.
+ */
+export type SearchParams = {
+  readonly term_length: number;
+  readonly result_count: number;
+} & SearchMatch;
+
+/** What a search term matched in the store's own catalogue (D-109), as that item's ID or code. */
+export type SearchMatch =
+  | { readonly match_type: 'title'; readonly match_id: AnalyticsProductId }
+  | { readonly match_type: 'author'; readonly match_id: AnalyticsToken }
+  | { readonly match_type: 'series' | 'age_group'; readonly match_id: AnalyticsCollectionId }
+  | { readonly match_type: 'genre'; readonly match_id: AnalyticsTaxonomyValueId }
+  | { readonly match_type: 'other'; readonly match_id?: never };
+
+type DependentParams = { filter_applied: FilterAppliedParams; search: SearchParams };
+
+export type AnalyticsEventParams<Name extends AnalyticsEventName> =
+  Name extends keyof DependentParams
+    ? DependentParams[Name]
+    : {
+        readonly [Param in keyof (typeof ANALYTICS_EVENTS)[Name]]: ValueOf<
+          (typeof ANALYTICS_EVENTS)[Name][Param]
+        >;
+      };
 
 // Reported once per event and parameter in a session, so a bug cannot flood Sentry.
 const reportedDrops = new Set<string>();
 
-function reportDropped(event: string, param: string): void {
+/** Reports a dropped event by its name and the failing parameter only, once per session. */
+export function reportDropped(event: string, param: string): void {
   const key = `${event}.${param}`;
   if (reportedDrops.has(key)) return;
   reportedDrops.add(key);
