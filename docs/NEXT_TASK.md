@@ -1,6 +1,6 @@
-# Next task (proposal): P6-10, the last Phase 6 task
+# Next task: P6-10, the last Phase 6 task
 
-Status: proposal. P6-09 (the catalogue usage events) is on branch `p6-09-catalogue-events`; see `CURRENT_STATUS.md`. P6-10 starts when the owner starts it, after P6-09's pull request is merged.
+Status: in progress on branch `p6-10-close-phase-6` (plan accepted by the owner, 13 October 2026). P6-09 (the catalogue usage events) is merged (`ac0a9fd`, PR #22). The task after it is **P6-11, the wanted list** (owner, 9 October 2026; below).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -22,8 +22,13 @@ Status: proposal. P6-09 (the catalogue usage events) is on branch `p6-09-catalog
 | P6-06 (done, ede0acd) | Search: Storefront `search` (books only, partial last word), results as you type from 3 letters or the search key from 2, "Available now" off (`LAST`/`HIDE`), Relevance and the two price sorts, the count line and the website's no-results line, earlier results kept while a new term loads; the term never logged, sent to analytics or reported; the standing phone-check permission; one guard against double taps for every in-app open; a clear button | D-095 to D-099 |
 | P6-07 (done, eaa9702) | The Genre filter (the store's own genre names, one at a time, combined with the group, "Available now" and the sort; on Browse and the collection screen), Browse's all books from the `all-books` collection, the longer series list | D-100 to D-103 |
 | P6-08 (done, c757ff2) | The Price filter ("All prices", then up to ₹34, ₹49, ₹74; a maximum only; store configuration, labels in the store's currency format) on Browse and the collection screen, not on search; one filter row that scrolls sideways with "Clear" pinned at its right edge; the CI act warnings fixed in the test setup | D-104 to D-106 |
-| P6-09 (branch `p6-09-catalogue-events`) | The catalogue usage events under consent: `view_collection` (collection screen, a group chosen on Browse), `view_book`, `filter_applied` (codes only, the customer's own changes), `search` (2 seconds on screen, the search key or a book opened; length, count and the store's own catalogue item matched, never the term); the guard's dependent parameters | D-107 to D-110 |
-| P6-10 (proposed) | The last Phase 6 task: the offline question (D-087), the description-table fix, and the owner's decisions on tappable genre chips and browse by author | |
+| P6-09 (done, ac0a9fd) | The catalogue usage events under consent: `view_collection` (collection screen, a group chosen on Browse), `view_book`, `filter_applied` (codes only, the customer's own changes), `search` (2 seconds on screen, the search key or a book opened; length, count and the store's own catalogue item matched, never the term); the guard's dependent parameters | D-107 to D-110 |
+| P6-10 (branch `p6-10-close-phase-6`) | The last Phase 6 task: the offline question (D-087), the description-table fix, and the owner's decisions on tappable genre chips and browse by author | From D-111 |
+| P6-11 (next) | The wanted list (owner, 9 October 2026): see "Next task after P6-10" below | |
+
+## Next task after P6-10: P6-11, the wanted list (owner, 9 October 2026)
+
+The owner keeps a list of authors, series or titles they are thinking of stocking, in Firebase Remote Config. When a search finds nothing but matches a name on that list, the `search` event records which listed name it was, as a code. Nothing the customer typed is ever sent. The full proposal, with its questions, is written at the end of P6-10.
 
 ## Goal of P6-10
 
