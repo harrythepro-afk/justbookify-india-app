@@ -1,6 +1,6 @@
-# Next task (proposal): P7-03, the analytics consent request
+# Next task (proposal): P8-01, the cart
 
-Status: in progress on branch `p7-03-consent-request` (plan accepted by the owner on 13 October 2026). P7-02 (the customer's profile and orders, read only; early check 3; D-124 to D-128) is merged (`bf63b65`, PR #26); the owner approved D-128's wording on 13 October 2026. P7-01 is merged (`9be8a6d`, PR #25).
+Status: proposal. P7-03 (the analytics consent request after a login, the login events; D-129 to D-132) is on branch `p7-03-consent-request`, PR #27, phone check passed on 13 October 2026; see `CURRENT_STATUS.md`. P8-01 starts when the owner starts it, after that pull request is merged. **Its first commit records P7-03 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`, where Phase 7 becomes done). P7-02 is merged (`bf63b65`, PR #26).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -32,36 +32,57 @@ Status: in progress on branch `p7-03-consent-request` (plan accepted by the owne
 | --- | --- | --- |
 | P7-01 (done, 9be8a6d) | Login and logout with the Customer Account API on the development store: the system browser, PKCE, the app's own state and a nonce; tokens crash-safe in secure storage; refresh, logged out only on `invalid_grant`; logout on the phone and Shopify's mobile logout; the Account tab; phone check passed (a website sign-out keeps the app logged in; access token about 60 minutes) | D-119 to D-123 |
 | P7-02 (done, bf63b65) | The customer's profile on the Account tab and orders in My Books, read only, through the Customer Account API (`2026-04`, types from Shopify's Hydrogen React schema); one GraphQL transport shared with the Storefront client; a 401 refreshes once; customer data in memory under `['customer', …]`, cleared at logout; the plain status table; no "At home" or "Returns" yet; **early check 3 passed** (guest order #1003 in the app after login with the same email) | D-124 to D-128 |
-| P7-03 (in progress, branch `p7-03-consent-request`) | The analytics consent request at the owner's chosen placement (D-048), and the analytics user ID question (D-050); a release gate | |
+| P7-03 (branch `p7-03-consent-request`, PR #27) | The analytics consent request right after a login on the Account tab, only while the choice is "not asked", once per login (owner's placement (a)); Allow, Don't allow, Close; draft wording for the adviser; `login` (also right after Allow) and `logout` under consent; the switch's account line; Home's development reset; the user ID required before outside testers (Phase 10) | D-129 to D-132 |
 
-## Goal of P7-03
+## Phase 8: cart and rental rules
 
-The consent request that `PRODUCT_REQUIREMENTS.md` ("Privacy requirements") and the release gate "analytics consent" (`TESTING.md`, D-048) require: never at first launch; Allow and Don't allow; closing it leaves the choice "not asked"; it says that usage is linked to the customer's account. The Account tab's "Share app usage" switch (P4-04) stays the way to change the choice later.
+| Task | Scope | Decisions |
+| --- | --- | --- |
+| P8-01 (proposed) | The cart on Shopify: "Add to Cart" on the book card and the book page, the Cart tab, the order cap (R2), the cart events | |
+| P8-02 (later) | The delivery fee hint (R4) and the pincode check (R3) in the cart, before checkout | |
+
+## Goal of P8-01
+
+A customer adds books to a cart and sees it on the Cart tab, with the order cap (R2) enforced before checkout. Shopify holds the cart (Storefront Cart API); the app keeps only the cart's ID on the phone (`ARCHITECTURE.md`, "Checkout flow", step 1). Checkout itself is Phase 9.
 
 ## Proposed scope
 
-1. **The consent request** at the placement the owner chooses (question 1), using the existing consent store (`src/analytics/consent.ts`, D-048, D-052): Allow grants, Don't allow denies, closing leaves "not asked"; shown at most once per placement trigger while "not asked"; no pop-up at first launch.
-2. **Wording** drafted by Claude for the owner, to be reviewed by the owner's adviser with the privacy policy's app section (risk 21).
-3. **The analytics user ID (D-050):** what is built now depends on question 3.
-4. **`login` and `logout` events** (not sent since P7-01, D-123) only if the owner says so (question 4), under consent.
-5. **Tests, docs and a USB phone check** under the standing permission: the request appears at the chosen moment, both answers and closing behave as required, nothing is sent without consent (DebugView, owner).
+1. **The cart on Shopify:** named, typed Storefront operations (`cartCreate`, `cartLinesAdd`, `cartLinesRemove`, the `cart` query), through the existing client and cache (D-054 to D-063). Mutations are never retried (D-057) and never queued offline (D-064, D-065). The cart's ID is kept in secure storage (D-052), under its own key.
+2. **"Add to Cart"** on the book card and the book page for a book that can be ordered (R8); D-081 ends for this button. A rented-out book keeps its badge and shows no cart button until notify-me is built.
+3. **The Cart tab:** each book (cover, title, rental price), "Remove", the subtotal from Shopify's `cost.subtotalAmount`, an empty state, and the existing offline and error states.
+4. **The order cap (R2)** from store configuration (`src/config/`): adding a book that would take the subtotal past the cap is refused with a message; the Cart tab says how much room is left.
+5. **Events under consent (`ANALYTICS.md`):** `select_book` and `remove_book` (`product_id`, `cart_size`), `view_cart` (`book_count`, `cart_value`), `order_cap_reached` (`cart_value`).
+6. **The development-only book card preview** (D-074, D-088) is removed once customer screens draw the card's button, if the owner agrees.
+7. **Tests, docs and a USB phone check** on the development store only: no checkout and no order.
 
 ## Questions for the owner and the architect
 
-1. **Placement (D-048):** (a) right after the first login, which never measures customers who browse without logging in, or (b) at a natural pause before login, such as adding the first book to the cart (Phase 8), with the account-linking line shown after login? (b) needs the cart, so it would wait for Phase 8.
-2. **Wording:** a short title, one or two sentences that name what is recorded and that it is linked to the account, and the two buttons "Allow" and "Don't allow". Claude drafts it in the plan; the owner approves it.
-3. **Analytics user ID (D-050):** D-050 asks for a random or salted one-way value, never an email, phone or raw Shopify customer ID. A salted value needs a secret that cannot ship in the app, so it needs the backend (Phase 10). A random ID made on the phone would differ on each phone and after a reinstall, so it is not stable per customer. Proposed: no user ID in P7-03; the backend issues it in Phase 10; the consent wording still says usage is linked to the account. Agreed?
-4. **`login` and `logout` events:** send them now, under consent and with no parameters (`ANALYTICS.md`), or keep them off?
-5. **Phone check over USB** again (proposed)?
+1. **One copy per book?** Proposed: each book at most once in the cart; a book already in it shows "In cart" instead of "Add to Cart".
+2. **The cap's boundary and wording (R2):** `PRODUCT_REQUIREMENTS.md` says the subtotal must stay *under* ₹500, but the SMART rule's checkout message says "₹500 or less" (P3-02: a ₹490 subtotal was accepted). Is a subtotal of exactly ₹500 allowed? What should the app's message say?
+3. **A cart while signed out:** proposed yes, as a guest cart; the customer's identity is attached at checkout in Phase 9 (`SHOPIFY_INTEGRATION.md`: authenticated carts carry the Customer Account API token).
+4. **The cart across launches and at logout:** proposed: the cart ID is kept across launches, and "Log out" forgets it (a shared phone does not inherit another person's cart). Agreed?
+5. **A book that becomes rented out while in the cart:** proposed: the Cart tab shows it as "Rented Out" with "Remove", it does not count towards the subtotal shown, and checkout (Phase 9) is not offered until it is removed; `book_unavailable_shown` with `stage` `cart`.
+6. **After "Add to Cart":** stay on the screen with a short confirmation on the button (proposed), or open the Cart tab?
+7. **The phone check over USB** (proposed), on the development store, adding and removing books only.
+
+## What P8-01 needs from the owner
+
+- The answers above.
+- Nothing new on the development store: its 40 sample books (₹34 to ₹99) can reach the cap.
 
 ## Out of scope
 
-- The privacy policy's app section (the owner's task, risk 21) and its adviser review.
-- Cart and checkout (Phases 8 and 9); the backend (Phase 10).
+- Checkout, the cart's buyer identity and order confirmation (Phase 9).
+- The delivery fee hint (R4) and the pincode check (R3): P8-02.
+- Notify-me (R8) and the books to be collected at delivery (R5, which needs Phase 11's books at home).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P7-03)
+## Follow-ups (recorded, not part of P8-01)
 
+- **Release gate: analytics consent (P7-03, D-132):** the consent request is built and was checked on the phone (`CURRENT_STATUS.md`). Still open before any outside tester: the privacy policy's app section (risk 21) and **the analytics user ID**, issued by the Phase 10 backend, because the consent wording says usage is linked to the account (`TESTING.md`, item 5).
+- **Consent wording (P7-03, D-130; risk 21):** the request's wording and the Account switch's new account line are drafts approved by the owner, for the adviser's review with the privacy policy's app section.
+- **Phase 9 and the consent request (owner, D-129):** if a customer's first login happens at checkout, the request waits until the order is confirmed; it never interrupts checkout.
+- **`sign_up` (P7-03, D-130):** not sent, because the app cannot tell a new customer from a returning one. A later phase may send it if the backend (Phase 10) can tell.
 - **Customer Account API version (P7-02, D-124, D-125; quarterly API review):** the app reads `2026-04`, the version of the only schema it can generate types from (`@shopify/hydrogen-react` 2026.4.4). Move to `2026-10` (or `2027-01`) once Hydrogen React publishes a release built for it (`npm run schema:update:customer`), and **before 16 April 2027**, when `2026-04` stops being accessible. Recorded in `SHOPIFY_INTEGRATION.md` ("API version").
 - **"Delivered" needs a rule (owner, P7-02 plan approval; Phase 11):** the orders list shows "Delivered" only when Shopify records the delivery. Delhivery reports it; Ekart does not (`SHOPIFY_AUDIT.md`), so an Ekart order stays "Shipped" unless staff mark it delivered. Phase 11 (books at home, due dates, returns) needs a rule for when an order counts as delivered (D-128).
 - **Customer Account API endpoint form (P7-02, D-124):** the development store's discovery document names `https://shopify.com/<shop ID>/account/customer/api/<version>/graphql`, not the reference's `https://<shop domain>/customer/api/<version>/graphql`. The app keeps the discovered prefix. At the live-store connection, `npm run check:dev-store`'s form line (or the same read against the live store, read only) shows which form the live store uses.

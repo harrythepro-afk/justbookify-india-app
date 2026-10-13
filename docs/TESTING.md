@@ -572,6 +572,8 @@ Unit and screen tests (storage, Firebase's native calls and the login are stand-
 7. The standing background step: more than 5 minutes, no false offline notice.
 8. The app's own log, filtered to its process: no crash, no JavaScript error, no token or email.
 
+**Result, 13 October 2026: passed** (`CURRENT_STATUS.md`, P7-03). Observation: Firebase dates `first_open` to the start of the app's process, so after a reset it can show in DebugView a few minutes before "Allow", in the session that "Allow" started; nothing else reached DebugView before "Allow".
+
 ### Profile and orders (P7-02)
 
 Unit tests (Shopify, the session and the reporters are stand-ins where named):
