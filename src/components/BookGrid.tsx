@@ -23,7 +23,8 @@ import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/them
  * again" while there is nothing to show, and the offline notice over saved books. Every "Try
  * again", and "Load more" after a failed page, re-reads the network first (D-082). A card opens
  * its book page (P6-05). With the keyboard open (search, P6-06), a card opens on the first tap and
- * scrolling hides the keyboard; on screens without a keyboard both settings do nothing.
+ * scrolling hides the keyboard; on screens without a keyboard both settings do nothing. Search
+ * passes its own `onOpenBook`, which sends its pending usage event first (P6-09, D-108).
  */
 export function BookGrid({
   books,
@@ -38,6 +39,7 @@ export function BookGrid({
   emptyMessage,
   bottomInset,
   testID,
+  onOpenBook,
 }: {
   readonly books: readonly BookCardData[];
   /** True once the first page has arrived. */
@@ -57,11 +59,17 @@ export function BookGrid({
   /** Room for Android's navigation bar on a stack screen; 0 on a tab screen (D-080). */
   readonly bottomInset: number;
   readonly testID: string;
+  /** Opens a card's book; `openBook` unless the screen needs to act first. Keep it stable. */
+  readonly onOpenBook?: (book: BookCardData) => void;
 }) {
   const isOffline = useIsOffline();
   const listStyle = useMemo(
     () => [styles.content, { paddingBottom: bottomInset + spacing.xl }],
     [bottomInset],
+  );
+  const renderItem = useMemo(
+    () => (onOpenBook === undefined ? renderBook : bookRenderer(onOpenBook)),
+    [onOpenBook],
   );
 
   if (!hasData) {
@@ -108,7 +116,7 @@ export function BookGrid({
           />
         }
         numColumns={2}
-        renderItem={renderBook}
+        renderItem={renderItem}
         style={styles.list}
       />
     </>
@@ -120,13 +128,17 @@ function bookKey(book: BookCardData): string {
   return book.id;
 }
 
-function renderBook({ item }: { readonly item: BookCardData }) {
-  return (
-    <View style={styles.cell}>
-      <BookCard book={item} onOpen={openBook} />
-    </View>
-  );
+function bookRenderer(onOpen: (book: BookCardData) => void) {
+  return function renderOpening({ item }: { readonly item: BookCardData }) {
+    return (
+      <View style={styles.cell}>
+        <BookCard book={item} onOpen={onOpen} />
+      </View>
+    );
+  };
 }
+
+const renderBook = bookRenderer(openBook);
 
 /** "Load more" while there is a next page. After a failed page it stays, as the retry. */
 function LoadMore({

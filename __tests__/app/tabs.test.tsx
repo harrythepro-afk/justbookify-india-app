@@ -55,11 +55,18 @@ jest.mock('@/analytics/consentStorage', () => ({
 // Home and the collection screen read the catalogue; nothing reaches a store in tests.
 jest.mock('@/shopify/catalogue', () => ({
   ...jest.requireActual('@/shopify/catalogue'),
-  fetchCollectionHandles: () => Promise.resolve(new Set(['tintin-series'])),
+  fetchCollectionHandles: () =>
+    Promise.resolve(new Map([['tintin-series', 'gid://shopify/Collection/1']])),
   fetchCollectionBooksPage: ({ handle }: { handle: string }) =>
     Promise.resolve(
       handle === 'tintin-series'
-        ? { kind: 'found', title: 'Tintin', books: [], nextCursor: null }
+        ? {
+            kind: 'found',
+            id: 'gid://shopify/Collection/1',
+            title: 'Tintin',
+            books: [],
+            nextCursor: null,
+          }
         : { kind: 'not-found' },
     ),
   // Genre lists (P6-07): none here, so no Genre button and no store name is needed.

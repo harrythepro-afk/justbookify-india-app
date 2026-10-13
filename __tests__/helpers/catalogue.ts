@@ -18,6 +18,21 @@ type Overrides = {
 let nextId = 1;
 
 /**
+ * A made-up collection GID for a handle, the same every time, so a test can check the ID a screen
+ * sends to analytics (P6-09).
+ */
+export function collectionGid(handle: string): string {
+  let id = 7;
+  for (const character of handle) id = (id * 31 + character.charCodeAt(0)) % 1_000_000_000_000;
+  return `gid://shopify/Collection/${id}`;
+}
+
+/** Every collection the app's channel can read, as `fetchCollectionHandles` gives it. */
+export function collectionMap(handles: readonly string[]): ReadonlyMap<string, string> {
+  return new Map(handles.map((handle) => [handle, collectionGid(handle)]));
+}
+
+/**
  * A product as the catalogue operations return it, shaped like the development store's sample
  * books (`TESTING.md`, "Sample catalogue (P6-01)"). Defaults: an in-stock ₹49 book with a cover
  * and a ₹350 retail price.

@@ -1,7 +1,15 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import {
+  trackAvailableChanged,
+  trackCollectionShown,
+  trackGenreChosen,
+  trackPriceChosen,
+  trackSortChosen,
+} from '@/analytics/catalogueEvents';
 
 import { BookGrid } from '@/components/BookGrid';
 import { bookSortOptions, BookListControls } from '@/components/BookListControls';
@@ -25,7 +33,9 @@ import { colors, fonts, fontSize } from '@/theme/tokens';
  * the collection's own order (P6-04, D-085, D-086). Genre and Price buttons above them in one row
  * that scrolls sideways (P6-07, P6-08; D-101, D-104, D-105): Genre drawn from the start, disabled
  * while its list loads; "All genres" and "All prices" reset each. No "Clear" here. A stack screen
- * with no tab bar, so the list leaves room for Android's navigation bar itself.
+ * with no tab bar, so the list leaves room for Android's navigation bar itself. Usage events
+ * (P6-09, D-107): `view_collection` once per opening, when the collection is shown, and
+ * `filter_applied` for each change the customer makes, never for a default or the same choice.
  */
 export default function CollectionScreen() {
   const params = useLocalSearchParams<{ handle?: string | string[] }>();
@@ -60,6 +70,34 @@ function Collection({ handle }: { readonly handle: string }) {
   const [title, setTitle] = useState('');
   if (first?.kind === 'found' && first.title !== title) setTitle(first.title);
 
+  // Once per opening, not again when a filter, the sort or "Load more" reads another page.
+  const viewed = useRef(false);
+  const shownId = first?.kind === 'found' ? first.id : null;
+  useEffect(() => {
+    if (viewed.current || shownId === null) return;
+    viewed.current = true;
+    trackCollectionShown(shownId);
+  }, [shownId]);
+
+  const onGenre = (next: GenreOption | null) => {
+    setGenre(next);
+    const nextValue = next?.filter.value ?? null;
+    if (nextValue !== (genre?.filter.value ?? null)) trackGenreChosen(nextValue);
+  };
+  const onPrice = (next: PriceOption | null) => {
+    setPrice(next);
+    const nextMax = next?.max ?? null;
+    if (nextMax !== maxPrice) trackPriceChosen(nextMax);
+  };
+  const onAvailable = (next: boolean) => {
+    setAvailable(next);
+    if (next !== available) trackAvailableChanged(next);
+  };
+  const onSort = (next: BookSort) => {
+    setChosenSort(next);
+    if (next !== sort) trackSortChosen(next);
+  };
+
   const header = (
     <Stack.Screen
       options={{
@@ -87,14 +125,14 @@ function Collection({ handle }: { readonly handle: string }) {
       {header}
       {(genreButtonShown(genres, genre) || prices !== null) && (
         <FilterRow onClear={null}>
-          <GenrePicker chosen={genre} onChoose={setGenre} state={genres} />
-          <PricePicker chosen={price} onChoose={setPrice} options={prices} />
+          <GenrePicker chosen={genre} onChoose={onGenre} state={genres} />
+          <PricePicker chosen={price} onChoose={onPrice} options={prices} />
         </FilterRow>
       )}
       <BookListControls
         available={available}
-        onAvailableChange={setAvailable}
-        onSort={setChosenSort}
+        onAvailableChange={onAvailable}
+        onSort={onSort}
         sort={sort}
         sortOptions={bookSortOptions(true)}
       />

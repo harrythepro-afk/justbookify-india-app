@@ -132,7 +132,7 @@ function CollectionRows({
   error,
   onRetry,
 }: {
-  readonly handles: ReadonlySet<string> | undefined;
+  readonly handles: ReadonlyMap<string, string> | undefined;
   readonly isFetching: boolean;
   readonly isOffline: boolean;
   readonly error: unknown;

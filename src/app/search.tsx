@@ -4,11 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useSearchEvent, type ShownSearchResults } from '@/analytics/searchEvent';
 import { BookGrid } from '@/components/BookGrid';
 import { BookListControls } from '@/components/BookListControls';
+import { openBook } from '@/components/openBook';
 import { ScreenMessage } from '@/components/ScreenMessage';
 import { noResultsMessage, resultCountLabel, SEARCH_CONTENT, type SearchSort } from '@/config';
-import { searchableTerm, useSearchBooks } from '@/shopify/hooks/search';
+import type { BookCard } from '@/shopify/hooks/catalogue';
+import { searchableTerm, useSearchBooks, useSearchMatchLists } from '@/shopify/hooks/search';
 import { colors, fonts, fontSize, iconSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
 
 const SORT_OPTIONS = SEARCH_CONTENT.sortOptions.map((option) => ({
@@ -28,7 +31,9 @@ const SORT_OPTIONS = SEARCH_CONTENT.sortOptions.map((option) => ({
  *
  * The term is untrusted text and private: it lives in this screen's state and the in-memory cache
  * only. It is never a route parameter (screen views are logged as `search`), never logged, never
- * sent to analytics and never reported to Sentry (D-097).
+ * sent to analytics and never reported to Sentry (D-097). The `search` usage event carries only the
+ * term's length, Shopify's count and the store's own catalogue item the term matched, as its ID
+ * or code (P6-09, D-108, D-109; `src/analytics/searchEvent.ts`).
  */
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
@@ -38,6 +43,8 @@ export default function SearchScreen() {
   const [sort, setSort] = useState<SearchSort>(SEARCH_CONTENT.defaultSort);
   const search = useMemo(() => ({ available, sort }), [available, sort]);
   const query = useSearchBooks(term, search);
+  // The store's series, age groups and genres, for the usage event's catalogue match (D-109).
+  const matchLists = useSearchMatchLists();
   const field = useRef<TextInput>(null);
 
   // The pause after typing. A newer keystroke or the search key replaces it.
@@ -68,7 +75,9 @@ export default function SearchScreen() {
 
   const onSubmitEditing = () => {
     stopPause();
-    setTerm(searchableTerm(text, 'search-key'));
+    const next = searchableTerm(text, 'search-key');
+    setTerm(next);
+    if (next !== null) searchEvent.sendWhenShown(next);
   };
 
   // Empties the field and shows the hint; the field keeps its focus, so the keyboard stays open.
@@ -89,6 +98,31 @@ export default function SearchScreen() {
   // If the new term fails, the earlier results go, so the error and "Try again" show (D-078).
   const hasData = query.data !== undefined && !(loadingNewList && query.isError);
   const totalCount = query.data?.pages[0]?.totalCount ?? 0;
+
+  // The term's own first page once it has arrived: never an earlier term's results standing in.
+  const firstPage = query.data?.pages[0];
+  const shown = useMemo<ShownSearchResults | null>(
+    () =>
+      term === null || firstPage === undefined || loadingNewList
+        ? null
+        : { term, totalCount: firstPage.totalCount, books: firstPage.books },
+    [term, firstPage, loadingNewList],
+  );
+  const searchEvent = useSearchEvent({
+    term,
+    shown,
+    failed: term !== null && !hasData && query.isError,
+    lists: matchLists,
+  });
+  const { sendNow } = searchEvent;
+  // A book opened before the 2 seconds are up still counts the term's search (owner, plan review).
+  const onOpenBook = useCallback(
+    (book: BookCard) => {
+      sendNow();
+      openBook(book);
+    },
+    [sendNow],
+  );
 
   return (
     <View style={styles.screen}>
@@ -158,6 +192,7 @@ export default function SearchScreen() {
             isFetchingNextPage={query.isFetchingNextPage}
             loadMoreFailed={query.isFetchNextPageError}
             onLoadMore={() => query.fetchNextPage()}
+            onOpenBook={onOpenBook}
             onRetry={() => query.refetch()}
             testID="search-books"
           />

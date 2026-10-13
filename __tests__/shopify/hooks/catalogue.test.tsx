@@ -590,11 +590,14 @@ describe('useBook (P6-05)', () => {
 });
 
 describe('useCollectionHandles', () => {
-  it('gives the set of handles, under the storefront key root with the catalogue preset', async () => {
+  it('gives each handle with its collection ID, under the storefront key root with the catalogue preset', async () => {
     mockQuery.mockResolvedValue({
       collections: {
         pageInfo: { hasNextPage: false, endCursor: null },
-        nodes: [{ handle: 'tintin-series' }, { handle: 'new-arrivals' }],
+        nodes: [
+          { id: 'gid://shopify/Collection/1', handle: 'tintin-series' },
+          { id: 'gid://shopify/Collection/2', handle: 'new-arrivals' },
+        ],
       },
     });
 
@@ -603,7 +606,7 @@ describe('useCollectionHandles', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.has('tintin-series')).toBe(true);
+    expect(result.current.data?.get('tintin-series')).toBe('gid://shopify/Collection/1');
     expect(result.current.data?.has('dog-man-series')).toBe(false);
     const query = client
       .getQueryCache()

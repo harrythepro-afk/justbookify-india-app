@@ -8,7 +8,7 @@ import type { BookListOptions, CollectionBooksPage, CollectionGenres } from '@/s
 import type { GenreEntry } from '@/shopify/genres';
 import { StorefrontError } from '@/shopify/errors';
 
-import { bookProduct } from '../helpers/catalogue';
+import { bookProduct, collectionGid } from '../helpers/catalogue';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
 import { SAFE_AREA, withScreen } from '../helpers/screen';
 
@@ -41,6 +41,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/crashReporting/sentry', () => ({
   reportStorefrontProblem: jest.fn(),
   reportUnexpectedDataError: jest.fn(),
+  reportAnalyticsProblem: (problem: string) => mockReportAnalytics(problem),
 }));
 
 // The Price list's labels are built from the store configuration (P6-08, D-104).
@@ -63,6 +64,16 @@ type GenresOptions = { handle: string; available: boolean };
 const mockFetchPage = jest.fn<Promise<CollectionBooksPage>, [PageOptions]>();
 const mockFetchGenres = jest.fn<Promise<CollectionGenres>, [GenresOptions]>();
 const mockFetchEntries = jest.fn<Promise<readonly GenreEntry[]>, []>();
+
+// Usage events (P6-09): the real typed functions and guard run; only Firebase's send is recorded.
+const mockSendEvent = jest.fn((_name: string, _params: unknown) => Promise.resolve());
+const mockReportAnalytics = jest.fn();
+let mockConsent = true;
+jest.mock('@/analytics/firebase', () => ({
+  sendEvent: (name: string, params: unknown) => mockSendEvent(name, params),
+  sendScreenView: () => Promise.resolve(),
+}));
+jest.mock('@/analytics/consent', () => ({ isAnalyticsConsentGranted: () => mockConsent }));
 
 jest.mock('@/shopify/catalogue', () => ({
   ...jest.requireActual('@/shopify/catalogue'),
@@ -108,6 +119,7 @@ function juniorPage({ after }: { after: string | null }): CollectionBooksPage {
   const start = after === null ? 0 : 20;
   return {
     kind: 'found',
+    id: collectionGid('junior-readers'),
     title: 'Junior Readers',
     books: JUNIOR.slice(start, start + 20),
     nextCursor: after === null ? 'end-0' : null,
@@ -155,6 +167,9 @@ function rowOf(title: string): Host | null {
 }
 
 beforeEach(() => {
+  mockSendEvent.mockClear();
+  mockReportAnalytics.mockClear();
+  mockConsent = true;
   client = createTestQueryClient();
   mockParams = { handle: 'junior-readers' };
   mockHeaderTitle = undefined;
@@ -230,7 +245,13 @@ const AVAILABLE_EMPTY =
 
 it('shows the empty state for a collection with no books (tintin-series)', async () => {
   mockParams = { handle: 'tintin-series' };
-  mockFetchPage.mockResolvedValue({ kind: 'found', title: 'Tintin', books: [], nextCursor: null });
+  mockFetchPage.mockResolvedValue({
+    kind: 'found',
+    id: collectionGid('tintin-series'),
+    title: 'Tintin',
+    books: [],
+    nextCursor: null,
+  });
 
   await renderScreen();
 
@@ -572,4 +593,88 @@ it("leaves room for Android's navigation bar below the last row", async () => {
     paddingBottom?: number;
   };
   expect(content.paddingBottom).toBeGreaterThanOrEqual(SAFE_AREA.insets.bottom);
+});
+
+describe('usage events (P6-09, D-107)', () => {
+  const JUNIOR_ID = collectionGid('junior-readers').slice('gid://shopify/Collection/'.length);
+  const sent = () => mockSendEvent.mock.calls;
+
+  async function choose(button: string, option: string) {
+    await fireEvent.press(screen.getByRole('button', { name: button }));
+    await fireEvent.press(screen.getByRole('button', { name: option }));
+  }
+
+  /** Waits until the books for the current settings are in, so no update lands after a test. */
+  async function booksSettled() {
+    await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
+  }
+
+  it('sends view_collection once, by its number, when the collection is shown', async () => {
+    await renderScreen();
+
+    expect(sent()).toEqual([['view_collection', { collection_id: JUNIOR_ID }]]);
+  });
+
+  it('does not send it again for "Load more", a filter or the sort', async () => {
+    await renderScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Load more' }));
+    await waitFor(() => expect(listProps().data).toHaveLength(26));
+    await choose('Sort, Featured', 'Price, low to high');
+    await booksSettled();
+
+    expect(sent().filter(([name]) => name === 'view_collection')).toHaveLength(1);
+  });
+
+  it('sends nothing for a collection that is not found', async () => {
+    mockFetchPage.mockResolvedValue({ kind: 'not-found' });
+    await renderScreen();
+
+    expect(sent()).toEqual([]);
+  });
+
+  it('sends one filter_applied per change, and nothing for the defaults', async () => {
+    await renderScreen();
+    mockSendEvent.mockClear();
+
+    await choose('Genre', 'Fantasy');
+    await choose('Price', 'Up to ₹49');
+    await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', false);
+    await choose('Sort, Featured', 'Price, high to low');
+    await choose('Genre, Fantasy', 'All genres');
+    await choose('Price, up to ₹49', 'All prices');
+    await booksSettled();
+
+    expect(sent()).toEqual([
+      ['filter_applied', { filter_type: 'genre', value: String(FANTASY) }],
+      ['filter_applied', { filter_type: 'price', value: 'up_to_49' }],
+      ['filter_applied', { filter_type: 'available', value: 'off' }],
+      ['filter_applied', { filter_type: 'sort', value: 'price_descending' }],
+      ['filter_applied', { filter_type: 'genre', value: 'all' }],
+      ['filter_applied', { filter_type: 'price', value: 'all' }],
+    ]);
+  });
+
+  it('sends nothing for the choice already made', async () => {
+    await renderScreen();
+    await choose('Genre', 'Fantasy');
+    await booksSettled();
+    mockSendEvent.mockClear();
+
+    await choose('Genre, Fantasy', 'Fantasy');
+    await choose('Price', 'All prices');
+    await choose('Sort, Featured', 'Featured');
+    await booksSettled();
+
+    expect(sent()).toEqual([]);
+  });
+
+  it('sends nothing without consent', async () => {
+    mockConsent = false;
+    await renderScreen();
+    await choose('Genre', 'Fantasy');
+    await booksSettled();
+
+    expect(sent()).toEqual([]);
+    expect(mockReportAnalytics).not.toHaveBeenCalled();
+  });
 });

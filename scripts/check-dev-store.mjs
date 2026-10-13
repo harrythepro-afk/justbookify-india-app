@@ -23,12 +23,18 @@
 // all-books and on a group, checks that each maximum the app offers is inclusive (the books at
 // exactly that price are returned, and left out just below it) and compares the rental price,
 // and checks one combined count: a maximum, a genre and "Available now" under every sort.
+// For the search usage event (P6-09) it runs the app's own catalogue matcher (D-109) on the four
+// phone-check words against the store's collections, genre entries and each word's first page of
+// results, and prints the collection, genre and book numbers the phone check compares with
+// DebugView (IDs, never secrets).
 //
 // Run with `npm run check:dev-store`. Read-only: named queries, no mutations. Never prints the
 // token or the domain. Not run in CI, which has no .env.local. Point it at a development store
 // only, never the live store.
 //
 // Node 24 strips the types from the imported .ts files, so this checks the real config code.
+
+import { register } from 'node:module';
 
 import { STOREFRONT_API_VERSION, storefrontEndpoint } from '../src/config/shopifyApi.ts';
 import { getStoreConfig, StoreConfigError } from '../src/config/store.ts';
@@ -52,8 +58,29 @@ import {
   PRICE_MAXIMA,
   NO_COVER_HANDLES,
   SEARCH,
+  SEARCH_MATCHES,
   VISIBLE_PRODUCT_COUNT,
 } from './dev-store-catalogue.mjs';
+
+// The app's search matcher and its configuration import their neighbours without the `.ts`
+// extension, as Metro and Jest allow; this hook resolves those imports for Node's type stripping,
+// for this script only.
+register(
+  'data:text/javascript,' +
+    encodeURIComponent(`export async function resolve(specifier, context, next) {
+  try {
+    return await next(specifier, context);
+  } catch (error) {
+    if (specifier.startsWith('.') && !/\\.[cm]?[jt]s$/.test(specifier)) {
+      return next(specifier + '.ts', context);
+    }
+    throw error;
+  }
+}`),
+);
+const { matchSearchTerm } = await import('../src/analytics/searchMatch.ts');
+const { BROWSE_CONTENT } = await import('../src/config/browse.ts');
+const { SEARCH_CONTENT } = await import('../src/config/search.ts');
 
 const QUERY = `query DevStoreCheck($country: CountryCode, $language: LanguageCode)
 @inContext(country: $country, language: $language) {
@@ -204,9 +231,28 @@ const FILTERED_COLLECTION_QUERY = `query DevStoreFilteredCollection(
         endCursor
       }
       nodes {
+        id
         handle
         availableForSale
       }
+    }
+  }
+}`;
+
+// Every collection's ID and handle, as the app's CollectionHandles reads them (P6-09).
+const COLLECTION_IDS_QUERY = `query DevStoreCollectionIds(
+  $country: CountryCode
+  $language: LanguageCode
+  $after: String
+) @inContext(country: $country, language: $language) {
+  collections(first: 250, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      id
+      handle
     }
   }
 }`;
@@ -790,7 +836,10 @@ const SEARCH_QUERY = `query DevStoreSearch(
     }
     nodes {
       ... on Product {
+        id
         handle
+        title
+        vendor
         availableForSale
         priceRange {
           minVariantPrice {
@@ -917,6 +966,99 @@ async function checkSearch(config, products, problems) {
       `"${author.term}" ${byAuthor.totalCount}, "${noResults}" ${none.totalCount}; the draft ` +
       'never found; "Available now" (HIDE) gives exactly the orderable books ' +
       `(${availableSummary.join(', ')}); price sort checked.`,
+  );
+}
+
+/** The number in a Shopify GID, as analytics sends it. */
+function numberOf(gid) {
+  return gid?.slice(gid.lastIndexOf('/') + 1);
+}
+
+/**
+ * The search usage event's catalogue match (P6-09, D-109), with the app's own matcher, for the
+ * phone check's words; then the numbers the phone check compares with DebugView.
+ */
+async function checkSearchMatches(config, problems) {
+  const collections = new Map();
+  let after = null;
+  do {
+    const data = await storefrontRequest(config, COLLECTION_IDS_QUERY, { after });
+    for (const node of data.collections.nodes) collections.set(node.handle, node.id);
+    after = data.collections.pageInfo.hasNextPage ? data.collections.pageInfo.endCursor : null;
+  } while (after);
+
+  const entries = [];
+  after = null;
+  do {
+    const data = await storefrontRequest(config, GENRE_ENTRIES_QUERY, {
+      type: GENRE_FILTER.entryType,
+      after,
+    });
+    entries.push(...data.metaobjects.nodes);
+    after = data.metaobjects.pageInfo.hasNextPage ? data.metaobjects.pageInfo.endCursor : null;
+  } while (after);
+
+  // As useSearchMatchLists builds them (src/shopify/hooks/search.ts).
+  const groups = (links) =>
+    links.flatMap((link) =>
+      collections.has(link.handle)
+        ? [{ name: link.label, collectionGid: collections.get(link.handle) }]
+        : [],
+    );
+  const genres = entries.flatMap((entry) => {
+    const name = entry.label?.value?.trim() ?? '';
+    const taxonomyValueGid = entry.taxonomyReference?.value?.trim() ?? '';
+    return name === '' || taxonomyValueGid === '' ? [] : [{ name, taxonomyValueGid }];
+  });
+  const lists = {
+    series: groups(BROWSE_CONTENT.series),
+    ageGroups: groups(BROWSE_CONTENT.ageGroups),
+    genres,
+    commonWords: SEARCH_CONTENT.matchCommonWords,
+  };
+
+  const summary = [];
+  for (const expected of SEARCH_MATCHES) {
+    const found = await search(config, expected.term);
+    // The app matches against the first page it shows: 20 books, Relevance, rented-out last.
+    const books = found.nodes
+      .slice(0, 20)
+      .map((node) => ({ id: node.id, title: node.title, author: node.vendor }));
+    const match = matchSearchTerm(expected.term, { ...lists, books });
+    const id =
+      expected.handle === undefined ? expected.code : numberOf(collections.get(expected.handle));
+    checkCounts(`search "${expected.term}" totalCount`, found.totalCount, expected.count, problems);
+    if (match.match_type !== expected.type || match.match_id !== id) {
+      problems.push(
+        `search "${expected.term}" matches ${match.match_type} ${match.match_id ?? '(none)'}, ` +
+          `not ${expected.type} ${id ?? '(none)'}.`,
+      );
+    }
+    const matched = match.match_id === undefined ? '' : ` ${match.match_id}`;
+    summary.push(`"${expected.term}" ${match.match_type}${matched} (${found.totalCount})`);
+  }
+  console.log(`Search matches (P6-09, D-109): ${summary.join(', ')}.`);
+
+  const phoneCollections = [
+    'wimpy-kid-series',
+    'emerging-readers',
+    'harry-potter-series',
+    'tintin-series',
+  ];
+  const collectionNumbers = phoneCollections.map(
+    (handle) => `${handle} ${numberOf(collections.get(handle)) ?? 'missing'}`,
+  );
+  console.log(`Collection numbers for the phone check: ${collectionNumbers.join(', ')}.`);
+  const genreNumbers = genres.map((genre) => `${genre.name} ${numberOf(genre.taxonomyValueGid)}`);
+  console.log(`Genre numbers: ${genreNumbers.join(', ')}.`);
+  // Browse after "Clear" in the phone check: all books, "Available now" off, price high to low.
+  const afterClear = await collectionHandles(config, ALL_BOOKS_HANDLE, null, ['PRICE', true]);
+  const firstBooks = (afterClear ?? [])
+    .slice(0, 4)
+    .map((node) => `${node.handle} ${numberOf(node.id)}`);
+  console.log(
+    `Browse after "Clear" (price high to low, "Available now" off), first books: ` +
+      `${firstBooks.join(', ')}.`,
   );
 }
 
@@ -1053,6 +1195,9 @@ async function checkCatalogue(config) {
 
   // The Price filter (P6-08).
   await checkPrices(config, products, problems);
+
+  // The search usage event's catalogue match (P6-09).
+  await checkSearchMatches(config, problems);
 
   if (problems.length > 0) {
     fail(`the sample catalogue differs:\n- ${problems.join('\n- ')}`);

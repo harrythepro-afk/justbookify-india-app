@@ -2,6 +2,7 @@ import {
   analyticsCollectionId,
   analyticsOrderId,
   analyticsProductId,
+  analyticsTaxonomyValueId,
   analyticsToken,
 } from '@/analytics/ids';
 
@@ -10,6 +11,12 @@ describe('analytics IDs', () => {
     expect(analyticsProductId('gid://shopify/Product/8123456789012')).toBe('8123456789012');
     expect(analyticsCollectionId('gid://shopify/Collection/42')).toBe('42');
     expect(analyticsOrderId('gid://shopify/Order/5550001')).toBe('5550001');
+  });
+
+  it('keeps only the number of a taxonomy value, such as a genre (D-110)', () => {
+    expect(analyticsTaxonomyValueId('gid://shopify/TaxonomyValue/15730')).toBe('15730');
+    expect(analyticsTaxonomyValueId('gid://shopify/Collection/15730')).toBeUndefined();
+    expect(analyticsTaxonomyValueId('Manga')).toBeUndefined();
   });
 
   it.each([

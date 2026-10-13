@@ -9,7 +9,7 @@ import type { GenreEntry } from '@/shopify/genres';
 import { resetCatalogueReportsForTests } from '@/shopify/catalogue';
 import { StorefrontError } from '@/shopify/errors';
 
-import { bookProduct, EXAMPLES } from '../helpers/catalogue';
+import { bookProduct, collectionGid, collectionMap, EXAMPLES } from '../helpers/catalogue';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
 import { withScreen } from '../helpers/screen';
 
@@ -32,6 +32,7 @@ const mockReportUnexpected = jest.fn();
 jest.mock('@/crashReporting/sentry', () => ({
   reportStorefrontProblem: jest.fn(),
   reportUnexpectedDataError: (code: string) => mockReportUnexpected(code),
+  reportAnalyticsProblem: (problem: string) => mockReportAnalytics(problem),
 }));
 
 // The Price list's labels are built from the store configuration (P6-08, D-104).
@@ -54,9 +55,19 @@ type GenresOptions = { handle: string; available: boolean };
 
 // Every list is a collection (D-100): all books are the all-books collection.
 const mockFetchBooks = jest.fn<Promise<CollectionBooksPage>, [BooksOptions]>();
-const mockFetchHandles = jest.fn<Promise<ReadonlySet<string>>, []>();
+const mockFetchHandles = jest.fn<Promise<ReadonlyMap<string, string>>, []>();
 const mockFetchGenres = jest.fn<Promise<CollectionGenres>, [GenresOptions]>();
 const mockFetchEntries = jest.fn<Promise<readonly GenreEntry[]>, []>();
+
+// Usage events (P6-09): the real typed functions and guard run; only Firebase's send is recorded.
+const mockSendEvent = jest.fn((_name: string, _params: unknown) => Promise.resolve());
+const mockReportAnalytics = jest.fn();
+let mockConsent = true;
+jest.mock('@/analytics/firebase', () => ({
+  sendEvent: (name: string, params: unknown) => mockSendEvent(name, params),
+  sendScreenView: () => Promise.resolve(),
+}));
+jest.mock('@/analytics/consent', () => ({ isAnalyticsConsentGranted: () => mockConsent }));
 
 jest.mock('@/shopify/catalogue', () => ({
   ...jest.requireActual('@/shopify/catalogue'),
@@ -83,7 +94,7 @@ function card(product: ReturnType<typeof bookProduct>): BookCard {
 
 // The development store's collections (D-076): the 5 age groups, 5 of Home's 15 series, 3 of the
 // longer list's series, a series in neither list, and all-books.
-const DEV_STORE_HANDLES = new Set([
+const DEV_STORE_HANDLES = collectionMap([
   'early-readers',
   'emerging-readers',
   'junior-readers',
@@ -143,6 +154,7 @@ function booksPage({ handle, after }: BooksOptions): CollectionBooksPage {
     const start = after === null ? 0 : 20;
     return {
       kind: 'found',
+      id: collectionGid('all-books'),
       title: 'All books',
       books: ALL.slice(start, start + 20),
       nextCursor: after === null ? 'end-0' : null,
@@ -150,6 +162,7 @@ function booksPage({ handle, after }: BooksOptions): CollectionBooksPage {
   }
   return {
     kind: 'found',
+    id: collectionGid(handle),
     title: handle,
     books: [card(bookProduct({ handle: `${handle}-1`, title: `First of ${handle}` }))],
     nextCursor: null,
@@ -160,7 +173,13 @@ function booksPage({ handle, after }: BooksOptions): CollectionBooksPage {
 function allBooksWith(books: (list: BookListOptions) => readonly BookCard[]) {
   mockFetchBooks.mockImplementation(async (options) =>
     options.handle === ALL_BOOKS
-      ? { kind: 'found', title: 'All books', books: books(options.list), nextCursor: null }
+      ? {
+          kind: 'found',
+          id: collectionGid('all-books'),
+          title: 'All books',
+          books: books(options.list),
+          nextCursor: null,
+        }
       : booksPage(options),
   );
 }
@@ -229,6 +248,9 @@ async function genreReady() {
 }
 
 beforeEach(() => {
+  mockSendEvent.mockClear();
+  mockReportAnalytics.mockClear();
+  mockConsent = true;
   client = createTestQueryClient();
   mockFetchBooks.mockReset().mockImplementation(async (options) => booksPage(options));
   mockFetchHandles.mockReset().mockResolvedValue(DEV_STORE_HANDLES);
@@ -1174,4 +1196,122 @@ it('has a search button named "Search", at least 44 points square, that opens se
   expect(style.minHeight).toBeGreaterThanOrEqual(44);
   await fireEvent.press(button);
   expect(mockPush).toHaveBeenCalledWith('/search');
+});
+
+describe('usage events (P6-09, D-107)', () => {
+  /** A collection's number, as analytics sends it. */
+  const idOf = (handle: string) => collectionGid(handle).slice('gid://shopify/Collection/'.length);
+  const sent = () => mockSendEvent.mock.calls;
+
+  it('sends nothing when the screen opens with its defaults', async () => {
+    await renderScreen();
+    await booksSettled();
+
+    expect(sent()).toEqual([]);
+  });
+
+  it('sends view_collection and filter_applied, by the collection’s number, for a chosen group', async () => {
+    await renderScreen();
+
+    await choose('Age group', '9-10 years');
+    await screen.findByText('First of junior-readers');
+    await choose('Series', 'Harry Potter');
+    await screen.findByText('First of harry-potter-series');
+
+    expect(sent()).toEqual([
+      ['view_collection', { collection_id: idOf('junior-readers') }],
+      ['filter_applied', { filter_type: 'age_group', value: idOf('junior-readers') }],
+      ['view_collection', { collection_id: idOf('harry-potter-series') }],
+      ['filter_applied', { filter_type: 'series', value: idOf('harry-potter-series') }],
+    ]);
+    await booksSettled();
+  });
+
+  it('sends one filter_applied per change: genre, price, "Available now", sort, then "Clear"', async () => {
+    await renderScreen();
+
+    await choose('Genre', 'Manga');
+    await choose('Price', 'Up to ₹49');
+    await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', false);
+    await choose('Sort, Alphabetically, A-Z', 'Price, high to low');
+    await fireEvent.press(screen.getByRole('button', { name: CLEAR }));
+    await booksSettled();
+
+    expect(sent()).toEqual([
+      ['filter_applied', { filter_type: 'genre', value: String(MANGA) }],
+      ['filter_applied', { filter_type: 'price', value: 'up_to_49' }],
+      ['filter_applied', { filter_type: 'available', value: 'off' }],
+      ['filter_applied', { filter_type: 'sort', value: 'price_descending' }],
+      ['filter_applied', { filter_type: 'clear', value: 'all' }],
+    ]);
+  });
+
+  it('sends all for "All genres" and "All prices"', async () => {
+    await renderScreen();
+    await choose('Genre', 'Manga');
+    await choose('Price', 'Up to ₹34');
+    mockSendEvent.mockClear();
+
+    await choose('Genre, Manga', 'All genres');
+    await choose('Price, up to ₹34', 'All prices');
+    await booksSettled();
+
+    expect(sent()).toEqual([
+      ['filter_applied', { filter_type: 'genre', value: 'all' }],
+      ['filter_applied', { filter_type: 'price', value: 'all' }],
+    ]);
+  });
+
+  it('sends nothing for the choice already made, or for a change the screen makes itself', async () => {
+    await renderScreen();
+    await choose('Age group', '9-10 years');
+    await screen.findByText('First of junior-readers');
+    await genreSettled();
+    await choose('Genre', 'Realistic fiction');
+    mockSendEvent.mockClear();
+
+    // The same group, genre and price again; Featured, the sort already in use inside a group.
+    await choose('Age group, 9-10 years', '9-10 years');
+    await choose('Genre, Realistic fiction', 'Realistic fiction');
+    await choose('Price', 'All prices');
+    await choose('Sort, Featured', 'Featured');
+    expect(sent()).toEqual([]);
+
+    // "Clear" turns Featured back into A-Z and keeps the genre out: one event, for "Clear".
+    await fireEvent.press(screen.getByRole('button', { name: CLEAR }));
+    await booksSettled();
+    expect(sent()).toEqual([['filter_applied', { filter_type: 'clear', value: 'all' }]]);
+  });
+
+  it('sends nothing without consent', async () => {
+    mockConsent = false;
+    await renderScreen();
+
+    await choose('Age group', '9-10 years');
+    await screen.findByText('First of junior-readers');
+    await genreSettled();
+    await choose('Genre', 'Realistic fiction');
+    await fireEvent.press(screen.getByRole('button', { name: CLEAR }));
+    await booksSettled();
+
+    expect(sent()).toEqual([]);
+    expect(mockReportAnalytics).not.toHaveBeenCalled();
+  });
+
+  it('never sends a name, a handle or a price as written', async () => {
+    await renderScreen();
+    await choose('Age group', '9-10 years');
+    await screen.findByText('First of junior-readers');
+    await genreSettled();
+    await choose('Genre', 'Realistic fiction');
+    await choose('Price', 'Up to ₹74');
+    await booksSettled();
+
+    const text = JSON.stringify(sent());
+    expect(sent().length).toBeGreaterThan(0);
+    for (const word of ['9-10', 'junior', 'Realistic', '₹', 'Up to']) {
+      expect(text).not.toContain(word);
+    }
+    expect(mockReportAnalytics).not.toHaveBeenCalled();
+  });
 });

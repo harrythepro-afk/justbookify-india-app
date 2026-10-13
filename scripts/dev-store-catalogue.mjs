@@ -225,3 +225,12 @@ export const SEARCH = {
   availableNow: [{ term: 'harry', count: 6 }, { term: 'the' }, { term: 'kid' }],
   priceSort: { term: 'harry', rentedOut: 'harry-potter' },
 };
+
+// The search usage event's catalogue match for the phone check's words (P6-09, D-109): a series
+// by its collection's handle, an author by the code made from the store's name, or other.
+export const SEARCH_MATCHES = [
+  { term: 'harry', count: 7, type: 'series', handle: 'harry-potter-series' },
+  { term: 'dahl', count: 3, type: 'author', code: 'roald_dahl' },
+  { term: 'zzqxv', count: 0, type: 'other' },
+  { term: 'tintin', count: 0, type: 'series', handle: 'tintin-series' },
+];

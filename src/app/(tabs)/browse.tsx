@@ -2,6 +2,15 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  trackAvailableChanged,
+  trackFiltersCleared,
+  trackGenreChosen,
+  trackGroupChosen,
+  trackPriceChosen,
+  trackSortChosen,
+} from '@/analytics/catalogueEvents';
+
 import { BookGrid } from '@/components/BookGrid';
 import { bookSortOptions, BookListControls, ListPicker } from '@/components/BookListControls';
 import { FilterRow } from '@/components/FilterRow';
@@ -28,6 +37,9 @@ type Group = { readonly kind: GroupKind; readonly link: CollectionLink };
 
 const GROUP_NAMES: Record<GroupKind, string> = { 'age-group': 'Age group', series: 'Series' };
 
+/** How `filter_applied` names each group (D-107). */
+const GROUP_FILTER_TYPES = { 'age-group': 'age_group', series: 'series' } as const;
+
 /**
  * Browse, "Books for Rent" (P6-04; `PRODUCT_REQUIREMENTS.md`, "Screen layouts"): Age group,
  * Genre, Price and Series buttons in one row that scrolls sideways, with "Clear" pinned at its
@@ -38,7 +50,11 @@ const GROUP_NAMES: Record<GroupKind, string> = { 'age-group': 'Age group', serie
  * "Clear" resets the group, the genre and the price, and leaves "Available now" and the sort.
  * "Available now" is on by default (D-086). Settings live in the screen: the tab stays mounted, so
  * they survive switching tabs. The tab bar already leaves room for Android's navigation bar
- * (D-080). Search sits under Browse: a search button beside the title opens it (P6-06).
+ * (D-080). Search sits under Browse: a search button beside the title opens it (P6-06). Usage
+ * events (P6-09, D-107): choosing an age group or a series sends `view_collection` and
+ * `filter_applied`; every other change the customer makes, and "Clear", sends `filter_applied`;
+ * never a default, a side effect of another change, or the same choice again. All books send none
+ * of their own (the screen view covers them).
  */
 export default function BrowseScreen() {
   const insets = useSafeAreaInsets();
@@ -57,6 +73,25 @@ export default function BrowseScreen() {
   );
   const handle = group?.link.handle ?? BROWSE_CONTENT.allBooksHandle;
 
+  const onGenre = (next: GenreOption | null) => {
+    setGenre(next);
+    const nextValue = next?.filter.value ?? null;
+    if (nextValue !== (genre?.filter.value ?? null)) trackGenreChosen(nextValue);
+  };
+  const onPrice = (next: PriceOption | null) => {
+    setPrice(next);
+    const nextMax = next?.max ?? null;
+    if (nextMax !== maxPrice) trackPriceChosen(nextMax);
+  };
+  const onAvailable = (next: boolean) => {
+    setAvailable(next);
+    if (next !== available) trackAvailableChanged(next);
+  };
+  const onSort = (next: BookSort) => {
+    setChosenSort(next);
+    if (next !== sort) trackSortChosen(next);
+  };
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.titleRow}>
@@ -74,16 +109,17 @@ export default function BrowseScreen() {
           setGroup(null);
           setGenre(null);
           setPrice(null);
+          trackFiltersCleared();
         }}
-        onGenre={setGenre}
+        onGenre={onGenre}
         onGroup={setGroup}
-        onPrice={setPrice}
+        onPrice={onPrice}
         price={price}
       />
       <BookListControls
         available={available}
-        onAvailableChange={setAvailable}
-        onSort={setChosenSort}
+        onAvailableChange={onAvailable}
+        onSort={onSort}
         sort={sort}
         sortOptions={bookSortOptions(inGroup)}
       />
@@ -151,7 +187,12 @@ function FilterButtons({
         key={kind}
         onSelect={(selected) => {
           const link = links.find((candidate) => candidate.handle === selected);
-          if (link !== undefined) onGroup({ kind, link });
+          if (link === undefined) return;
+          const collectionGid = existing.get(link.handle);
+          if (chosen?.handle !== link.handle && collectionGid !== undefined) {
+            trackGroupChosen(GROUP_FILTER_TYPES[kind], collectionGid);
+          }
+          onGroup({ kind, link });
         }}
         options={links.map((link) => ({ value: link.handle, label: link.label }))}
         selected={chosen?.handle ?? null}

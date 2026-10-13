@@ -68,13 +68,13 @@ describe('analytics events', () => {
 
     trackAppOpen({ source: 'cold_start' });
     trackViewBook({ product_id: PRODUCT, available: false });
-    trackSearch({ term_length: 7, result_count: 0 });
+    trackSearch({ term_length: 7, result_count: 0, match_type: 'other' });
     trackLogin();
 
     expect(mockSendEvent.mock.calls).toEqual([
       ['app_open', { source: 'cold_start' }],
       ['view_book', { product_id: '8123456789012', available: 'no' }],
-      ['search', { term_length: 7, result_count: 0 }],
+      ['search', { term_length: 7, result_count: 0, match_type: 'other' }],
       ['login', {}],
     ]);
   });

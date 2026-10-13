@@ -40,6 +40,7 @@ query CollectionBooks(
   $language: LanguageCode
 ) @inContext(country: $country, language: $language) {
   collection(handle: $handle) {
+    id
     title
     products(
       first: $first
@@ -239,7 +240,8 @@ const COLLECTION_HANDLES_PAGE_SIZE = 250;
 /**
  * The handle of every collection published to the app's channel, so Home shows only tiles that
  * lead somewhere (D-076). Storefront's `collections(query:)` cannot filter by handle, so one
- * listing is the fewest requests. Handles only: no title and no image (owner, P6-03).
+ * listing is the fewest requests. Handles and IDs only: no title and no image (owner, P6-03); the
+ * ID is what analytics sends for a chosen or matched collection (P6-09, D-107).
  */
 export const COLLECTION_HANDLES_QUERY = `#graphql
 query CollectionHandles(
@@ -254,6 +256,7 @@ query CollectionHandles(
       endCursor
     }
     nodes {
+      id
       handle
     }
   }
@@ -345,6 +348,8 @@ export type SearchBooksPage = {
 export type CollectionBooksPage =
   | {
       readonly kind: 'found';
+      /** The collection's GID, for analytics (P6-09, D-107). */
+      readonly id: string;
       readonly title: string;
       readonly books: readonly BookCard[];
       /** The cursor for the next page, or null on the last page. */
@@ -445,6 +450,7 @@ export async function fetchCollectionBooksPage(options: {
   const { pageInfo, nodes } = collection.products;
   return {
     kind: 'found',
+    id: collection.id,
     title: collection.title,
     books: nodes.flatMap(cardOrNothing),
     nextCursor: pageInfo.hasNextPage ? (pageInfo.endCursor ?? null) : null,
@@ -480,11 +486,14 @@ export async function fetchSearchPage(options: {
   };
 }
 
-/** The handles of every collection the app's channel can read. `signal` cancels the listing. */
+/**
+ * Every collection the app's channel can read: each handle with the collection's GID. `signal`
+ * cancels the listing.
+ */
 export async function fetchCollectionHandles(options: {
   readonly signal?: AbortSignal;
-}): Promise<ReadonlySet<string>> {
-  const handles = new Set<string>();
+}): Promise<ReadonlyMap<string, string>> {
+  const handles = new Map<string, string>();
   let after: string | null = null;
   for (;;) {
     const data: CollectionHandlesQuery = await storefrontQuery(COLLECTION_HANDLES_QUERY, {
@@ -492,7 +501,7 @@ export async function fetchCollectionHandles(options: {
       signal: options.signal,
     });
     const { pageInfo, nodes } = data.collections;
-    for (const node of nodes) handles.add(node.handle);
+    for (const node of nodes) handles.set(node.handle, node.id);
     const next = pageInfo.endCursor ?? null;
     if (!pageInfo.hasNextPage || next === null) return handles;
     after = next;
