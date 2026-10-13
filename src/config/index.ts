@@ -8,6 +8,20 @@ export {
   type SortOption,
 } from './browse';
 export {
+  callbackSchemeFor,
+  CUSTOMER_ACCOUNT_ENV_NAMES,
+  CUSTOMER_ACCOUNT_SCOPES,
+  CustomerAccountConfigError,
+  getCustomerAccountConfig,
+  getCustomerAccountConfigStatus,
+  parseCustomerAccountConfig,
+  SHOP_ID_PATTERN,
+  type CustomerAccountConfig,
+  type CustomerAccountConfigStatus,
+  type CustomerAccountEnvName,
+  type RawCustomerAccountEnv,
+} from './customerAccount';
+export {
   getCrashReportingConfig,
   parseCrashReportingConfig,
   type CrashReportingConfig,

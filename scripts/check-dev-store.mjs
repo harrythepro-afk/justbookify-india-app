@@ -27,6 +27,11 @@
 // phone-check words against the store's collections, genre entries and each word's first page of
 // results, and prints the collection, genre and book numbers the phone check compares with
 // DebugView (IDs, never secrets).
+// For login (P7-01, D-120) it reads the store's two discovery documents with the login
+// configuration (EXPO_PUBLIC_CUSTOMER_ACCOUNT_CLIENT_ID, EXPO_PUBLIC_SHOP_ID): the OpenID
+// configuration must pass the app's own check (https endpoints, the issuer naming the configured
+// shop), and the Customer Account API document must name its GraphQL URL. Pass or fail only; no
+// URL, ID or value is printed.
 //
 // Run with `npm run check:dev-store`. Read-only: named queries, no mutations. Never prints the
 // token or the domain. Not run in CI, which has no .env.local. Point it at a development store
@@ -38,6 +43,14 @@ import { register } from 'node:module';
 
 import { STOREFRONT_API_VERSION, storefrontEndpoint } from '../src/config/shopifyApi.ts';
 import { getStoreConfig, StoreConfigError } from '../src/config/store.ts';
+import {
+  CustomerAccountConfigError,
+  getCustomerAccountConfig,
+} from '../src/config/customerAccount.ts';
+import {
+  hasCustomerAccountGraphqlApi,
+  parseOpenIdConfiguration,
+} from '../src/customerAccount/discoveryDocument.ts';
 import { genreCode, toGenreOptions } from '../src/shopify/genres.ts';
 import { parseDescriptionHtml } from '../src/shopify/richText.ts';
 import {
@@ -1286,6 +1299,63 @@ async function checkCatalogue(config) {
   }
 }
 
+// A GET of one of the store's discovery documents. Only the HTTP status or error code is shown.
+async function discoveryRequest(config, path) {
+  let response;
+  try {
+    response = await fetch(`https://${config.storeDomain}${path}`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (error) {
+    fail(`${path} did not complete (${error.cause?.code ?? error.name}).`);
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    fail(`${path} answered HTTP ${response.status}.`);
+  }
+  try {
+    return await response.json();
+  } catch {
+    fail(`${path} is not JSON.`);
+  }
+}
+
+async function checkCustomerAccountDiscovery(config) {
+  let login;
+  try {
+    login = getCustomerAccountConfig();
+  } catch (error) {
+    if (error instanceof CustomerAccountConfigError) {
+      fail(`${error.message} Add them to .env.local (NEXT_TASK.md, P7-01).`);
+    }
+    throw error;
+  }
+  console.log('Login configuration: valid.');
+
+  const openId = parseOpenIdConfiguration(
+    await discoveryRequest(config, '/.well-known/openid-configuration'),
+    login.shopId,
+  );
+  if (!openId.ok) {
+    fail(
+      openId.code === 'discovery_mismatch'
+        ? "the OpenID configuration's issuer names another shop: check EXPO_PUBLIC_SHOP_ID."
+        : 'the OpenID configuration lacks an https endpoint the app needs.',
+    );
+  }
+  if (
+    !hasCustomerAccountGraphqlApi(
+      await discoveryRequest(config, '/.well-known/customer-account-api'),
+    )
+  ) {
+    fail('the Customer Account API document names no https GraphQL URL.');
+  }
+  console.log(
+    'Login discovery (P7-01): both .well-known documents served; endpoints https; issuer matches the shop ID.',
+  );
+}
+
 async function check() {
   let config;
   try {
@@ -1299,6 +1369,7 @@ async function check() {
   console.log('Store configuration: valid.');
 
   await checkStore(config);
+  await checkCustomerAccountDiscovery(config);
   await checkCatalogue(config);
 }
 
