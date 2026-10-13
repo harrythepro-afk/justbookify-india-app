@@ -1,6 +1,6 @@
-# Next task (proposal): P6-11, the wanted list
+# Next task: P6-11, the wanted list
 
-Status: proposal. P6-10 (the last Phase 6 task; D-111 to D-114) is on branch `p6-10-close-phase-6`, PR #23, phone check passed; see `CURRENT_STATUS.md`. P6-11 starts when the owner starts it, after P6-10's pull request is merged. P6-09 is merged (`ac0a9fd`, PR #22).
+Status: in progress on branch `p6-11-wanted-list` (started by the owner on 13 October 2026, with the architect's answers to the six questions). P6-10 is merged (`ad12f44`, PR #23); P6-09 is merged (`ac0a9fd`, PR #22).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -23,8 +23,8 @@ Status: proposal. P6-10 (the last Phase 6 task; D-111 to D-114) is on branch `p6
 | P6-07 (done, eaa9702) | The Genre filter (the store's own genre names, one at a time, combined with the group, "Available now" and the sort; on Browse and the collection screen), Browse's all books from the `all-books` collection, the longer series list | D-100 to D-103 |
 | P6-08 (done, c757ff2) | The Price filter ("All prices", then up to ₹34, ₹49, ₹74; a maximum only; store configuration, labels in the store's currency format) on Browse and the collection screen, not on search; one filter row that scrolls sideways with "Clear" pinned at its right edge; the CI act warnings fixed in the test setup | D-104 to D-106 |
 | P6-09 (done, ac0a9fd) | The catalogue usage events under consent: `view_collection` (collection screen, a group chosen on Browse), `view_book`, `filter_applied` (codes only, the customer's own changes), `search` (2 seconds on screen, the search key or a book opened; length, count and the store's own catalogue item matched, never the term); the guard's dependent parameters | D-107 to D-110 |
-| P6-10 (branch `p6-10-close-phase-6`) | The last Phase 6 task: the offline question closed (queries keep pausing, D-082's safety net), description tables (cells joined by " · "), tappable genre chips (all books with that genre, pushed on the book page), "Popular authors" on Home | D-111 to D-114 |
-| P6-11 (proposed) | The wanted list (owner, 9 October 2026): a list in Remote Config; a search that finds nothing but matches a listed name records it as a code | |
+| P6-10 (done, ad12f44) | The last Phase 6 task: the offline question closed (queries keep pausing, D-082's safety net), description tables (cells joined by " · "), tappable genre chips (all books with that genre, pushed on the book page), "Popular authors" on Home | D-111 to D-114 |
+| P6-11 (branch `p6-11-wanted-list`) | The wanted list (owner, 9 October 2026): a list in Remote Config; a search that finds nothing but matches a listed name records it as a code | |
 
 ## Goal of P6-11
 
