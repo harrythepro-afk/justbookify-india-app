@@ -459,6 +459,10 @@ Unit tests; Firebase's send is mocked (the real typed functions and guard run) a
 7. Standing step (D-082, D-087): more than 5 minutes in the background, then back: no false offline notice.
 8. The app's own log: no crash and no JavaScript error. No typed word in any event, except inside the store's own code it matched (`dahl` inside `roald_dahl`; owner, plan review).
 
+**Passed on 13 October 2026** (05:17 to 06:05 IST, over wireless debugging; details, two incidents and every adb command in `CURRENT_STATUS.md`). Pass 1: DebugView showed no device and no event. Pass 2: `filter_applied` 6, `search` 4, `view_collection` 2, `view_book` 1, with the values above (owner-confirmed); no typed word. Standing step: 7 min 6 s in the background, Home with its books and no offline notice. The app's log from 05:51: no crash, no JavaScript error, no test word; the log of the earlier process could not be read.
+
+**Lessons for later phone checks:** hide the keyboard with one Back press, never a swipe that can land on it (on this phone it starts at about y 1,570 of 2,400); Browse's search icon sits under the development client's gear button, so tap its lower half; wireless debugging drops whenever the screen sleeps or the app goes to the background, so USB is the reliable choice for a check with a background step.
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).
