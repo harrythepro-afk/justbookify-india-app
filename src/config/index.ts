@@ -28,6 +28,7 @@ export {
   FLAG_ACTIVATION_TIMEOUT_MILLIS,
   parseFeatureFlags,
   REMOTE_CONFIG_SETTINGS,
+  WANTED_LIST,
   type FeatureFlagName,
   type FeatureFlags,
   type FeatureFlagSnapshot,

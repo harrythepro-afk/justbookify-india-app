@@ -1,15 +1,24 @@
 import { useEffect, useSyncExternalStore } from 'react';
 
+import { parseWantedList, type WantedList } from '@/analytics/wantedList';
 import {
   defaultFeatureFlags,
   FLAG_ACTIVATION_TIMEOUT_MILLIS,
   getAppEnvironment,
   parseFeatureFlags,
   REMOTE_CONFIG_SETTINGS,
+  SEARCH_CONTENT,
+  WANTED_LIST,
   type FeatureFlagSnapshot,
+  type FeatureFlagSource,
+  type RawRemoteConfigValue,
 } from '@/config';
 import { safeErrorCode as errorCode } from '@/crashReporting/errorCode';
-import { reportFeatureFlagProblem, reportMalformedFeatureFlag } from '@/crashReporting/sentry';
+import {
+  reportFeatureFlagProblem,
+  reportMalformedFeatureFlag,
+  reportMalformedRemoteConfigList,
+} from '@/crashReporting/sentry';
 
 import { activateLastFetched, fetchForNextLaunch } from './remoteConfig';
 
@@ -22,19 +31,38 @@ import { activateLastFetched, fetchForNextLaunch } from './remoteConfig';
  * - activation takes longer than FLAG_ACTIVATION_TIMEOUT_MILLIS: the compiled defaults.
  * Nothing changes a frozen snapshot. New values are then fetched in the background and apply
  * from the next cold start, so a flag never changes in the middle of a session.
+ *
+ * The wanted list (P6-11, D-115) is frozen with the flags, from the same activated values, on the
+ * same timing: an empty list whenever the flags fall back to their defaults.
  */
 
 /** How the background fetch ended. `failed` is an unexpected error, already reported. */
 export type FeatureFlagFetchStatus = 'in progress' | 'success' | 'failure' | 'throttled' | 'failed';
+
+/** This session's wanted list (D-115) and where it came from. */
+export type WantedListSnapshot = {
+  readonly list: WantedList;
+  readonly source: FeatureFlagSource;
+};
 
 export type FeatureFlagState =
   | { readonly status: 'not ready' }
   | {
       readonly status: 'ready';
       readonly snapshot: FeatureFlagSnapshot;
+      readonly wantedList: WantedListSnapshot;
       /** Undefined when no fetch was started because activation failed. */
       readonly fetch: FeatureFlagFetchStatus | undefined;
     };
+
+/** What one launch freezes. */
+type Frozen = { readonly snapshot: FeatureFlagSnapshot; readonly wantedList: WantedListSnapshot };
+
+const NO_WANTED_LIST: WantedListSnapshot = { list: [], source: 'default' };
+
+function defaults(): Frozen {
+  return { snapshot: defaultFeatureFlags(), wantedList: NO_WANTED_LIST };
+}
 
 const NOT_READY: FeatureFlagState = { status: 'not ready' };
 
@@ -58,7 +86,10 @@ const EXPECTED_FETCH_ERRORS: Record<string, FeatureFlagFetchStatus> = {
 };
 
 type Activation =
-  | { readonly kind: 'activated'; readonly snapshot: FeatureFlagSnapshot }
+  | {
+      readonly kind: 'activated';
+      readonly raw: Readonly<Record<string, RawRemoteConfigValue | undefined>>;
+    }
   | { readonly kind: 'failed'; readonly error: unknown }
   | { readonly kind: 'timed out' };
 
@@ -71,7 +102,7 @@ async function activateWithTimeout(): Promise<Activation> {
   const activation = Promise.resolve()
     .then(() => activateLastFetched(REMOTE_CONFIG_SETTINGS[getAppEnvironment()]))
     .then(
-      (raw): Activation => ({ kind: 'activated', snapshot: parseFeatureFlags(raw) }),
+      (raw): Activation => ({ kind: 'activated', raw }),
       (error: unknown): Activation => ({ kind: 'failed', error }),
     );
 
@@ -82,39 +113,52 @@ async function activateWithTimeout(): Promise<Activation> {
   }
 }
 
-function fetchInBackground(snapshot: FeatureFlagSnapshot): void {
-  setState({ status: 'ready', snapshot, fetch: 'in progress' });
+function fetchInBackground(frozen: Frozen): void {
+  setState({ status: 'ready', ...frozen, fetch: 'in progress' });
   fetchForNextLaunch().then(
-    () => setState({ status: 'ready', snapshot, fetch: 'success' }),
+    () => setState({ status: 'ready', ...frozen, fetch: 'success' }),
     (error: unknown) => {
       const code = errorCode(error);
       const expected = EXPECTED_FETCH_ERRORS[code];
       if (expected === undefined) reportFeatureFlagProblem(`fetch failed (${code})`);
-      setState({ status: 'ready', snapshot, fetch: expected ?? 'failed' });
+      setState({ status: 'ready', ...frozen, fetch: expected ?? 'failed' });
     },
   );
+}
+
+/**
+ * The flags and the wanted list from the activated values. Problems are reported here, and
+ * `load()` runs once per launch, so each is reported at most once per launch (D-046, D-116).
+ */
+function freeze(raw: Readonly<Record<string, RawRemoteConfigValue | undefined>>): Frozen {
+  const snapshot = parseFeatureFlags(raw);
+  for (const name of snapshot.malformed) reportMalformedFeatureFlag(name);
+  const wanted = parseWantedList(raw[WANTED_LIST.parameter], SEARCH_CONTENT.matchCommonWords);
+  if (wanted.problem !== undefined) {
+    reportMalformedRemoteConfigList(WANTED_LIST.parameter, wanted.problem);
+  }
+  return { snapshot, wantedList: { list: wanted.list, source: wanted.source } };
 }
 
 async function load(): Promise<FeatureFlagSnapshot> {
   const activation = await activateWithTimeout();
 
   if (activation.kind === 'activated') {
-    const { snapshot } = activation;
-    for (const name of snapshot.malformed) reportMalformedFeatureFlag(name);
-    fetchInBackground(snapshot);
-    return snapshot;
+    const frozen = freeze(activation.raw);
+    fetchInBackground(frozen);
+    return frozen.snapshot;
   }
 
-  const snapshot = defaultFeatureFlags();
+  const frozen = defaults();
   if (activation.kind === 'timed out') {
     reportFeatureFlagProblem('activation timed out');
     // The values may still activate; they are fetched for, and used from, the next launch.
-    fetchInBackground(snapshot);
+    fetchInBackground(frozen);
   } else {
     reportFeatureFlagProblem(`activation failed (${errorCode(activation.error)})`);
-    setState({ status: 'ready', snapshot, fetch: undefined });
+    setState({ status: 'ready', ...frozen, fetch: undefined });
   }
-  return snapshot;
+  return frozen.snapshot;
 }
 
 /**
@@ -125,9 +169,9 @@ async function load(): Promise<FeatureFlagSnapshot> {
 export function loadFeatureFlags(): Promise<FeatureFlagSnapshot> {
   loading ??= load().catch((error: unknown) => {
     reportFeatureFlagProblem(`unexpected error (${errorCode(error)})`);
-    const snapshot = defaultFeatureFlags();
-    setState({ status: 'ready', snapshot, fetch: undefined });
-    return snapshot;
+    const frozen = defaults();
+    setState({ status: 'ready', ...frozen, fetch: undefined });
+    return frozen.snapshot;
   });
   return loading;
 }
@@ -154,4 +198,13 @@ export function useFeatureFlags(): FeatureFlagState {
     void loadFeatureFlags();
   }, []);
   return useSyncExternalStore(subscribe, getState, getState);
+}
+
+/**
+ * This session's wanted list (P6-11, D-115): null until the snapshot is frozen, then the same
+ * list for the rest of the launch.
+ */
+export function useWantedList(): WantedList | null {
+  const flags = useFeatureFlags();
+  return flags.status === 'ready' ? flags.wantedList.list : null;
 }
