@@ -30,8 +30,17 @@ export type StoreConfig = {
    * checkout sets the final amount. The ACOD app adds no fee of its own (D-031).
    */
   readonly shippingFeeCod: number;
-  /** Subtotal from which delivery is free, in major currency units. */
+  /**
+   * Subtotal from which the automatic shipping discount applies, in major currency units: prepaid
+   * delivery becomes free (D-023, D-031).
+   */
   readonly freeDeliveryThreshold: number;
+  /**
+   * The automatic shipping discount, in major currency units, taken off either delivery rate from
+   * `freeDeliveryThreshold` (the SMART Checkout Rules shipping discount, D-031, D-141). A cart hint
+   * only: checkout sets the final amount.
+   */
+  readonly shippingDiscount: number;
   /** Checkout is blocked when the cart subtotal reaches this value (R2). */
   readonly orderCap: number;
   /** Two-digit pincode prefix ranges the store delivers to (R3). */
@@ -47,6 +56,7 @@ export const STORE_ENV_NAMES = [
   'EXPO_PUBLIC_SHIPPING_FEE_PREPAID',
   'EXPO_PUBLIC_SHIPPING_FEE_COD',
   'EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD',
+  'EXPO_PUBLIC_SHIPPING_DISCOUNT',
   'EXPO_PUBLIC_ORDER_CAP',
   'EXPO_PUBLIC_DELIVERY_PINCODE_RANGES',
 ] as const;
@@ -114,6 +124,7 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
   const shippingFeePrepaid = parseAmount(env.EXPO_PUBLIC_SHIPPING_FEE_PREPAID);
   const shippingFeeCod = parseAmount(env.EXPO_PUBLIC_SHIPPING_FEE_COD);
   const freeDeliveryThreshold = parseAmount(env.EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD);
+  const shippingDiscount = parseAmount(env.EXPO_PUBLIC_SHIPPING_DISCOUNT);
   const orderCap = parseAmount(env.EXPO_PUBLIC_ORDER_CAP);
   const deliveryPincodeRanges = parseRanges(env.EXPO_PUBLIC_DELIVERY_PINCODE_RANGES);
 
@@ -134,6 +145,7 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
   if (shippingFeePrepaid === undefined) invalid.push('EXPO_PUBLIC_SHIPPING_FEE_PREPAID');
   if (shippingFeeCod === undefined) invalid.push('EXPO_PUBLIC_SHIPPING_FEE_COD');
   if (freeDeliveryThreshold === undefined) invalid.push('EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD');
+  if (shippingDiscount === undefined) invalid.push('EXPO_PUBLIC_SHIPPING_DISCOUNT');
   if (orderCap === undefined || orderCap === 0) invalid.push('EXPO_PUBLIC_ORDER_CAP');
   if (deliveryPincodeRanges === undefined) invalid.push('EXPO_PUBLIC_DELIVERY_PINCODE_RANGES');
 
@@ -147,6 +159,7 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
     shippingFeePrepaid === undefined ||
     shippingFeeCod === undefined ||
     freeDeliveryThreshold === undefined ||
+    shippingDiscount === undefined ||
     orderCap === undefined ||
     deliveryPincodeRanges === undefined
   ) {
@@ -162,6 +175,7 @@ export function parseStoreConfig(env: RawStoreEnv): StoreConfig {
     shippingFeePrepaid,
     shippingFeeCod,
     freeDeliveryThreshold,
+    shippingDiscount,
     orderCap,
     deliveryPincodeRanges,
   };
@@ -180,6 +194,7 @@ export function getStoreConfig(): StoreConfig {
     EXPO_PUBLIC_SHIPPING_FEE_PREPAID: process.env.EXPO_PUBLIC_SHIPPING_FEE_PREPAID,
     EXPO_PUBLIC_SHIPPING_FEE_COD: process.env.EXPO_PUBLIC_SHIPPING_FEE_COD,
     EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD: process.env.EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD,
+    EXPO_PUBLIC_SHIPPING_DISCOUNT: process.env.EXPO_PUBLIC_SHIPPING_DISCOUNT,
     EXPO_PUBLIC_ORDER_CAP: process.env.EXPO_PUBLIC_ORDER_CAP,
     EXPO_PUBLIC_DELIVERY_PINCODE_RANGES: process.env.EXPO_PUBLIC_DELIVERY_PINCODE_RANGES,
   });

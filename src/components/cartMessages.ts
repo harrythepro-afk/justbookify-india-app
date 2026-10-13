@@ -110,3 +110,44 @@ export function afterRemove(productGid: string, result: RemoveOutcome | CartChan
       return;
   }
 }
+
+// The delivery hints and the pincode check (owner and architect, P8-02, approved at plan review on
+// 14 October 2026). Amounts in the store's currency format, all from the store configuration.
+
+export const FREE_DELIVERY = 'Free';
+export const DELIVERY_NOTE = 'Final delivery charges are shown at checkout.';
+
+/** The prepaid fee, shown prominently: "Delivery: ₹75" or "Delivery: Free". */
+export function deliveryLine(fee: string): string {
+  return `Delivery: ${fee}`;
+}
+
+/**
+ * The smaller cash-on-delivery line: under the threshold, the rate and the rate from the threshold
+ * ("Cash on delivery: ₹125, or ₹50 from ₹200"); from the threshold, the rate alone.
+ */
+export function codLine(
+  fee: string,
+  from?: { readonly fee: string; readonly threshold: string },
+): string {
+  return from === undefined
+    ? `Cash on delivery: ${fee}`
+    : `Cash on delivery: ${fee}, or ${from.fee} from ${from.threshold}`;
+}
+
+/** How much more makes prepaid delivery free; never shown past the order cap. */
+export function freeDeliveryHint(amount: string): string {
+  return `Add books worth ${amount} more for free delivery.`;
+}
+
+export const PINCODE_LABEL = 'Delivery pincode';
+export const PINCODE_HINT = 'Six digits';
+export const PINCODE_CHECK = 'Check';
+export const PINCODE_CLEAR = 'Clear pincode';
+export const PINCODE_OUTSIDE_MESSAGE = "Sorry, we don't deliver to this pincode yet.";
+export const PINCODE_INVALID_MESSAGE = 'Enter a 6-digit pincode.';
+
+/** A pincode inside the delivery area. The pincode is shown, never recorded (D-142). */
+export function pincodeInAreaMessage(pincode: string): string {
+  return `We deliver to ${pincode}.`;
+}
