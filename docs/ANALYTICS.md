@@ -87,7 +87,7 @@ Google Analytics also derives device model, operating system version, language a
 
 Wired in `src/analytics/catalogueEvents.ts` (codes and the three catalogue events), `searchEvent.ts` (when `search` is sent) and `searchMatch.ts` (what a term matched). Every value is one of Shopify's numeric IDs or one of the app's codes; never a handle, a title, a name or the typed term.
 
-**`view_collection`** (`collection_id`): once per opening of the collection screen (from Home), when it shows its collection; and when an age group or a series is chosen on Browse. Not for all books (Browse's screen view covers them), and not again for "Load more", the sort, "Available now", a genre or a price.
+**`view_collection`** (`collection_id`): once per opening of the collection screen (from Home), when it shows its collection; and when an age group or a series is chosen on Browse. Not for all books (Browse's screen view covers them, and the collection screen sends none when a genre chip opens it on all books, D-113), and not again for "Load more", the sort, "Available now", a genre or a price.
 
 **`view_book`** (`product_id`, `available`): once per opening of the book page, when it first shows its book. `available` is `yes` when the book can be ordered (a book orderable at zero stock is `yes`), `no` when it is rented out.
 
@@ -104,6 +104,8 @@ Wired in `src/analytics/catalogueEvents.ts` (codes and the three catalogue event
 | `clear` (Browse) | `all`; one event, none for the choices it resets |
 
 Choosing an age group or a series sends `view_collection` and then `filter_applied` with the same number.
+
+**A genre chip on the book page (P6-10, D-113)** opens the collection screen on all books with that genre chosen: the collection screen sends one `filter_applied` (`genre`, the taxonomy value's number) once it has chosen it, and nothing for its defaults; the book page sends nothing for the tap. The link itself carries the number only, never the genre's name, and the screen view is logged by route name only (`collection/[handle]`).
 
 **`search`** (`term_length`, `result_count`, `match_type`, `match_id`):
 - **When:** once per term in one visit to the search screen, when that term's results have stayed on screen for 2 seconds; at once when the search key was pressed for it (as soon as its results arrive), or when a book is opened from its results before then. Never twice for the same term (letter case ignored), and not again for "Load more", the sort or "Available now". Nothing for a term that is replaced or cleared, or whose read fails, before then.
