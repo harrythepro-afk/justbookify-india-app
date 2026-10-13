@@ -524,6 +524,31 @@ Unit tests; Remote Config, the Storefront reads and Firebase's send are mocked:
 
 **Lessons for later phone checks:** send the search key as its own command after the text (`input text`, then `input keyevent KEYCODE_ENTER`, each behind the focus check), so the screen has rendered the last letter; the search key closes the keyboard, so a screenshot after it is safe; wireless debugging dropped again during the background step (a new port was needed).
 
+### Login and logout (P7-01)
+
+Unit tests (Shopify, the browser, `expo-crypto` and `expo-secure-store` are stand-ins; the real `AuthRequest` of `expo-auth-session` builds the request):
+
+- `__tests__/config/customerAccount.test.ts` and `app.config.test.ts`: the two values, errors by name only, a secret-looking client ID refused; the schemes with and without the shop ID; a production build without it stops; the scheme rule is the same in both files.
+- `__tests__/customerAccount/discoveryDocument.test.ts`: https endpoints, the issuer naming the configured shop; anything else refused whole.
+- `__tests__/customerAccount/idToken.test.ts`: nonce, issuer, audience, expiry, `iat` at most 5 minutes ahead, malformed tokens; a non-ASCII email.
+- `__tests__/customerAccount/oauthHttp.test.ts`: form bodies with no Origin header; **refused only for `invalid_grant`, whatever the status (change A)**; `invalid_client`, `invalid_request`, other 400s and 401s, 403, 429, 5xx, malformed answers, network and the 15-second limit are unavailable; codes only.
+- `__tests__/customerAccount/tokenStorage.test.ts`: the keys and `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY` on every call; **a save killed after each single write leaves the previous complete set, or the new one once the pointer moved, never a partial set (change B)**; **no stored value over 1,500 characters, a 4,000-character set in three chunks, over 8 chunks refused (change C)**; invalid and unreadable stores; logout deletes the pointer first.
+- `__tests__/customerAccount/session.test.ts`: PKCE S256 (the challenge is the unpadded base64url SHA-256 of the verifier sent in the exchange), the 43-character state and nonce, a wrong state refused (also when the library's own check is bypassed), a wrong nonce, issuer or audience refused, cancel and dismiss with no message, a second tap ignored, exchange failures, no refresh token, discovery for another shop; refresh with 4 minutes left and not with 10, on return to the foreground, one refresh for three callers, a rotated refresh token saved; `invalid_grant` logs out with the line, deletes everything and calls `clearAllCaches()`; `invalid_client` and `invalid_request` keep the customer signed in; logout (tokens, caches, Shopify's call with `id_token_hint`), offline logout, a cold start after logout.
+- `__tests__/customerAccount/privacy.test.ts`: logins, refreshes, a refused refresh and an offline logout, with every `console` method, Sentry's reporter and the analytics module watched: no token, code, verifier, nonce, state, email or shop ID in any of them, and no analytics event.
+- `__tests__/crashReporting/scrub.test.ts` and `sentry.test.ts`: the new patterns and keys, removal by value at send time, `Customer account: <code>` warnings.
+- `__tests__/app/account.test.tsx`: every state, the refused line word for word, no `Alert`, "Share app usage" in every state. `__tests__/app/home.test.tsx`: the development login lines (state, minutes left, lengths, never the email) and "Test token refresh". `__tests__/customerAccount/callbackUrl.test.ts`: the callback never becomes a route. `__tests__/customerAccount/lintGuards.test.ts`: the three ESLint boundaries.
+
+`npm run check:dev-store` also reads the store's two `.well-known` documents with the app's own parser (pass or fail only).
+
+**Phone check** (USB, standing permission D-095, a new development build with the login packages and the callback scheme). Shopify's login page opens in a Chrome Custom Tab, outside JustBookify: while it is open, the focus check finds Chrome in front, so Claude sends no input and takes no screenshot. The owner types the test customer's email and the emailed code and says when JustBookify is back in front. **No screenshot of the Account tab while signed in** (it shows the email; the owner reads it and says what it shows); Home's development lines show the login state, the access token's minutes left and each token's length in characters, never a token or the email. `adb shell am force-stop com.justbookify.india.dev` for the cold starts, with the owner's yes for this check only.
+
+1. Log in from the Account tab; the owner confirms "Logged in as" with the test customer's email. Home's development lines: `Login: signedIn`, the minutes left (the observed lifetime) and the token lengths.
+2. A cold start keeps the login.
+3. The owner logs out of the development store's customer account in the laptop's browser. A cold start still shows signed in, and "Test token refresh" says refreshed. If not, stop and tell the owner; the design is not changed.
+4. "Log out": "Log in" with no message; a cold start keeps it logged out. Observation (architect's change D): the owner taps "Log in" and says whether Shopify asked for the email and code again or signed straight in from Chrome's own session; then closes the page. A straight sign-in is a finding with a proposed fix, not built without the owner's yes.
+5. The standing background step: more than 5 minutes, no false offline notice, still logged out.
+6. The app's own log, filtered to its process: no crash, no JavaScript error; counts only of `eyJ`, `shc…_`, `code=` and `@`, which must all be 0.
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).

@@ -5,19 +5,19 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 ## Checklist
 
 ### Authentication
-- [ ] Customer Account API with OAuth 2.0 and PKCE in the system browser session
-- [ ] The app never handles a password
-- [ ] Access tokens are short-lived and refreshed; one shared refresh in flight
-- [ ] Logout ends the Shopify session, deletes local tokens and caches, and unregisters the push token (P5-02: `clearAllCaches()` in `src/query/queryClient.ts` empties the in-memory query cache; Phase 7 calls it at logout)
+- [x] Customer Account API with OAuth 2.0 and PKCE in the system browser session (P7-01, D-119): authorization code with PKCE S256, the app's own 32-byte `state` checked twice, a 32-byte nonce checked in the ID token with the issuer, audience, expiry and `iat` (D-121); a Custom Tab on Android, `ASWebAuthenticationSession` on iOS, never a web view. Endpoints come from the store's discovery document, refused unless https with the issuer naming the configured shop (D-120). Unit tests prove it; the phone check is recorded in `CURRENT_STATUS.md`
+- [x] The app never handles a password: the customer types the email and the emailed code on Shopify's own page (D-005)
+- [x] Access tokens are short-lived and refreshed; one shared refresh in flight (D-121): refreshed with 5 minutes or less left; only Shopify's `invalid_grant` logs the customer out, every other failure keeps them signed in
+- [ ] Logout ends the Shopify session, deletes local tokens and caches, and unregisters the push token. Done in P7-01 (D-122): local tokens deleted (pointer first), `clearAllCaches()`, then Shopify's mobile logout call with `id_token_hint`. The push token comes with Phase 12. A website logout does not log the app out (owner, answer 3)
 
 ### Authorization
 - [ ] Customer identity is derived on the server from a validated token
 - [ ] No endpoint accepts a customer, order or return ID without checking it belongs to the caller
 
 ### Device storage
-- [ ] Tokens only in iOS Keychain and Android Keystore-backed storage
+- [x] Tokens only in iOS Keychain and Android Keystore-backed storage (P7-01, D-121): `expo-secure-store` through `src/customerAccount/tokenStorage.ts` only (ESLint), `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`, Android backup off (D-052). Saved crash-safely (two slots and a pointer; a test kills the save after every write) and in chunks of at most 1,500 characters. Never in logs, analytics, Sentry, the query cache or screen state; the Account tab shows the email from the ID token only
 - [ ] Nothing sensitive in AsyncStorage, plain files, logs or crash reports
-- [x] Crash reports (Sentry, D-042): `sendDefaultPii` off; no tracing, replay, screenshots, view hierarchy, logs or failed-request capture. `beforeSend` and `beforeBreadcrumb` (`src/crashReporting/scrub.ts`) remove the user, request headers, cookies, bodies and query strings, the device name, frame variables and console breadcrumbs. They also filter emails, phone numbers, tokens, customer and order GIDs, the store domain and the Storefront token from every string. Unit tests prove it. Native crashes skip that code; Sentry's server-side data scrubbing and "Prevent Storing of IP Addresses" cover them. Sentry's server derives a location from the address each report arrives from, even though the IP is not stored. Two Advanced Data Scrubbing rules in the Sentry project (Remove `user.geo.city`, Remove `user.geo.subdivision`) leave only the country; checked on 4 October 2026. Sentry's server also fills `device.name` with the public marketing name of the Android model; the app's own device name is never sent. The source-map upload token is an EAS secret only
+- [x] Crash reports (Sentry, D-042): `sendDefaultPii` off; no tracing, replay, screenshots, view hierarchy, logs or failed-request capture. `beforeSend` and `beforeBreadcrumb` (`src/crashReporting/scrub.ts`) remove the user, request headers, cookies, bodies and query strings, the device name, frame variables and console breadcrumbs. They also filter emails, phone numbers, tokens, customer and order GIDs, the store domain and the Storefront token from every string. Since P7-01 (D-121) also the customer's tokens held in memory by value, `shc…_` tokens, the login callback URL whole, other app schemes' query strings, the shop ID by value, and the login's own keys (`nonce`, `verifier`, `code_challenge`, `code`, `state`). Unit tests prove it. Native crashes skip that code; Sentry's server-side data scrubbing and "Prevent Storing of IP Addresses" cover them. Sentry's server derives a location from the address each report arrives from, even though the IP is not stored. Two Advanced Data Scrubbing rules in the Sentry project (Remove `user.geo.city`, Remove `user.geo.subdivision`) leave only the country; checked on 4 October 2026. Sentry's server also fills `device.name` with the public marketing name of the Android model; the app's own device name is never sent. The source-map upload token is an EAS secret only
 
 ### Network
 - [ ] TLS everywhere; no cleartext exceptions

@@ -88,6 +88,36 @@ Storefront password: on the development store, the Checkout Kit sheet first show
 - The callback URI uses the `shop.{shop_id}` custom scheme that Shopify requires for mobile apps.
 - Login opens in the system browser session, never in an embedded web view.
 
+### What Shopify's docs say (P7-01, read 13 October 2026)
+
+Sources: shopify.dev "Getting started with the Customer Account API" (`/docs/storefronts/headless/building-with-the-customer-account-api/getting-started`), the Customer Account API reference (`/docs/api/customer/2026-10`), Checkout Kit's "Authenticate checkouts", and the API versioning page. None shows a "last updated" date. No conflict with the four rules above.
+
+| Topic | What the docs say | In the app |
+| --- | --- | --- |
+| Where the client is set up | Sales channels → Headless → the storefront → Customer Account API settings; "Optional: Modify the client type" (Public, Web, Mobile, Confidential) | The development store's Headless storefront, mobile (public) type, set up by the owner on 13 October 2026. Never Confidential: a public client has no secret |
+| Refresh tokens | Only clients "configured on the shop, such as a headless or Hydrogen storefront" get one; an app client from the Dev Dashboard gets none (`unsupported_grant_type`) | Headless only. **Checkout Kit's own guide sets the client up in the Dev Dashboard; it must not be followed.** A login without a refresh token fails (D-121) |
+| Callback | Mobile callback URLs "must use the custom scheme `shop.{shop_id}.*`"; Checkout Kit names `shop.{shop_id}.app://callback` as the default; no `http` or `localhost` | `shop.<shop ID>.app://callback`, derived from `EXPO_PUBLIC_SHOP_ID` (D-120) |
+| JavaScript origins, Logout URL | Origins apply to web clients only; the Logout URL is "not applicable to mobile public clients" | Neither is set; the token requests send no Origin header |
+| Endpoints | Discovered from `https://<store>/.well-known/openid-configuration` (authorization, token, end-session, `jwks_uri`, issuer `https://shopify.com/authentication/<shop ID>`) and `/.well-known/customer-account-api` (GraphQL URL with the latest version); URLs may use the store's own accounts domain | Read once per launch and refused unless https with the issuer naming the configured shop (D-120). The development store serves both documents though it is password protected (`check:dev-store`, 13 October 2026) |
+| Authorization request | `client_id`, `response_type=code`, `redirect_uri`, `scope`, `state`; public clients add `code_challenge` (S256); `nonce` optional, compared by the app in the ID token. A 400 `invalid_grant` at the exchange can mean a padded or non-URL-safe challenge | All sent; the challenge is unpadded base64url (tested) |
+| Tokens | Exchange and refresh at the token endpoint, form-encoded; the answer has `access_token`, `id_token`, `expires_in` (seconds) and, for Headless clients, `refresh_token`. **No lifetime number and no rotation rule is documented** | A new refresh token replaces the old one when sent. The phone check records the observed lifetime (D-121) |
+| Headers | Troubleshooting only: a 401 `invalid_token` means "ensure that an origin header is specified"; a 403 means send a `user-agent` | No Origin (mobile clients have no origins); React Native's own User-Agent. A 401 or 403 at the phone check stops the check |
+| Logout (mobile) | "For mobile clients, the logout uri can be called as an API endpoint that returns a `200 OK`"; `id_token_hint` is required | A GET with `id_token_hint`, after the phone has logged out (D-122) |
+| **Website logout** | **The docs say nothing** about whether a logout on the online store ends a mobile client's session or refresh token | The app never asks; only `invalid_grant` logs it out (answer 3, D-122). Phone check step 3 tests it |
+| Browser | Shopify's Swift sample and its React Native Checkout Kit sample open login in an embedded web view; the docs never require one; the authorization page "can't be loaded in an iframe" | System browser only (our rule): a Custom Tab on Android, `ASWebAuthenticationSession` on iOS (D-119) |
+| API version | Customer Account API `2026-10` is latest stable (until 16 October 2027); `2027-01` is a release candidate; GraphQL at `https://<shop domain>/customer/api/2026-10/graphql` | P7-01 makes no GraphQL call. P7-02 pins the version in `src/config/` rather than taking it from discovery |
+| Token prefixes | None named | The Sentry scrubber removes the tokens by value and by shape (D-121) |
+
+### Setting up a store (owner, in that store's admin)
+
+1. Settings → Customer accounts: the current customer accounts (emailed code), not legacy.
+2. Sales channels → Headless → the storefront → Customer Account API → Manage.
+3. Client type: the public, mobile type. If a client secret appears, the type is wrong.
+4. Callback URI(s): add `shop.<shop ID>.app://callback`. No JavaScript origin, no Logout URI. The shop ID is the digits at the end of the `issuer` in `https://<store domain>/.well-known/openid-configuration`.
+5. Credentials: the client ID (public) into `EXPO_PUBLIC_CUSTOMER_ACCOUNT_CLIENT_ID`, the shop ID into `EXPO_PUBLIC_SHOP_ID`, in `.env.local`; `EXPO_PUBLIC_SHOP_ID` also as an EAS environment variable of each build environment (plain text; it is public).
+
+Done for the development store by the owner on 13 October 2026. The live store's client is set up only at the live-store connection, with the owner's go-ahead.
+
 ## Backend custom app: scopes
 
 Keep to the minimum the four backend jobs need: read orders, read products and inventory, write returns. Add a scope only with a decision record.

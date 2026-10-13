@@ -62,7 +62,15 @@ A customer can log in with the store's own customer account (emailed code, D-005
 3. Logging out on the website must not log the customer out of the app (owner, 13 October 2026). The app logs out only when the customer taps "Log out", or when Shopify itself refuses the login (for example a refresh that fails because the login expired). Then: tokens deleted, `clearAllCaches()`, and the Account tab shows "Log in" with one line, "You've been logged out. Please log in again." No pop-up.
 4. Phone check over USB only.
 
-The owner accepted the plan on 13 October 2026, with the plan's recommended options: `expo-auth-session` with `expo-web-browser` and `expo-crypto`, the drafted Account tab wording, and no `login` or `logout` analytics events until P7-03. The two values (`EXPO_PUBLIC_CUSTOMER_ACCOUNT_CLIENT_ID`, `EXPO_PUBLIC_SHOP_ID`) come from the development store's Headless channel; the owner sets them in `.env.local`, and `EXPO_PUBLIC_SHOP_ID` also as an EAS development variable, because the callback scheme is compiled into the build.
+The owner accepted the plan on 13 October 2026. **The architect's review of the plan** (13 October 2026):
+
+- Decisions: `expo-auth-session` 57.0.15 with `expo-web-browser` 57.0.3 and `expo-crypto` 57.0.4 (D-119); `adb shell am force-stop com.justbookify.india.dev` for the cold starts, in this check only; **no screenshot of the Account tab while signed in** (the owner confirms that screen); the wording drafts approved; no `login` or `logout` events until P7-03.
+- **Change A:** "refused" is only the OAuth error `invalid_grant` from the token endpoint, whatever the HTTP status; any other 400 or 401 (`invalid_client`, `invalid_request`) is unavailable: the customer stays signed in, reported by code only (D-121).
+- **Change B:** token saving is crash-safe: an interrupted save leaves the previous valid set usable, tested with a failure after each single write (D-121).
+- **Change C:** the secure-store size limit checked for SDK 57; the phone check records each token's length in characters only; values split safely, with a test (D-121).
+- **Change D:** if "Log in" after "Log out" signs straight back in without the emailed code, it is recorded as a finding with a proposed fix; nothing is built without the owner's yes.
+
+The two values (`EXPO_PUBLIC_CUSTOMER_ACCOUNT_CLIENT_ID`, `EXPO_PUBLIC_SHOP_ID`) come from the development store's Headless channel; the owner sets them in `.env.local`, and `EXPO_PUBLIC_SHOP_ID` also as an EAS development variable, because the callback scheme is compiled into the build.
 
 ## Out of scope
 
