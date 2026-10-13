@@ -25,6 +25,11 @@ export const freshness = {
   liveStock: { staleTime: 30 * SECOND, gcTime: 5 * MINUTE, refetchOnMount: 'always' },
   /** Policies, FAQ and other content that rarely changes. */
   staticContent: { staleTime: 6 * HOUR, gcTime: 24 * HOUR },
+  /**
+   * The customer's own profile and orders (P7-02, D-127). An order's status changes after a
+   * shipment, a delivery or a cancel, so a minute, not the catalogue's five. Cleared at logout.
+   */
+  account: { staleTime: 1 * MINUTE, gcTime: 30 * MINUTE },
   /** Checkout always reads fresh from Shopify and never from the cache. */
   checkout: { staleTime: 0, gcTime: 0, refetchOnMount: 'always' },
 } as const satisfies Record<string, FreshnessPreset>;

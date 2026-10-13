@@ -59,8 +59,7 @@ export function parseOpenIdConfiguration(body: unknown, shopId: string): Discove
 
 /**
  * Shopify's `/.well-known/customer-account-api`: the GraphQL URL, with the latest stable version
- * already in it. P7-01 makes no GraphQL call; `check:dev-store` only confirms the document is
- * served. P7-02 pins the version in `src/config/` rather than taking it from here.
+ * already in it. `check:dev-store` confirms the document is served.
  */
 export function hasCustomerAccountGraphqlApi(body: unknown): boolean {
   return (
@@ -68,4 +67,22 @@ export function hasCustomerAccountGraphqlApi(body: unknown): boolean {
     body !== null &&
     httpsUrl((body as Record<string, unknown>).graphql_api) !== undefined
   );
+}
+
+// `https://<host>/customer/api/<version>/graphql`: the shape Shopify's reference gives
+// (read 13 October 2026). The host may be the store's own accounts domain.
+const GRAPHQL_API =
+  /^(https:\/\/[A-Za-z0-9.-]+(?::\d{1,5})?)\/customer\/api\/[A-Za-z0-9-]+\/graphql$/;
+
+/**
+ * The Customer Account API's GraphQL endpoint at the app's pinned version (P7-02, D-124): the
+ * discovered `graphql_api` keeps its host, and its version is replaced by `version`, so a new
+ * Shopify release never changes what the app reads. Undefined when the document has no https URL
+ * of that shape.
+ */
+export function customerAccountGraphqlEndpoint(body: unknown, version: string): string | undefined {
+  if (typeof body !== 'object' || body === null) return undefined;
+  const url = httpsUrl((body as Record<string, unknown>).graphql_api);
+  const origin = url === undefined ? undefined : GRAPHQL_API.exec(url)?.[1];
+  return origin === undefined ? undefined : `${origin}/customer/api/${version}/graphql`;
 }

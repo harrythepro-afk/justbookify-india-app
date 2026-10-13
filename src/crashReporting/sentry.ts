@@ -124,6 +124,16 @@ export function reportStorefrontProblem(code: string, operationName: string): vo
 }
 
 /**
+ * A Customer Account API failure worth seeing (P7-02, D-126). Carries the error code and the
+ * operation's name only: never Shopify's message, the variables, the token, the URL or any of the
+ * customer's data.
+ */
+export function reportCustomerAccountApiProblem(code: string, operationName: string): void {
+  if (!started) return;
+  Sentry.captureMessage(`Customer Account API: ${code} in ${operationName}`, 'error');
+}
+
+/**
  * A data-layer error that is not a Storefront error (D-061). Carries a code from
  * `safeErrorCode()` only: never the error's message.
  */
