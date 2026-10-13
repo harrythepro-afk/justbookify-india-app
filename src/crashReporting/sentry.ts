@@ -152,6 +152,16 @@ export function reportCustomerAccountProblem(code: string): void {
   Sentry.captureMessage(`Customer account: ${code}`, 'warning');
 }
 
+/**
+ * A problem keeping the cart's ID on the phone (P8-01). `code` is one of the codes made in
+ * `src/shopify/cartId.ts` (such as `storage_read_failed`): never the cart ID, which holds
+ * Shopify's secret key for the cart.
+ */
+export function reportCartProblem(code: string): void {
+  if (!started) return;
+  Sentry.captureMessage(`Cart: ${code}`, 'warning');
+}
+
 /** Development builds only: sends one handled error, so the owner can see it arrive. */
 export function sendTestError(): void {
   if (!started) return;

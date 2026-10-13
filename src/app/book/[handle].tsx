@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { trackBookShown } from '@/analytics/catalogueEvents';
 
+import { AddToCartButton } from '@/components/AddToCartButton';
 import { BookCover } from '@/components/BookCover';
 import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
 import { RichText } from '@/components/RichText';
@@ -47,8 +48,9 @@ export function priceSummary(book: Pick<BookPage, 'price' | 'retailPrice' | 'ord
  * One book's page (P6-05, D-090), opened from any book card: the cover, author, title, the
  * website's sentence when the book is rented out, the prices with their badge, the description
  * and the genres, in the live page's order. A book orderable at zero stock has the "Rent" badge
- * and never the sentence (R8, D-073). No rating (D-092) and no cart buttons until Phase 8
- * (D-081). Shopify is read again every time the page opens (`liveStock`, D-093). A stack screen
+ * and never the sentence (R8, D-073). No rating (D-092). A book that can be ordered has "Add to
+ * Cart" under its prices ("In cart" once it is in the cart, P8-01); a rented-out one has no
+ * button until notify-me is built (D-081). Shopify is read again every time the page opens (`liveStock`, D-093). A stack screen
  * with no tab bar, so the page leaves room for Android's navigation bar itself (D-080).
  * `view_book` is sent once per opening, when the page first shows its book, with whether it can
  * be ordered then; a refetch never sends it again (P6-09, D-107). A genre chip opens that genre's
@@ -147,6 +149,7 @@ function Book({ handle }: { readonly handle: string }) {
             </View>
           )}
         </View>
+        {book.orderable && <AddToCartButton book={book} style={styles.cartButton} />}
         {book.description.length > 0 && (
           <View style={styles.section}>
             <RichText blocks={book.description} testID="book-description" />
@@ -282,6 +285,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.small,
     color: colors.onRentedOutBadge,
   },
+  cartButton: { marginTop: spacing.lg },
   section: { marginTop: spacing.xl },
   label: { fontFamily: fonts.bodyBold, fontSize: fontSize.body, color: colors.text },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },

@@ -252,7 +252,7 @@ function NewArrivals({
       <View style={styles.grid}>
         {first.books.slice(0, count).map((book) => (
           <View key={book.id} style={styles.cell}>
-            <BookCard book={book} onOpen={openBook} />
+            <BookCard book={book} cartButton onOpen={openBook} />
           </View>
         ))}
       </View>
@@ -267,9 +267,6 @@ function DevelopmentTools() {
       <SectionHeading>Development tools</SectionHeading>
       <Link href="/dev-checkout" onPress={guardLinkPress} style={styles.link}>
         Open the test checkout screen
-      </Link>
-      <Link href="/dev-catalogue" onPress={guardLinkPress} style={styles.secondLink}>
-        Open the book card preview
       </Link>
       <CrashReportingTestControls />
       <FeatureFlagStatus />
@@ -523,7 +520,6 @@ const styles = StyleSheet.create({
   cell: { width: '50%', padding: spacing.sm },
   devTools: { marginTop: spacing.xl },
   link: linkText,
-  secondLink: { ...linkText, marginTop: spacing.md },
   // Vertical padding brings the touch target to the 44-point minimum.
   control: { marginTop: spacing.sm, paddingVertical: spacing.md, alignSelf: 'flex-start' },
   controlText: linkText,

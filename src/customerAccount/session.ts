@@ -6,6 +6,7 @@ import { AppState } from 'react-native';
 import { getCustomerAccountConfig, getStoreConfig, type CustomerAccountConfig } from '@/config';
 import { reportCustomerAccountProblem, setCustomerTokenSource } from '@/crashReporting/sentry';
 import { clearAllCaches } from '@/query/queryClient';
+import { forgetCart } from '@/shopify/cartId';
 
 import { parseOpenIdConfiguration, type CustomerAccountDiscovery } from './discoveryDocument';
 import { checkIdToken, decodeIdTokenClaims } from './idToken';
@@ -126,7 +127,8 @@ function randomUrlSafe(): string {
 }
 
 /**
- * Signs out on this phone: the session leaves memory, the stored tokens are deleted and every
+ * Signs out on this phone: the session leaves memory, the stored tokens are deleted, the cart is
+ * forgotten (P8-01, answer 4: a shared phone never inherits another person's cart) and every
  * cache is emptied (D-061). `notice` is what the Account tab says.
  */
 async function endSession(notice: LoginNotice): Promise<void> {
@@ -139,6 +141,8 @@ async function endSession(notice: LoginNotice): Promise<void> {
       error instanceof TokenStorageError ? `storage_${error.code}` : 'storage_delete_failed',
     );
   }
+  // Before the caches empty, so no read starts again with the old cart. Never throws.
+  await forgetCart();
   clearAllCaches();
 }
 

@@ -45,8 +45,10 @@ const SHOPIFY_SECRET = /\bshp[a-z]{2}_[A-Za-z0-9]+/gi;
 // the shc…_ form is covered by shape too; the tokens held in memory are also removed by value.
 const SHOPIFY_CUSTOMER_TOKEN = /\bshc[a-z]{1,4}_[A-Za-z0-9_-]+/gi;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+// A cart's ID holds Shopify's secret key for the cart, and a cart line's ID the cart's token
+// (P8-01).
 const PERSONAL_GID =
-  /gid:\/\/shopify\/(Customer|CustomerAddress|MailingAddress|Order|Checkout|Cart)\/[^\s"'<>]+/g;
+  /gid:\/\/shopify\/(Customer|CustomerAddress|MailingAddress|Order|Checkout|Cart|CartLine)\/[^\s"'<>]+/g;
 const MYSHOPIFY_HOST = /\b[a-z0-9][a-z0-9-]*\.myshopify\.com\b/gi;
 // Phone numbers: Indian mobiles with an optional +91, 91 or 0 prefix; landlines with a leading
 // 0; anything written with a leading +. The leading group stops a match inside a longer number.

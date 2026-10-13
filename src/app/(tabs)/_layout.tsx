@@ -1,7 +1,9 @@
 import { Ionicons, type IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import { Tabs } from 'expo-router';
+import { StyleSheet } from 'react-native';
 
-import { colors, fonts, iconSize } from '@/theme/tokens';
+import { useCartCount } from '@/shopify/hooks/cart';
+import { colors, fonts, fontSize, iconSize } from '@/theme/tokens';
 
 // Filled when the tab is active, outline otherwise, so the state is not shown by colour alone (D-040).
 const TABS: readonly {
@@ -17,7 +19,15 @@ const TABS: readonly {
   { name: 'account', title: 'Account', icon: 'person-circle-outline', activeIcon: 'person-circle' },
 ];
 
+/** What the screen reader says for the Cart tab, with its count of books (P8-01, answer 6). */
+export function cartTabLabel(count: number): string {
+  if (count === 0) return 'Cart';
+  return `Cart, ${count} ${count === 1 ? 'book' : 'books'}`;
+}
+
 export default function TabLayout() {
+  // Every book in the cart, rented-out ones included (plan review, answer (b)).
+  const cartCount = useCartCount();
   return (
     <Tabs
       screenOptions={{
@@ -37,9 +47,23 @@ export default function TabLayout() {
             tabBarIcon: ({ color, focused }) => (
               <Ionicons color={color} name={focused ? activeIcon : icon} size={iconSize.tab} />
             ),
+            ...(name === 'cart' && {
+              tabBarBadge: cartCount > 0 ? cartCount : undefined,
+              tabBarBadgeStyle: styles.badge,
+              tabBarAccessibilityLabel: cartTabLabel(cartCount),
+            }),
           }}
         />
       ))}
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  badge: {
+    backgroundColor: colors.primaryButton,
+    color: colors.onPrimaryButton,
+    fontFamily: fonts.bodyBold,
+    fontSize: fontSize.small,
+  },
+});

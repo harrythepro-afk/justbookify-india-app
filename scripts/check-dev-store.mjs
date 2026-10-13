@@ -218,7 +218,7 @@ const BOOK_PAGE_QUERY = `query DevStoreBookPage(
   }
 }`;
 
-/** A handle no book has, as in the development preview (src/config/devCatalogue.ts). */
+/** A handle no book has (the development preview that also used it was removed in P8-01). */
 const MISSING_BOOK_HANDLE = 'no-such-book-p6-05';
 
 const COLLECTION_QUERY = `query DevStoreCollection(

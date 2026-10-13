@@ -18,8 +18,9 @@ import { colors, spacing } from '@/theme/tokens';
  * collection screen (P6-04), with the states of D-078: loading, offline or error with "Try
  * again" while there is nothing to show, and the offline notice over saved books. Every "Try
  * again", and "Load more" after a failed page, re-reads the network first (D-082). A card opens
- * its book page (P6-05). With the keyboard open (search, P6-06), a card opens on the first tap and
- * scrolling hides the keyboard; on screens without a keyboard both settings do nothing. Search
+ * its book page (P6-05) and has "Add to Cart" (P8-01). With the keyboard open (search, P6-06),
+ * a card opens on the first tap and scrolling hides the keyboard; on screens without a keyboard
+ * both settings do nothing. Search
  * passes its own `onOpenBook`, which sends its pending usage event first (P6-09, D-108).
  */
 export function BookGrid({
@@ -128,7 +129,7 @@ function bookRenderer(onOpen: (book: BookCardData) => void) {
   return function renderOpening({ item }: { readonly item: BookCardData }) {
     return (
       <View style={styles.cell}>
-        <BookCard book={item} onOpen={onOpen} />
+        <BookCard book={item} cartButton onOpen={onOpen} />
       </View>
     );
   };
