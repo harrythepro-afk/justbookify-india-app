@@ -11,6 +11,7 @@ import { openBook } from '@/components/openBook';
 import { ScreenMessage } from '@/components/ScreenMessage';
 import { noResultsMessage, resultCountLabel, SEARCH_CONTENT, type SearchSort } from '@/config';
 import type { BookCard } from '@/shopify/hooks/catalogue';
+import { useWantedList } from '@/featureFlags/session';
 import { searchableTerm, useSearchBooks, useSearchMatchLists } from '@/shopify/hooks/search';
 import { colors, fonts, fontSize, iconSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
 
@@ -33,7 +34,8 @@ const SORT_OPTIONS = SEARCH_CONTENT.sortOptions.map((option) => ({
  * only. It is never a route parameter (screen views are logged as `search`), never logged, never
  * sent to analytics and never reported to Sentry (D-097). The `search` usage event carries only the
  * term's length, Shopify's count and the store's own catalogue item the term matched, as its ID
- * or code (P6-09, D-108, D-109; `src/analytics/searchEvent.ts`).
+ * or code (P6-09, D-108, D-109; `src/analytics/searchEvent.ts`), or, for a search that finds
+ * nothing, the code of the name it matched on the store's wanted list (P6-11, D-117).
  */
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
@@ -45,6 +47,8 @@ export default function SearchScreen() {
   const query = useSearchBooks(term, search);
   // The store's series, age groups and genres, for the usage event's catalogue match (D-109).
   const matchLists = useSearchMatchLists();
+  // This launch's wanted list (P6-11, D-117), for a search that finds nothing.
+  const wantedList = useWantedList();
   const field = useRef<TextInput>(null);
 
   // The pause after typing. A newer keystroke or the search key replaces it.
@@ -105,14 +109,15 @@ export default function SearchScreen() {
     () =>
       term === null || firstPage === undefined || loadingNewList
         ? null
-        : { term, totalCount: firstPage.totalCount, books: firstPage.books },
-    [term, firstPage, loadingNewList],
+        : { term, totalCount: firstPage.totalCount, books: firstPage.books, available },
+    [term, firstPage, loadingNewList, available],
   );
   const searchEvent = useSearchEvent({
     term,
     shown,
     failed: term !== null && !hasData && query.isError,
     lists: matchLists,
+    wanted: wantedList,
   });
   const { sendNow } = searchEvent;
   // A book opened before the 2 seconds are up still counts the term's search (owner, plan review).

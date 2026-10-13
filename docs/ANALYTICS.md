@@ -111,7 +111,7 @@ Choosing an age group or a series sends `view_collection` and then `filter_appli
 - **When:** once per term in one visit to the search screen, when that term's results have stayed on screen for 2 seconds; at once when the search key was pressed for it (as soon as its results arrive), or when a book is opened from its results before then. Never twice for the same term (letter case ignored), and not again for "Load more", the sort or "Available now". Nothing for a term that is replaced or cleared, or whose read fails, before then.
 - `term_length`: the letters and digits in the cleaned term, counted as the search counts them (D-097).
 - `result_count`: Shopify's `totalCount`, at most 1,000, including 0.
-- `match_type`: `title`, `author`, `series`, `age_group`, `genre` or `other`. `match_id`: the matched item's ID or code (below); none for `other`.
+- `match_type`: `title`, `author`, `series`, `age_group`, `genre`, `wanted` (P6-11, D-118) or `other`. `match_id`: the matched item's ID or code (below), or the wanted name's code; none for `other`.
 
 **Search-match rules (D-109).** The cleaned term is matched against the books on its own first page of results (their titles and authors), the configured series and age groups the store has (by their shown names) and the store's genre names (D-102), so a match works when the search finds nothing too.
 1. The term and every name are normalised alike: accents removed, lowercase, apostrophes deleted, every other character that is not a letter or a digit a space. `DAHL`, `Dahl!` and `dahl` are the same; `J.K. Rowling` is `j k rowling`; `6-8 years` is `6 8 years`.
@@ -125,11 +125,15 @@ A typed word can therefore appear in an event only inside the store's own code i
 
 On the development store (`npm run check:dev-store`): harry is the series `harry-potter-series`, dahl the author `roald_dahl`, zzqxv `other`, tintin the series `tintin-series` with 0 results.
 
+**The wanted match (P6-11, D-115 to D-118).** The owner keeps a list of names they are thinking of stocking (authors, series or titles) in Remote Config: one JSON parameter, `search_wanted_list`, a plain list of strings, at most 200 names of at most 100 characters, read once per launch with the flags (D-046's timing). The app makes each name's code as it makes an author's (`David Walliams` is `david_walliams`). **Only when a search finds no books with "Available now" off, and the store's own catalogue gave `other`**, the term is matched against the list with rules 1 to 4 above (whole words only, Shopify's syntax and common-word-only terms never match): an exact name first, then a run of whole words, then the first entry in the list's order. A hit sends `match_type` `wanted` and `match_id` that name's code. The store's catalogue always wins: tintin with 0 results stays the store's series. A listed name that is also a store author shows as `wanted` only when the search found no books (D-117). **Never the name as written in the list, never the term.**
+
+With the phone check's list (`["David Walliams", "Rick Riordan", "Tintin", "Harry Potter"]`) on the development store: walliams is `wanted` `david_walliams`, riordan `wanted` `rick_riordan`, tintin the series 528439279891, harry the series 528438755603 (7 results), zzqxv `other`; walliams with "Available now" on is `other`.
+
 ## Rules
 
 - Snake case event names. IDs, never titles or free text.
 - No names, emails, phone numbers or addresses. The app never asks for or records a child's name or date of birth. Age-group filters and the books viewed are recorded as IDs and codes.
-- **The search term itself is never sent, logged or reported.** The `search` event records its length and, only when it matches the store's own catalogue, that item's ID or code (D-108, amending this rule's earlier wording "Search terms are measured by length, not content", owner's decision of 9 October 2026).
+- **The search term itself is never sent, logged or reported.** The `search` event records its length and, only when it matches the store's own catalogue, that item's ID or code (D-108, amending this rule's earlier wording "Search terms are measured by length, not content", owner's decision of 9 October 2026), or, for a search that finds nothing, the code of the name it matched on the store's wanted list (D-117, D-118).
 - The analytics user ID is random or a salted one-way value, never the email, a phone number or the raw Shopify customer ID (D-050).
 - Analytics starts only after the customer's consent (opt-in, D-048).
 - Crash reports (Sentry) follow the same rules; the scrubbing is described in `SECURITY.md` and D-042.
@@ -142,7 +146,7 @@ On the development store (`npm run check:dev-store`): harry is the series `harry
 | sign_up | First successful login for a new customer | none |
 | login | Login succeeds | none |
 | logout | Customer logs out | none |
-| search | One term's results stayed on screen for 2 seconds, or at once after the search key or when a book is opened from them; once per term per visit (D-108) | term_length, result_count, match_type, match_id (not with `other`) |
+| search | One term's results stayed on screen for 2 seconds, or at once after the search key or when a book is opened from them; once per term per visit (D-108) | term_length, result_count, match_type (including `wanted`, D-118), match_id (not with `other`) |
 | filter_applied | The customer changes a filter, "Available now" or the sort, or taps "Clear", on Browse or the collection screen (D-107) | filter_type, value |
 | view_collection | The collection screen shows its collection; an age group or series is chosen on Browse (D-107) | collection_id |
 | view_book | The book page shows its book, once per opening (D-107) | product_id, available |

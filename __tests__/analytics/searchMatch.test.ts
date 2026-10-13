@@ -7,11 +7,13 @@
 import {
   authorCode,
   matchSearchTerm,
+  matchWantedName,
   matchWords,
   usesSearchSyntax,
   type SearchMatchBook,
   type SearchMatchCatalogue,
 } from '@/analytics/searchMatch';
+import { parseWantedList } from '@/analytics/wantedList';
 import { SEARCH_CONTENT } from '@/config';
 
 const HARRY_SERIES = 'gid://shopify/Collection/411000000001';
@@ -293,5 +295,111 @@ describe('never the typed text', () => {
       expect(match.match_id).not.toBe(term);
       expect(match.match_id).toMatch(/^(\d{1,20}|[a-z][a-z0-9_]{0,39})$/);
     }
+  });
+});
+
+describe('matchWantedName: the wanted list (P6-11, D-117)', () => {
+  const COMMON = SEARCH_CONTENT.matchCommonWords;
+
+  function listOf(names: readonly string[]) {
+    return parseWantedList({ value: JSON.stringify(names), source: 'remote' }, COMMON).list;
+  }
+
+  const PHONE_CHECK = listOf(['David Walliams', 'Rick Riordan', 'Tintin', 'Harry Potter']);
+
+  it.each([
+    ['walliams', 'david_walliams'],
+    ['riordan', 'rick_riordan'],
+    ['David Walliams', 'david_walliams'],
+    ['RICK  riordan!', 'rick_riordan'],
+    ['tintin', 'tintin'],
+    ['potter', 'harry_potter'],
+  ])('%p is wanted %p', (term, code) => {
+    expect(matchWantedName(term, PHONE_CHECK, COMMON)).toEqual({
+      match_type: 'wanted',
+      match_id: code,
+    });
+  });
+
+  it('prefers an exact name (level 1) over a word run, whatever the order', () => {
+    const list = listOf(['Harry Potter Collection', 'Potter']);
+
+    expect(matchWantedName('potter', list, COMMON)).toEqual({
+      match_type: 'wanted',
+      match_id: 'potter',
+    });
+  });
+
+  it('takes the first entry in the list’s order within a level', () => {
+    const list = listOf(['Jeff Kinney Box Set', 'Jeff Kinney Diary']);
+
+    expect(matchWantedName('jeff kinney', list, COMMON)).toEqual({
+      match_type: 'wanted',
+      match_id: 'jeff_kinney_box_set',
+    });
+    expect(matchWantedName('jeff kinney', [...list].reverse(), COMMON)).toEqual({
+      match_type: 'wanted',
+      match_id: 'jeff_kinney_diary',
+    });
+  });
+
+  it.each(['walli', 'riorda', 'tinti', 'harr', 'david walli'])(
+    'never matches a partial word: %p',
+    (term) => {
+      expect(matchWantedName(term, PHONE_CHECK, COMMON)).toEqual({ match_type: 'other' });
+    },
+  );
+
+  it('matches words in order only, and never a term longer than the name', () => {
+    expect(matchWantedName('walliams david', PHONE_CHECK, COMMON)).toEqual({ match_type: 'other' });
+    expect(matchWantedName('david walliams books', PHONE_CHECK, COMMON)).toEqual({
+      match_type: 'other',
+    });
+  });
+
+  it.each(['-walliams', 'walliams OR riordan', 'author:walliams', '"walliams"', 'walli*'])(
+    'gives other for Shopify’s syntax: %p',
+    (term) => {
+      expect(matchWantedName(term, PHONE_CHECK, COMMON)).toEqual({ match_type: 'other' });
+    },
+  );
+
+  it('never matches a word run made only of common words, but matches a whole name', () => {
+    const list = listOf(['The Gruffalo Club', 'Of Mice and Men']);
+
+    expect(matchWantedName('the', list, COMMON)).toEqual({ match_type: 'other' });
+    expect(matchWantedName('and', list, COMMON)).toEqual({ match_type: 'other' });
+    expect(matchWantedName('the gruffalo', list, COMMON)).toEqual({
+      match_type: 'wanted',
+      match_id: 'the_gruffalo_club',
+    });
+  });
+
+  it('gives other for an empty list, an empty term or symbols alone', () => {
+    expect(matchWantedName('walliams', [], COMMON)).toEqual({ match_type: 'other' });
+    expect(matchWantedName('', PHONE_CHECK, COMMON)).toEqual({ match_type: 'other' });
+    expect(matchWantedName('!!!', PHONE_CHECK, COMMON)).toEqual({ match_type: 'other' });
+  });
+
+  it('sends the listed name’s code, never the typed text', () => {
+    const match = matchWantedName('  WALLIAMS!! ', PHONE_CHECK, COMMON);
+
+    expect(match).toEqual({ match_type: 'wanted', match_id: 'david_walliams' });
+    expect(JSON.stringify(match)).not.toMatch(/WALLIAMS|!!/);
+  });
+
+  it('leaves the catalogue match unchanged: a listed series is still the store’s series', () => {
+    const catalogue: SearchMatchCatalogue = {
+      books: [],
+      series: [{ name: 'Tintin', collectionGid: TINTIN_SERIES }],
+      ageGroups: [],
+      genres: [],
+      commonWords: COMMON,
+    };
+
+    expect(matchSearchTerm('tintin', catalogue)).toEqual({
+      match_type: 'series',
+      match_id: '411000000002',
+    });
   });
 });

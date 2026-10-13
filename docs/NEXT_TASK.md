@@ -1,6 +1,6 @@
-# Next task (proposal): P6-11, the wanted list
+# Next task (proposal): P7-01, login with the Customer Account API
 
-Status: proposal. P6-10 (the last Phase 6 task; D-111 to D-114) is on branch `p6-10-close-phase-6`, PR #23, phone check passed; see `CURRENT_STATUS.md`. P6-11 starts when the owner starts it, after P6-10's pull request is merged. P6-09 is merged (`ac0a9fd`, PR #22).
+Status: proposal. P6-11 (the wanted list, the last Phase 6 task; D-115 to D-118) is on branch `p6-11-wanted-list`, PR #24, phone check passed; see `CURRENT_STATUS.md`. P7-01 starts when the owner starts it, after P6-11's pull request is merged. **Its first commit records P6-11 as merged** (in this file, `CURRENT_STATUS.md`, and Phase 6 as done in `ROADMAP.md`). P6-10 is merged (`ad12f44`, PR #23).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -10,7 +10,7 @@ Status: proposal. P6-10 (the last Phase 6 task; D-111 to D-114) is on branch `p6
 | P5-02 (done, ac714e8) | One app-wide TanStack Query cache, in memory only: freshness presets, error reporting in one place, foreground refetch, `clearStorefrontCache()` and `clearAllCaches()`, hooks-only boundary enforced by ESLint | D-061 to D-063 |
 | P5-03 (done, 6bb14f2) | Network awareness with `expo-network` (queries pause offline, mutations never queue), a development APK built for `arm64-v8a` only (95.1 MB, was 246 MB), and local debug builds as a fallback | D-064 to D-067 |
 
-## Phase 6: catalogue, search, filtering
+## Phase 6: catalogue, search, filtering (complete once P6-11 is merged)
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
@@ -23,38 +23,56 @@ Status: proposal. P6-10 (the last Phase 6 task; D-111 to D-114) is on branch `p6
 | P6-07 (done, eaa9702) | The Genre filter (the store's own genre names, one at a time, combined with the group, "Available now" and the sort; on Browse and the collection screen), Browse's all books from the `all-books` collection, the longer series list | D-100 to D-103 |
 | P6-08 (done, c757ff2) | The Price filter ("All prices", then up to ₹34, ₹49, ₹74; a maximum only; store configuration, labels in the store's currency format) on Browse and the collection screen, not on search; one filter row that scrolls sideways with "Clear" pinned at its right edge; the CI act warnings fixed in the test setup | D-104 to D-106 |
 | P6-09 (done, ac0a9fd) | The catalogue usage events under consent: `view_collection` (collection screen, a group chosen on Browse), `view_book`, `filter_applied` (codes only, the customer's own changes), `search` (2 seconds on screen, the search key or a book opened; length, count and the store's own catalogue item matched, never the term); the guard's dependent parameters | D-107 to D-110 |
-| P6-10 (branch `p6-10-close-phase-6`) | The last Phase 6 task: the offline question closed (queries keep pausing, D-082's safety net), description tables (cells joined by " · "), tappable genre chips (all books with that genre, pushed on the book page), "Popular authors" on Home | D-111 to D-114 |
-| P6-11 (proposed) | The wanted list (owner, 9 October 2026): a list in Remote Config; a search that finds nothing but matches a listed name records it as a code | |
+| P6-10 (done, ad12f44) | The last Phase 6 task: the offline question closed (queries keep pausing, D-082's safety net), description tables (cells joined by " · "), tappable genre chips (all books with that genre, pushed on the book page), "Popular authors" on Home | D-111 to D-114 |
+| P6-11 (branch `p6-11-wanted-list`, PR #24) | The wanted list: one JSON Remote Config parameter of names, codes made by the app, validated and frozen per launch; a search that finds no books with "Available now" off and matches nothing in the catalogue records the listed name's code (`wanted`); phone check passed | D-115 to D-118 |
 
-## Goal of P6-11
+## Phase 7: login and account
 
-The owner keeps a list of authors, series or titles they are thinking of stocking (the "wanted list"), in Firebase Remote Config. When a search finds nothing but matches a name on that list, the `search` event records which listed name it was, as a code, so the owner can see demand for books the store does not have yet. Nothing the customer typed is ever sent (owner, 9 October 2026).
+| Task | Scope | Decisions |
+| --- | --- | --- |
+| P7-01 (proposed) | Login and logout through the Customer Account API on the development store: OAuth 2.0 with PKCE, state and nonce, in the system browser; tokens in Keystore-backed storage only; refresh; logout clears every cache; the Account tab shows signed in or out | |
+| P7-02 (later) | The customer's profile and orders (read only), early check 3 (a guest order from the website appears after login with the same email) | |
+| P7-03 (later) | The analytics consent request at the owner's chosen placement (D-048), and the analytics user ID after login (D-050); a release gate | |
+
+## Goal of P7-01
+
+A customer can log in with the store's own customer account (emailed code, D-005) and log out, on the development store. Nothing else changes yet: browsing, search and the book page stay open to everyone, and checkout (Phase 9) is where login becomes required.
 
 ## Proposed scope
 
-1. **The list in Remote Config:** one parameter holding the wanted names, each with its own code and type (author, series or title), validated on the phone like the existing flags (D-046): a malformed list is ignored and reported to Sentry by parameter name only, never its value. It follows D-046's timing: a change reaches a phone from its second cold start.
-2. **Matching:** only when a search finds no books (`result_count` 0); the cleaned term matched against the listed names with the rules of D-109 (whole and case-insensitive; partial words, Shopify's syntax and common words never match). The store's own catalogue still comes first (D-109); the wanted list is checked only when nothing in the catalogue matched.
-3. **The event:** `search` gets a new `match_type` (proposed `wanted`), with `match_id` the listed code; the guard (D-110) and the typed unions learn the new pairing. Never the name or the term.
-4. **Tests**, `check:dev-store` unchanged (no Shopify read), and a phone check with DebugView: the owner publishes a short test list in the development Remote Config project.
-5. **Docs:** `ANALYTICS.md`, the privacy policy items (risk 21: the app records, under consent, which wanted name a search matched), `DECISIONS.md` from D-115.
+1. **The login flow** (`SHOPIFY_INTEGRATION.md`, "Customer Account API"): authorization code with PKCE, `state` and `nonce`, scopes `openid email customer-account-api:full`, the `shop.{shop_id}.app://callback` scheme Shopify requires for mobile apps, the system browser session (never an embedded web view). Endpoints discovered from the store's `.well-known` documents, not typed by hand. Store-specific values (shop ID, client ID) in `src/config/` from `EXPO_PUBLIC_` variables; the client ID is public, and no secret exists for a public client.
+2. **Tokens:** the access, refresh and ID tokens only in `expo-secure-store` (Android Keystore, iOS Keychain); never logged, never in analytics or Sentry (the scrubber gains the token patterns); refreshed before expiry; a failed refresh logs out cleanly.
+3. **Logout:** Shopify's logout endpoint with the ID token, the tokens deleted, and `clearAllCaches()` (D-061).
+4. **The Account tab:** "Log in" when signed out; when signed in, the customer's email only (from the ID token, never cached elsewhere) and "Log out". "Share app usage" stays as it is.
+5. **Version-sensitive checks** (`CLAUDE.md` rule 10): Shopify's current Customer Account API docs for mobile clients, the API version, and the library's Expo SDK 57 support, each recorded with its date.
+6. **Tests** (the flow with Shopify mocked: PKCE values, state and nonce checks, a wrong state refused, token storage and refresh, logout clearing caches, no token in any log or report) and a **phone check**: the owner types their own email and the emailed code on the phone (Claude never types personal data); Claude drives everything else.
+7. **Docs:** `DECISIONS.md` (the library and the token rules), `SECURITY.md`, `SHOPIFY_INTEGRATION.md`, `ARCHITECTURE.md`, `TESTING.md`.
+
+## What P7-01 needs from the owner
+
+1. **On the development store** (Shopify admin, Headless channel, Customer Account API settings; the live store is not touched): the **client ID** of a public client for a mobile app, the **shop ID**, and the callback URI `shop.<shop_id>.app://callback` added, with a logout URI if Shopify asks for one. Claude gives the exact screens from Shopify's docs when the task starts. The client ID and shop ID go into `.env.local` (public values only).
+2. **A test customer** on the development store whose email inbox the owner can read, for the emailed code.
+3. **A decision on the login library:** `expo-auth-session` with `expo-web-browser` (Expo's own, follows the SDK) or `react-native-app-auth` (AppAuth). Claude proposes one with the reasons in the plan; it needs a `DECISIONS.md` entry (`CLAUDE.md` rule 6) and, being native, a new development build on EAS.
+4. **The consent placement** (D-048: (a) right after the first login, or (b) at a natural pause before login) can wait for P7-03, but deciding it now lets P7-01 leave the right place for it.
 
 ## Questions for the owner and the architect
 
-1. **The list's shape:** one Remote Config parameter (proposed `search_wanted_list`, a JSON list of `{ "code", "type", "name" }`), or one per type? Who writes each code: the owner, by hand in Remote Config, or the app, from the name (as for authors, D-109)?
-2. **Codes:** the same rule as other codes (lowercase snake case, starting with a letter, at most 40 characters, no run of seven digits; D-110)? What happens to an entry whose code breaks it: dropped alone, or the whole list ignored?
-3. **When it counts:** only when the search finds no books at all, or also when every book found is rented out?
-4. **Several names in one term,** or a wanted name that is also in the store's catalogue: the catalogue wins (proposed), and among wanted names the first in the list?
-5. **Limits:** a maximum number of entries (proposed 200) and name length (proposed 100 characters, as the search field)?
-6. **Phone check:** with DebugView, as in P6-09 (the `setprop` commands need the owner's yes for that check). Over USB? Wireless dropped once in P6-10's check and six times in P6-09's.
+1. Is the Account tab the only place to log in during Phase 7 (proposed), with login at checkout added in Phase 9?
+2. After login, should the app return to the screen the customer was on (proposed), or to the Account tab?
+3. If a refresh fails (for example, the session was ended on the website), log out silently and show "Log in" (proposed), or show a message?
+4. Phone check over USB (proposed; wireless dropped during the background step in P6-09, P6-10 and P6-11)?
 
 ## Out of scope
 
-- Cart, notify-me and checkout events (Phase 8 and later).
-- The consent request itself (Phase 7, release gate).
-- Anything on the live store.
+- Profile, addresses and order history (P7-02); the consent request and the analytics user ID (P7-03).
+- Cart and checkout (Phases 8 and 9).
+- Anything on the live store, including its Customer Account API settings.
 
-## Follow-ups (recorded, not part of P6-11)
+## Follow-ups (recorded, not part of P7-01)
 
+- **Search key in the same moment as the last keystroke (P6-11 phone check, owner to decide):** `onSubmitEditing` in `src/app/search.tsx` (P6-06) reads the field's text from the last render, so a search key sent in the same adb command as the typing searched "zzqx" for "zzqxv" (and the event said 4). A person would need to press the key within milliseconds of the last keystroke. Proposed fix: read the submitted text from the key event (`nativeEvent.text`), with a test; a small task of its own or part of a later search change.
+- **Wireless phone checks (P6-11):** the owner chose wireless again; the link dropped during the background step and a new port was needed, and the app's process ended in the background, so the return was a cold start. USB stays the reliable choice for a check with a background step.
+- **The wanted list (P6-11, owner):** the list in the production Firebase project (when it exists) is the owner's to keep; it is readable by anyone with the app's public Firebase settings (`SECURITY.md`), so it must never hold anything private. The phone check's test list stays in the development project only.
 - **Release gate: before the live store is connected (P6-07 and P6-08, owner):** five read-only checks on the live store with the app's public token, all of which must pass (`TESTING.md`, "Release gate: before the live store is connected"): the `all-books` collection exists, is published to the app's channel only and returns every book the app can see; the Genre filter is offered on it and on a group; the genre entries can be listed and every filter value joins to at least one store name; the eight custom genres show the store's names; the Price filter (`filter.v.price`) is offered on `all-books` and on a group (P6-08). Creating the collection on the live store is the owner's decision at that time (store addition 4, `SHOPIFY_INTEGRATION.md`). Nothing on the live store is touched before then.
 - **Wireless phone checks (P6-09):** wireless debugging connected but dropped six times in one check, apparently whenever the screen slept or the app went to the background; each reconnect needed a new port from the owner. Use USB for checks with a background step, or keep the screen awake. `adb connect` and `adb disconnect` are still outside the standing permission (D-095).
 - **Wireless phone checks (P6-10):** the owner chose wireless again; the link dropped once (about 07:58, around a phone call that also restarted the app), and a new port was needed. The background step itself (6 min 6 s) kept the link. USB stays the reliable choice; a call during a check stops it (Do Not Disturb does not end a call already in progress).
@@ -83,6 +101,7 @@ The owner keeps a list of authors, series or titles they are thinking of stockin
   - the events and data Firebase sends by itself once consent is granted (`ANALYTICS.md`);
   - the app's own events, including the catalogue events since P6-09 (`view_collection`, `view_book`, `filter_applied`, `search`; `ANALYTICS.md`, "Events" and "Catalogue events");
   - that, under consent, the app records which catalogue item a search matched, by its ID or code, never the search term itself (P6-09, D-108, D-109);
+  - that, under consent, the app records which name on the store's wanted list a search matched, by that name's code, never the term (P6-11, D-117, D-118);
   - crash reports (Sentry);
   - Firebase.
 - **Analytics retention (owner, D-051):** set event data retention to 14 months, with "Reset user data on new activity" off, in the development Google Analytics property now, and in the staging and production properties when they are created.

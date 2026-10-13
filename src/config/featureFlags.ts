@@ -78,6 +78,20 @@ export function parseFeatureFlags(
   };
 }
 
+/**
+ * The wanted list (P6-11, D-115, D-116): names the owner is thinking of stocking, held in one
+ * Remote Config parameter of JSON type as a plain list of strings. It is read with the flags, on
+ * the same timing (D-046), and parsed by `src/analytics/wantedList.ts`. The compiled default is an
+ * empty list. Each name's code is made by the app, never written by hand.
+ */
+export const WANTED_LIST = {
+  parameter: 'search_wanted_list',
+  /** Entries after this many, in the list's order, are dropped. */
+  maxEntries: 200,
+  /** The longest name kept, in characters (code points), as the search field (D-097). */
+  maxNameLength: 100,
+} as const;
+
 export type RemoteConfigSettings = {
   readonly minimumFetchIntervalMillis: number;
   readonly fetchTimeoutMillis: number;

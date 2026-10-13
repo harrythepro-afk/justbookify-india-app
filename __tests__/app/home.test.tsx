@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { ScrollView, StyleSheet } from 'react-native';
 
 import type { AnalyticsConsentState } from '@/analytics/consent';
+import type { AnalyticsToken } from '@/analytics/ids';
 import HomeScreen from '@/app/(tabs)/index';
 import { HOME_CONTENT } from '@/config';
 import type { FeatureFlagState } from '@/featureFlags/session';
@@ -552,6 +553,7 @@ describe('HomeScreen development tools', () => {
           sources: { checkout_presentation: source },
           malformed: [],
         },
+        wantedList: { list: [], source: 'default' },
         fetch,
       };
 
@@ -572,6 +574,7 @@ describe('HomeScreen development tools', () => {
         sources: { checkout_presentation: 'default' },
         malformed: [],
       },
+      wantedList: { list: [], source: 'default' },
       fetch: undefined,
     };
 
@@ -580,6 +583,36 @@ describe('HomeScreen development tools', () => {
     expect(
       screen.getByText('Remote Config fetch for the next launch: not started'),
     ).toBeOnTheScreen();
+    expect(screen.getByText('search_wanted_list: 0 names (in-app default)')).toBeOnTheScreen();
+  });
+
+  it.each([
+    [1, 'search_wanted_list: 1 name (Remote Config)'],
+    [4, 'search_wanted_list: 4 names (Remote Config)'],
+  ])('shows the wanted list by its count only (%i)', async (count, line) => {
+    const names = ['Zelda Quorn', 'Mira Vexley', 'Opal Thistlewood', 'Juno Brack'];
+    mockFlagState = {
+      status: 'ready',
+      snapshot: {
+        values: { checkout_presentation: 'sheet' },
+        sources: { checkout_presentation: 'default' },
+        malformed: [],
+      },
+      wantedList: {
+        list: names.slice(0, count).map((name) => ({
+          code: name.toLowerCase().replace(' ', '_') as AnalyticsToken,
+          words: name.toLowerCase().split(' '),
+        })),
+        source: 'remote',
+      },
+      fetch: 'success',
+    };
+
+    await renderHome();
+
+    expect(screen.getByText(line)).toBeOnTheScreen();
+    // A listed name or its code is never shown (D-115).
+    expect(screen.queryByText(/zelda|vexley|thistlewood|brack/i)).not.toBeOnTheScreen();
   });
 
   it.each(['staging', 'production'])('shows no feature flag line on a %s build', async (env) => {
@@ -587,7 +620,9 @@ describe('HomeScreen development tools', () => {
 
     await renderHome();
 
-    expect(screen.queryByText(/Feature flags|checkout_presentation/)).not.toBeOnTheScreen();
+    expect(
+      screen.queryByText(/Feature flags|checkout_presentation|search_wanted_list/),
+    ).not.toBeOnTheScreen();
   });
 
   it.each(['staging', 'production'])('shows no crash test controls on a %s build', async (env) => {

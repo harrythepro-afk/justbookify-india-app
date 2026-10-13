@@ -15,6 +15,7 @@ import {
   FEATURE_FLAG_NAMES,
   getAppEnvironment,
   HOME_CONTENT,
+  WANTED_LIST,
   type CollectionLink,
   type FeatureFlagSource,
 } from '@/config';
@@ -312,7 +313,8 @@ function FeatureFlagStatus() {
     return <Text style={styles.flags}>Feature flags: not ready</Text>;
   }
 
-  const { snapshot, fetch } = flags;
+  const { snapshot, wantedList, fetch } = flags;
+  const names = wantedList.list.length;
   return (
     <>
       {FEATURE_FLAG_NAMES.map((name) => (
@@ -320,6 +322,10 @@ function FeatureFlagStatus() {
           {name}: {snapshot.values[name]} ({SOURCE_LABELS[snapshot.sources[name]]})
         </Text>
       ))}
+      {/* The wanted list (D-115) by its count only: a listed name is never shown. */}
+      <Text style={styles.flags}>
+        {`${WANTED_LIST.parameter}: ${names} ${names === 1 ? 'name' : 'names'} (${SOURCE_LABELS[wantedList.source]})`}
+      </Text>
       <Text style={styles.note}>
         Remote Config fetch for the next launch: {fetch ?? 'not started'}
       </Text>

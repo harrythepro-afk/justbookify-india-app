@@ -40,7 +40,12 @@ jest.mock('@/crashReporting/sentry', () => ({
   reportStorefrontProblem: jest.fn(),
   reportUnexpectedDataError: jest.fn(),
   reportAnalyticsProblem: (problem: string) => mockReportAnalytics(problem),
+  reportFeatureFlagProblem: (problem: string) => mockReportRemoteConfig(problem),
+  reportMalformedFeatureFlag: (name: string) => mockReportRemoteConfig(name),
+  reportMalformedRemoteConfigList: (parameter: string, summary: string) =>
+    mockReportRemoteConfig(parameter, summary),
 }));
+const mockReportRemoteConfig = jest.fn();
 
 // A configured store, so a Price button would have its labels if search drew one (P6-08).
 jest.mock('@/config/store', () => ({
@@ -70,6 +75,24 @@ jest.mock('@/analytics/firebase', () => ({
   sendScreenView: () => Promise.resolve(),
 }));
 jest.mock('@/analytics/consent', () => ({ isAnalyticsConsentGranted: () => mockConsent }));
+
+// This launch's wanted list (P6-11, D-115): the phone check's list, as Remote Config would hold it.
+// Remote Config itself never loads in tests.
+jest.mock('@/featureFlags/remoteConfig', () => ({
+  activateLastFetched: () =>
+    Promise.resolve({
+      search_wanted_list: {
+        value: JSON.stringify(['David Walliams', 'Rick Riordan', 'Tintin', 'Harry Potter']),
+        source: 'remote',
+      },
+    }),
+  fetchForNextLaunch: () => Promise.resolve(),
+}));
+// A development build, as the list's timing (D-046) reads the environment's fetch settings.
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: { expoConfig: { extra: { appEnv: 'development' } } },
+}));
 
 jest.mock('@/shopify/catalogue', () => ({
   ...jest.requireActual('@/shopify/catalogue'),
@@ -783,6 +806,63 @@ describe('the search usage event (P6-09, D-108, D-109)', () => {
       await waitPastTwoSeconds();
 
       expect(sent()).toEqual([]);
+    },
+    LONG,
+  );
+});
+
+describe('the wanted list in the search event (P6-11, D-117)', () => {
+  const sent = () => mockSendEvent.mock.calls;
+  const LONG = 15_000;
+
+  async function waitPastTwoSeconds() {
+    await act(() => new Promise((resolve) => setTimeout(resolve, 2100)));
+  }
+
+  it(
+    'sends wanted with the listed name’s code for a search that finds nothing',
+    async () => {
+      await renderScreen();
+      await searchFor('walliams');
+      await waitPastTwoSeconds();
+
+      expect(sent()).toEqual([
+        [
+          'search',
+          { term_length: 8, result_count: 0, match_type: 'wanted', match_id: 'david_walliams' },
+        ],
+      ]);
+      expect(mockReportAnalytics).not.toHaveBeenCalled();
+      // The list parsed with nothing dropped: no Remote Config report (D-116).
+      expect(mockReportRemoteConfig).not.toHaveBeenCalled();
+    },
+    LONG,
+  );
+
+  it(
+    'sends other when "Available now" was switched on before the term (the phone check’s steps)',
+    async () => {
+      await renderScreen();
+      // Each term with the search key, as in the phone check, so zzqxv's event is sent at once.
+      await type('zzqxv');
+      await fireEvent(field(), 'submitEditing');
+      await waitFor(() => expect(sent()).toHaveLength(1));
+      await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', true);
+      await searchSettled();
+      await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
+      await type('walliams');
+      await fireEvent(field(), 'submitEditing');
+      await waitFor(() => expect(sent()).toHaveLength(2));
+      await searchSettled();
+
+      expect(mockFetchSearch.mock.calls.at(-1)?.[0]).toMatchObject({
+        term: 'walliams',
+        search: { available: true },
+      });
+      expect(sent()).toEqual([
+        ['search', { term_length: 5, result_count: 0, match_type: 'other' }],
+        ['search', { term_length: 8, result_count: 0, match_type: 'other' }],
+      ]);
     },
     LONG,
   );

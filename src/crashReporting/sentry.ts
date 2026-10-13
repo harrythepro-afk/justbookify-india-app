@@ -67,6 +67,15 @@ export function reportMalformedFeatureFlag(name: string): void {
 }
 
 /**
+ * A Remote Config list with entries dropped or ignored as a whole (P6-11, D-116). `summary` is
+ * built from reason codes and counts only (`src/analytics/wantedList.ts`): never a name or a value.
+ */
+export function reportMalformedRemoteConfigList(parameter: string, summary: string): void {
+  if (!started) return;
+  Sentry.captureMessage(`Remote Config: ${parameter} ${summary}`, 'warning');
+}
+
+/**
  * An analytics problem (D-048, D-053): a dropped event or a consent or Firebase call that
  * failed. `problem` names the event, parameter or step and an error code, never a value.
  */

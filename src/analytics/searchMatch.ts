@@ -17,10 +17,16 @@
  * 7. An author is sent as a code made from the store's own author name (`roald_dahl`); a name
  *    that cannot be made into a code never matches.
  *
- * A pure function; nothing here logs or throws, whatever the term.
+ * The wanted list (P6-11, D-117) is matched by `matchWantedName`, with the same rules 1 to 4 and
+ * no ambiguity rule: level 1 before level 2, then the first entry in the list's order. The caller
+ * checks it only when the catalogue gave `other` and the search found no books with "Available
+ * now" off (`searchEvent.ts`).
+ *
+ * Pure functions; nothing here logs or throws, whatever the term.
  */
 
 import type { SearchMatch } from './events';
+import type { WantedList } from './wantedList';
 import {
   analyticsCollectionId,
   analyticsProductId,
@@ -169,4 +175,27 @@ export function matchSearchTerm(term: string, catalogue: SearchMatchCatalogue): 
     if (titleId !== undefined) return { match_type: 'title', match_id: titleId };
   }
   return OTHER;
+}
+
+/**
+ * What a term matched on the wanted list (D-117): the first entry, in the list's order, whose words
+ * are exactly the term's words (level 1), else the first with the term's words as a run of whole
+ * words (level 2, skipped for a term made only of common words). `wanted` with that entry's code,
+ * or `other`. Shopify's syntax and partial words never match, as in the catalogue (D-109).
+ */
+export function matchWantedName(
+  term: string,
+  list: WantedList,
+  commonWords: readonly string[],
+): SearchMatch {
+  if (usesSearchSyntax(term)) return OTHER;
+  const words = matchWords(term);
+  if (words.length === 0) return OTHER;
+
+  const common = new Set(commonWords.flatMap(matchWords));
+  const onlyCommon = words.every((word) => common.has(word));
+  const exact = list.find((name) => sameWords(name.words, words));
+  const hit =
+    exact ?? (onlyCommon ? undefined : list.find((name) => containsRun(name.words, words)));
+  return hit === undefined ? OTHER : { match_type: 'wanted', match_id: hit.code };
 }

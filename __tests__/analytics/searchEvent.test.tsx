@@ -1,7 +1,8 @@
 /**
  * When the `search` event is sent (P6-09, D-108): once per term in a visit, after its results
  * have stayed on screen for 2 seconds, at once after the search key or when a book is opened; never
- * for a sort, "Available now" or "Load more", and never once the term is gone.
+ * for a sort, "Available now" or "Load more", and never once the term is gone. The wanted list
+ * (P6-11, D-117): only for no results with "Available now" off, and only after the catalogue.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -12,6 +13,7 @@ import {
   type SearchMatchLists,
   type ShownSearchResults,
 } from '@/analytics/searchEvent';
+import { parseWantedList, type WantedList } from '@/analytics/wantedList';
 
 let mockGranted = true;
 const mockSendEvent = jest.fn((_name: string, _params: unknown) => Promise.resolve());
@@ -39,6 +41,7 @@ function results(term: string, totalCount: number): ShownSearchResults {
     books: [
       { id: 'gid://shopify/Product/8000000000001', title: 'Harry potter', author: 'J.k. Rowling' },
     ],
+    available: false,
   };
 }
 
@@ -47,9 +50,10 @@ type Props = {
   shown: ShownSearchResults | null;
   failed: boolean;
   lists: SearchMatchLists | null;
+  wanted: WantedList | null;
 };
 
-const IDLE: Props = { term: null, shown: null, failed: false, lists: LISTS };
+const IDLE: Props = { term: null, shown: null, failed: false, lists: LISTS, wanted: [] };
 
 async function renderEvent(initial: Props = IDLE) {
   return renderHook((props: Props) => useSearchEvent(props), { initialProps: initial });
@@ -230,7 +234,11 @@ it('caps the count at Shopify’s 1,000 and sends 0 for no results', async () =>
 
   await rerender({ ...IDLE, term: 'the', shown: results('the', 4000) });
   await wait(2000);
-  await rerender({ ...IDLE, term: 'zzqxv', shown: { term: 'zzqxv', totalCount: 0, books: [] } });
+  await rerender({
+    ...IDLE,
+    term: 'zzqxv',
+    shown: { term: 'zzqxv', totalCount: 0, books: [], available: false },
+  });
   await wait(2000);
 
   expect(mockSendEvent.mock.calls).toEqual([
@@ -257,4 +265,165 @@ it('sends nothing without consent', async () => {
   await act(async () => result.current.sendWhenShown('harry'));
 
   expect(mockSendEvent).not.toHaveBeenCalled();
+});
+
+describe('the wanted list (P6-11, D-117)', () => {
+  const TINTIN_SERIES = 'gid://shopify/Collection/411000000002';
+  const WANTED_LISTS: SearchMatchLists = {
+    ...LISTS,
+    series: [...LISTS.series, { name: 'Tintin', collectionGid: TINTIN_SERIES }],
+  };
+  // The phone check's list (owner), plus a store author and a private-looking name.
+  const WANTED = parseWantedList(
+    {
+      source: 'remote',
+      value: JSON.stringify([
+        'David Walliams',
+        'Rick Riordan',
+        'Tintin',
+        'Harry Potter',
+        'Roald Dahl',
+        'Asha Rao',
+        '9876543210',
+      ]),
+    },
+    ['the'],
+  ).list;
+  const BASE: Props = { ...IDLE, lists: WANTED_LISTS, wanted: WANTED };
+
+  function none(term: string, available = false): ShownSearchResults {
+    return { term, totalCount: 0, books: [], available };
+  }
+
+  function sentParams() {
+    return mockSendEvent.mock.calls.map(([, params]) => params);
+  }
+
+  it('sends wanted with the listed name’s code when nothing is found', async () => {
+    const { rerender } = await renderEvent(BASE);
+
+    await rerender({ ...BASE, term: 'walliams', shown: none('walliams') });
+    await wait(2000);
+    await rerender({ ...BASE, term: 'Rick Riordan', shown: none('Rick Riordan') });
+    await wait(2000);
+
+    expect(sentParams()).toEqual([
+      { term_length: 8, result_count: 0, match_type: 'wanted', match_id: 'david_walliams' },
+      { term_length: 11, result_count: 0, match_type: 'wanted', match_id: 'rick_riordan' },
+    ]);
+  });
+
+  it('lets the catalogue win, also with 0 results (tintin) and with results (harry)', async () => {
+    const { rerender } = await renderEvent(BASE);
+
+    await rerender({ ...BASE, term: 'tintin', shown: none('tintin') });
+    await wait(2000);
+    await rerender({ ...BASE, term: 'harry', shown: results('harry', 7) });
+    await wait(2000);
+
+    expect(sentParams()).toEqual([
+      { term_length: 6, result_count: 0, match_type: 'series', match_id: '411000000002' },
+      { term_length: 5, result_count: 7, match_type: 'series', match_id: '411000000001' },
+    ]);
+  });
+
+  it('shows a listed store author as wanted only when the search found no books', async () => {
+    const dahlBook = {
+      id: 'gid://shopify/Product/8000000000002',
+      title: 'Matilda',
+      author: 'Roald Dahl',
+    };
+    const { rerender } = await renderEvent(BASE);
+
+    await rerender({
+      ...BASE,
+      term: 'dahl',
+      shown: { term: 'dahl', totalCount: 3, books: [dahlBook], available: false },
+    });
+    await wait(2000);
+    await rerender({ ...BASE, term: 'roald dahl', shown: none('roald dahl') });
+    await wait(2000);
+
+    expect(sentParams()).toEqual([
+      { term_length: 4, result_count: 3, match_type: 'author', match_id: 'roald_dahl' },
+      { term_length: 9, result_count: 0, match_type: 'wanted', match_id: 'roald_dahl' },
+    ]);
+  });
+
+  it('never sends wanted with "Available now" on, or when books were found', async () => {
+    const { rerender } = await renderEvent(BASE);
+
+    await rerender({ ...BASE, term: 'walliams', shown: none('walliams', true) });
+    await wait(2000);
+    const unrelated = {
+      id: 'gid://shopify/Product/8000000000003',
+      title: 'Gangsta Granny',
+      author: 'Someone Else',
+    };
+    await rerender({
+      ...BASE,
+      term: 'riordan',
+      shown: { term: 'riordan', totalCount: 1, books: [unrelated], available: false },
+    });
+    await wait(2000);
+
+    expect(sentParams()).toEqual([
+      { term_length: 8, result_count: 0, match_type: 'other' },
+      { term_length: 7, result_count: 1, match_type: 'other' },
+    ]);
+  });
+
+  it('uses the "Available now" setting of the results the event is based on', async () => {
+    const { rerender } = await renderEvent(BASE);
+
+    // "Available now" switched on while the 2 seconds run: the newer results count.
+    await rerender({ ...BASE, term: 'walliams', shown: none('walliams') });
+    await wait(1000);
+    await rerender({ ...BASE, term: 'walliams', shown: null });
+    await wait(500);
+    await rerender({ ...BASE, term: 'walliams', shown: none('walliams', true) });
+    await wait(500);
+
+    expect(sentParams()).toEqual([{ term_length: 8, result_count: 0, match_type: 'other' }]);
+  });
+
+  it('waits for this launch’s wanted list, so a match is not missed', async () => {
+    const { rerender } = await renderEvent({ ...BASE, wanted: null });
+
+    await rerender({ ...BASE, wanted: null, term: 'walliams', shown: none('walliams') });
+    await wait(5000);
+    expect(mockSendEvent).not.toHaveBeenCalled();
+
+    await rerender({ ...BASE, term: 'walliams', shown: none('walliams') });
+    expect(sentParams()).toEqual([
+      { term_length: 8, result_count: 0, match_type: 'wanted', match_id: 'david_walliams' },
+    ]);
+  });
+
+  it('sends other with an empty list', async () => {
+    const { rerender } = await renderEvent({ ...BASE, wanted: [] });
+
+    await rerender({ ...BASE, wanted: [], term: 'walliams', shown: none('walliams') });
+    await wait(2000);
+
+    expect(sentParams()).toEqual([{ term_length: 8, result_count: 0, match_type: 'other' }]);
+  });
+
+  it('never puts a private-looking term, or any part of it, in an event', async () => {
+    const { rerender } = await renderEvent(BASE);
+    const terms = ['Asha Rao 9876543210', '9876543210', 'asha.rao@example.com', '-walliams'];
+
+    for (const term of terms) {
+      await rerender({ ...BASE, term, shown: none(term) });
+      await wait(2000);
+    }
+
+    expect(sentParams()).toEqual(
+      terms.map(() => expect.objectContaining({ result_count: 0, match_type: 'other' })),
+    );
+    const sent = JSON.stringify(mockSendEvent.mock.calls);
+    for (const part of ['asha', 'rao', '9876543210', 'example', 'walliams']) {
+      expect(sent.toLowerCase()).not.toContain(part);
+    }
+  });
 });

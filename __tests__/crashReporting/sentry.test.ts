@@ -170,6 +170,21 @@ describe('crash reporting', () => {
       );
     });
 
+    it('reports a Remote Config list by its parameter, reason codes and counts only', () => {
+      const crashReporting = loadModule();
+      crashReporting.startCrashReporting();
+
+      crashReporting.reportMalformedRemoteConfigList(
+        'search_wanted_list',
+        'dropped entries (empty 1, duplicate_code 2)',
+      );
+
+      expect(mockCaptureMessage).toHaveBeenCalledWith(
+        'Remote Config: search_wanted_list dropped entries (empty 1, duplicate_code 2)',
+        'warning',
+      );
+    });
+
     it("uses Sentry's own native crash for the native test", () => {
       const crashReporting = loadModule();
       crashReporting.startCrashReporting();
