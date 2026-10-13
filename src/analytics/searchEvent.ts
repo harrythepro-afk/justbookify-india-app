@@ -11,6 +11,11 @@
  * Shopify's count (at most 1,000) and what the term matched in the store's own catalogue
  * (`searchMatch.ts`, D-109). It waits for the store's series, age groups and genres to be read (or
  * to fail) so that a match is not missed. The term itself is never sent, logged or reported.
+ *
+ * The wanted list (P6-11, D-117): only when the catalogue gave `other` and the results the event is
+ * based on found no books with "Available now" off, the term is matched against the store's wanted
+ * list, and a hit sends `wanted` with the listed name's code. The event also waits for this
+ * launch's list (frozen within 3 seconds of start-up, D-046).
  */
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -18,7 +23,13 @@ import { useCallback, useEffect, useRef } from 'react';
 import { countLettersAndDigits } from '@/shopify/searchTerm';
 
 import { trackSearch } from './events';
-import { matchSearchTerm, type SearchMatchBook, type SearchMatchCatalogue } from './searchMatch';
+import {
+  matchSearchTerm,
+  matchWantedName,
+  type SearchMatchBook,
+  type SearchMatchCatalogue,
+} from './searchMatch';
+import type { WantedList } from './wantedList';
 
 export type { SearchMatchGroup } from './searchMatch';
 
@@ -33,6 +44,8 @@ export type ShownSearchResults = {
   readonly term: string;
   readonly totalCount: number;
   readonly books: readonly SearchMatchBook[];
+  /** Whether "Available now" was on when this page was read. */
+  readonly available: boolean;
 };
 
 /** The catalogue a term is matched against besides its own results; null until it is read. */
@@ -54,20 +67,22 @@ export type SearchEvent = {
  * arrived (null while it loads or an earlier term's results stand in; while a new sort or "Available
  * now" loads for the same term, its earlier results stay on screen and still count); `failed` is
  * true while an error has replaced the results; `lists` the series, age groups and genres, null
- * until both reads have arrived or failed.
+ * until both reads have arrived or failed; `wanted` this launch's wanted list, null until frozen.
  */
 export function useSearchEvent(options: {
   readonly term: string | null;
   readonly shown: ShownSearchResults | null;
   readonly failed: boolean;
   readonly lists: SearchMatchLists | null;
+  readonly wanted: WantedList | null;
 }): SearchEvent {
-  const { term, shown, failed, lists } = options;
+  const { term, shown, failed, lists, wanted } = options;
   const sent = useRef(new Set<string>());
   const due = useRef(new Set<string>());
   const currentKey = useRef<string | null>(null);
   const latest = useRef<{ key: string; results: ShownSearchResults } | null>(null);
   const listsRef = useRef<SearchMatchLists | null>(null);
+  const wantedRef = useRef<WantedList | null>(null);
   const timer = useRef<{ key: string; handle: ReturnType<typeof setTimeout> } | null>(null);
 
   const stopTimer = useCallback(() => {
@@ -80,14 +95,22 @@ export function useSearchEvent(options: {
       if (sent.current.has(key) || !due.current.has(key)) return;
       const results = latest.current?.key === key ? latest.current.results : null;
       const matchLists = listsRef.current;
-      if (results === null || matchLists === null) return;
+      const wantedList = wantedRef.current;
+      if (results === null || matchLists === null || wantedList === null) return;
       sent.current.add(key);
       due.current.delete(key);
       if (timer.current?.key === key) stopTimer();
+      const catalogueMatch = matchSearchTerm(results.term, { ...matchLists, books: results.books });
+      // The catalogue always comes first; the wanted list counts only for a search that found no
+      // books with "Available now" off (D-117).
+      const checkWanted =
+        catalogueMatch.match_type === 'other' && results.totalCount === 0 && !results.available;
       trackSearch({
         term_length: countLettersAndDigits(results.term),
         result_count: Math.min(results.totalCount, RESULT_COUNT_CAP),
-        ...matchSearchTerm(results.term, { ...matchLists, books: results.books }),
+        ...(checkWanted
+          ? matchWantedName(results.term, wantedList, matchLists.commonWords)
+          : catalogueMatch),
       });
     },
     [stopTimer],
@@ -95,6 +118,7 @@ export function useSearchEvent(options: {
 
   useEffect(() => {
     listsRef.current = lists;
+    wantedRef.current = wanted;
     const key = term === null ? null : keyOf(term);
     currentKey.current = key;
     if (timer.current !== null && timer.current.key !== key) stopTimer();
@@ -124,7 +148,7 @@ export function useSearchEvent(options: {
         }, SEARCH_EVENT_DELAY_MS),
       };
     }
-  }, [term, shown, failed, lists, stopTimer, trySend]);
+  }, [term, shown, failed, lists, wanted, stopTimer, trySend]);
 
   // Leaving the screen sends nothing more.
   useEffect(() => stopTimer, [stopTimer]);

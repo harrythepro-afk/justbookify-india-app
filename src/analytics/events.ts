@@ -23,13 +23,14 @@ export const FILTER_TYPES = [
   'clear',
 ] as const;
 
-/** What `search`'s `match_type` may be (D-108, D-109). */
+/** What `search`'s `match_type` may be (D-108, D-109; `wanted` D-118). */
 export const SEARCH_MATCH_TYPES = [
   'title',
   'author',
   'series',
   'age_group',
   'genre',
+  'wanted',
   'other',
 ] as const;
 
@@ -56,6 +57,7 @@ export const ANALYTICS_EVENTS = {
         series: ['collectionId'],
         age_group: ['collectionId'],
         genre: ['taxonomyValueId'],
+        wanted: ['token'],
         other: 'absent',
       },
     },
@@ -129,19 +131,24 @@ export type FilterAppliedParams =
 
 /**
  * `search` (D-108): the term's length and Shopify's count, and what the term matched in the
- * store's own catalogue, as that item's ID or code (D-109); nothing for `other`. Never the term.
+ * store's own catalogue, as that item's ID or code (D-109), or on the store's wanted list, as the
+ * listed name's code (D-117, D-118); nothing for `other`. Never the term, never a listed name.
  */
 export type SearchParams = {
   readonly term_length: number;
   readonly result_count: number;
 } & SearchMatch;
 
-/** What a search term matched in the store's own catalogue (D-109), as that item's ID or code. */
+/**
+ * What a search term matched in the store's own catalogue (D-109), as that item's ID or code, or on
+ * the wanted list (D-117), as the listed name's code.
+ */
 export type SearchMatch =
   | { readonly match_type: 'title'; readonly match_id: AnalyticsProductId }
   | { readonly match_type: 'author'; readonly match_id: AnalyticsToken }
   | { readonly match_type: 'series' | 'age_group'; readonly match_id: AnalyticsCollectionId }
   | { readonly match_type: 'genre'; readonly match_id: AnalyticsTaxonomyValueId }
+  | { readonly match_type: 'wanted'; readonly match_id: AnalyticsToken }
   | { readonly match_type: 'other'; readonly match_id?: never };
 
 type DependentParams = { filter_applied: FilterAppliedParams; search: SearchParams };
