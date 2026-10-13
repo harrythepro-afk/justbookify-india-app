@@ -47,7 +47,9 @@ describe('availability (SHOPIFY_INTEGRATION.md, R8, D-015)', () => {
       bookProduct({ handle: 'same', title: 'Same' }),
     );
     expect([zero, inStock]).toEqual(['orderable-at-zero-stock', 'in-stock']);
-    expect({ ...zeroRest, id: '', cover: null }).toEqual({ ...inStockRest, id: '', cover: null });
+    // Two products, so their own IDs differ (the variant's too, since P8-01).
+    const same = { id: '', variantId: '', cover: null };
+    expect({ ...zeroRest, ...same }).toEqual({ ...inStockRest, ...same });
   });
 });
 
@@ -68,6 +70,15 @@ describe('fields', () => {
 
   it('shows vendor as stored, without fixing its casing', () => {
     expect(card(bookProduct({ vendor: 'J.k. Rowling' })).author).toBe('J.k. Rowling');
+  });
+
+  it("keeps the variant's ID and the price as a number, for the cart (P8-01)", () => {
+    const product = bookProduct({ price: '74.0' });
+    expect(card(product)).toMatchObject({
+      variantId: product.variants.nodes[0]?.id,
+      price: '₹74',
+      priceAmount: 74,
+    });
   });
 
   it('keeps the handle, title and product ID', () => {

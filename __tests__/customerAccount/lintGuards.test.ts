@@ -54,6 +54,9 @@ const FAILING: Case[] = [
   [SECURE_STORE, 'src/components/Example.tsx'],
   [SECURE_STORE, 'src/analytics/example.ts'],
   [SECURE_STORE, 'src/customerAccount/session.ts'],
+  [SECURE_STORE, 'src/shopify/cartId.ts'],
+  [SECURE_STORE, 'src/shopify/hooks/cart.ts'],
+  [AUTH_SESSION, 'src/shopify/cartStorage.ts'],
   [AUTH_SESSION, 'src/app/example.tsx'],
   [AUTH_SESSION, 'src/analytics/consentStorage.ts'],
   [WEB_BROWSER, 'src/components/Example.tsx'],
@@ -65,6 +68,8 @@ const FAILING: Case[] = [
 const PASSING: Case[] = [
   [SECURE_STORE, 'src/customerAccount/tokenStorage.ts'],
   [SECURE_STORE, 'src/analytics/consentStorage.ts'],
+  // The cart's ID (P8-01).
+  [SECURE_STORE, 'src/shopify/cartStorage.ts'],
   [AUTH_SESSION, 'src/customerAccount/session.ts'],
   [WEB_BROWSER, 'src/customerAccount/example.ts'],
   [FETCH, 'src/customerAccount/oauthHttp.ts'],

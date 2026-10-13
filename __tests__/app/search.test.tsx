@@ -11,6 +11,16 @@ import { StorefrontError } from '@/shopify/errors';
 import { bookProduct, collectionGid, collectionMap } from '../helpers/catalogue';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
 import { withScreen } from '../helpers/screen';
+import { loadCartId } from '@/shopify/cartId';
+
+// The cart (P8-01): cards and the book page draw "Add to Cart"; no cart is stored on this phone.
+jest.mock('@/shopify/cartStorage', () => ({
+  readStoredCartId: () => Promise.resolve(null),
+  writeStoredCartId: () => Promise.resolve(),
+  deleteStoredCartId: () => Promise.resolve(),
+}));
+// The stored cart is read before any screen draws, so no test sees it arrive after its end.
+beforeAll(() => loadCartId());
 
 // Loaded with the file, not inside the first test's time limit (cold Jest cache, P6-03).
 void ScrollView;

@@ -19,6 +19,19 @@ import { StorefrontError } from '@/shopify/errors';
 import { bookProduct, collectionGid, collectionMap } from '../helpers/catalogue';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
 import { withScreen } from '../helpers/screen';
+import { loadCartId } from '@/shopify/cartId';
+
+// The card's cart button loads the analytics events (P8-01); nothing is sent here.
+jest.mock('@/analytics/firebase', () => ({}));
+
+// The cart (P8-01): cards and the book page draw "Add to Cart"; no cart is stored on this phone.
+jest.mock('@/shopify/cartStorage', () => ({
+  readStoredCartId: () => Promise.resolve(null),
+  writeStoredCartId: () => Promise.resolve(),
+  deleteStoredCartId: () => Promise.resolve(),
+}));
+// The stored cart is read before any screen draws, so no test sees it arrive after its end.
+beforeAll(() => loadCartId());
 
 // React Native loads ScrollView's module tree on first access, which takes several seconds on a
 // cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
@@ -181,6 +194,11 @@ function buttonNames(): (string | undefined)[] {
   return screen
     .queryAllByRole('button')
     .map((button) => button.props.accessibilityLabel as string | undefined);
+}
+
+/** The buttons besides the new arrivals' "Add to Cart" (P8-01), which the D-081 test checks. */
+function otherButtonNames(): (string | undefined)[] {
+  return buttonNames().filter((name) => name === undefined || !/^Add .* to cart$/.test(name));
 }
 
 async function renderHome() {
@@ -376,15 +394,23 @@ describe('HomeScreen (P6-03)', () => {
     });
   });
 
-  it('shows no cart or notify-me button until they are wired (D-081)', async () => {
+  // P8-01 ends D-081 for the cart: each orderable new arrival has "Add to Cart". The rented-out
+  // one has no button, because notify-me is not wired yet (D-081).
+  it('shows "Add to Cart" on orderable books and no notify-me button (P8-01, D-081)', async () => {
     mockAppEnv = 'production';
 
     await renderHome();
 
     expect(screen.getByText('New book 2')).toBeOnTheScreen();
     expect(screen.getByText('Rented Out')).toBeOnTheScreen();
-    // The header's search button (P6-06) is the only button.
-    expect(buttonNames()).toEqual(['Search']);
+    // The header's search button (P6-06), then one cart button per orderable book.
+    expect(buttonNames()).toEqual([
+      'Search',
+      'Add New book 1 to cart',
+      'Add New book 3 to cart',
+      'Add New book 4 to cart',
+      'Add New book 5 to cart',
+    ]);
   });
 
   it.each([
@@ -511,14 +537,9 @@ describe('HomeScreen development tools', () => {
     },
   );
 
-  it('links to the book card preview on a development build', async () => {
-    await renderHome();
-
-    const link = screen.getByText('Open the book card preview');
-    expect(link.props.accessibilityHint).toBe('/dev-catalogue');
-  });
-
-  it.each(['staging', 'production'])(
+  // The development preview was removed in P8-01, once customer screens drew the card's cart
+  // button (owner, P8-01; D-074, D-088).
+  it.each(['development', 'staging', 'production'])(
     'does not link to the book card preview on a %s build',
     async (env) => {
       mockAppEnv = env;
@@ -553,8 +574,9 @@ describe('HomeScreen development tools', () => {
     await renderHome();
 
     expect(screen.getByText('Crash reporting is off (no DSN).')).toBeOnTheScreen();
-    // The header's search button (P6-06) is the only button.
-    expect(buttonNames()).toEqual(['Search']);
+    // Besides the cards' "Add to Cart" (P8-01), the header's search button (P6-06) is the only
+    // button.
+    expect(otherButtonNames()).toEqual(['Search']);
   });
 
   it('says the feature flags are not ready before local activation', async () => {
@@ -653,8 +675,9 @@ describe('HomeScreen development tools', () => {
 
     await renderHome();
 
-    // The header's search button (P6-06) is the only button.
-    expect(buttonNames()).toEqual(['Search']);
+    // Besides the cards' "Add to Cart" (P8-01), the header's search button (P6-06) is the only
+    // button.
+    expect(otherButtonNames()).toEqual(['Search']);
     expect(screen.queryByText('Crash reporting is off (no DSN).')).not.toBeOnTheScreen();
   });
 
