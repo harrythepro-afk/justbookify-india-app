@@ -487,6 +487,8 @@ Unit tests; the Storefront reads and Firebase's send are mocked:
 7. Standing step (D-082, D-111): more than 5 minutes in the background, then back: no false offline notice.
 8. The app's own log: no crash and no JavaScript error.
 
+**Passed on 13 October 2026** (07:54 to 08:09 IST, **over wireless debugging**, the owner's choice on the day; details, two stops and every adb command in `CURRENT_STATUS.md`). The 7 authors in order, no "All authors", Roald Dahl opened its 3 books. The Fantasy chip opened "All books" with "Genre: Fantasy", "Available now" on, A-Z and no price. **Back returned to the book page** (same scroll position), then to the Harry Potter series. Browse still had "Age group: 9-10 years". Standing step: 6 min 6 s in the background, no offline notice, "Query cache: online". The app's log (07:58:54 to 08:09:10): no crash, no JavaScript error.
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).
