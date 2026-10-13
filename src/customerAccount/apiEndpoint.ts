@@ -7,9 +7,9 @@ import { getJson } from './oauthHttp';
 /**
  * The Customer Account API's GraphQL endpoint (P7-02, D-124): the URL from the store's
  * `/.well-known/customer-account-api` up to `/customer/api/`, the version pinned in
- * `src/config/shopifyApi.ts`. Read
- * once per launch and kept in memory; callers during the read share it. A failed read is not
- * kept, so the next call tries again. Reported by code only, never offline or after a timeout.
+ * `src/config/shopifyApi.ts`. Read once per launch and kept in memory; callers during the read
+ * share it. A failed read is not kept, so the next call tries again. Reported by code only, never
+ * offline or after a timeout.
  */
 
 export type EndpointResult =

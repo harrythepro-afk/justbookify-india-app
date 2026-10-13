@@ -1,6 +1,6 @@
-# Next task (proposal): P7-02, the customer's profile and orders
+# Next task (proposal): P7-03, the analytics consent request
 
-Status: in progress on branch `p7-02-profile-orders` (plan accepted by the owner on 13 October 2026). P7-01 (login and logout with the Customer Account API; D-119 to D-123) is merged (`9be8a6d`, PR #25). P6-11 is merged (`7c37841`, PR #24); Phase 6 is done.
+Status: proposal. P7-02 (the customer's profile and orders, read only; early check 3; D-124 to D-128) is on branch `p7-02-profile-orders`, PR #26, CI green, phone check passed on 13 October 2026 (early check 3 passed); see `CURRENT_STATUS.md`. P7-03 starts when the owner starts it, after PR #26 is merged. **Its first commit records P7-02 as merged** (in this file and `CURRENT_STATUS.md`). P7-01 is merged (`9be8a6d`, PR #25).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -31,37 +31,36 @@ Status: in progress on branch `p7-02-profile-orders` (plan accepted by the owner
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P7-01 (done, 9be8a6d) | Login and logout with the Customer Account API on the development store: the system browser, PKCE, the app's own state and a nonce; tokens crash-safe in secure storage; refresh, logged out only on `invalid_grant`; logout on the phone and Shopify's mobile logout; the Account tab; phone check passed (a website sign-out keeps the app logged in; access token about 60 minutes) | D-119 to D-123 |
-| P7-02 (in progress, branch `p7-02-profile-orders`) | The customer's profile and orders, read only, through the Customer Account API's GraphQL; early check 3 | |
-| P7-03 (later) | The analytics consent request at the owner's chosen placement (D-048), and the analytics user ID after login (D-050); a release gate | |
+| P7-02 (branch `p7-02-profile-orders`, PR #26) | The customer's profile on the Account tab and orders in My Books, read only, through the Customer Account API (`2026-04`, types from Shopify's Hydrogen React schema); one GraphQL transport shared with the Storefront client; a 401 refreshes once; customer data in memory under `['customer', …]`, cleared at logout; the plain status table; no "At home" or "Returns" yet; **early check 3 passed** (guest order #1003 in the app after login with the same email) | D-124 to D-128 |
+| P7-03 (proposed) | The analytics consent request at the owner's chosen placement (D-048), and the analytics user ID question (D-050); a release gate | |
 
-## Goal of P7-02
+## Goal of P7-03
 
-A logged-in customer sees their own profile and their orders in the app, read from Shopify's Customer Account API (D-005), on the development store. Nothing is edited yet. Early check 3 is run: a guest order placed on the development store's website appears in the app after login with the same email (`SHOPIFY_INTEGRATION.md`, "Early checks").
+The consent request that `PRODUCT_REQUIREMENTS.md` ("Privacy requirements") and the release gate "analytics consent" (`TESTING.md`, D-048) require: never at first launch; Allow and Don't allow; closing it leaves the choice "not asked"; it says that usage is linked to the customer's account. The Account tab's "Share app usage" switch (P4-04) stays the way to change the choice later.
 
 ## Proposed scope
 
-1. **A typed Customer Account API client** in its own folder, like the Storefront client (D-054 to D-057): named operations through code generation from a saved `2026-10` schema (the version pinned in `src/config/`, not taken from discovery; `SHOPIFY_INTEGRATION.md`), the access token from `getValidAccessToken()` (D-121) as the `Authorization` header, typed errors, retries for queries only, the same time limits. Whether `@shopify/api-codegen-preset` 3.0.0 generates Customer Account API types, and from which schema address, is checked and recorded with the date (`CLAUDE.md` rule 10).
-2. **Its own query key root** (`['customer', …]`), in memory only, cleared by `clearAllCaches()` at logout and on a refused refresh (D-061, D-121); a 401 from the API refreshes once and then follows D-121.
-3. **Personal data rules:** profile and order fields only on screen; never logged, never in analytics or Sentry (the scrubber already removes emails, phone numbers, customer and order GIDs); a privacy test like P7-01's.
-4. **Screens:** the profile on the Account tab and the orders list where the owner chooses (questions below), with loading, offline, error and empty states in the project's wording style.
-5. **Early check 3** on the development store, with a guest order the owner places on its website (a test order on the development store only, never the live store).
-6. **Tests, docs and a USB phone check** under the standing permission.
+1. **The consent request** at the placement the owner chooses (question 1), using the existing consent store (`src/analytics/consent.ts`, D-048, D-052): Allow grants, Don't allow denies, closing leaves "not asked"; shown at most once per placement trigger while "not asked"; no pop-up at first launch.
+2. **Wording** drafted by Claude for the owner, to be reviewed by the owner's adviser with the privacy policy's app section (risk 21).
+3. **The analytics user ID (D-050):** what is built now depends on question 3.
+4. **`login` and `logout` events** (not sent since P7-01, D-123) only if the owner says so (question 4), under consent.
+5. **Tests, docs and a USB phone check** under the standing permission: the request appears at the chosen moment, both answers and closing behave as required, nothing is sent without consent (DebugView, owner).
 
 ## Questions for the owner and the architect
 
-1. **Profile:** which fields (proposed: name, email, phone, the default address), read only?
-2. **Orders:** where (proposed: My Books, which `PRODUCT_REQUIREMENTS.md` says holds orders and asks for login when signed out), which fields (proposed: order number, date, status, the books), and how many (proposed: the latest 20, then "Load more")?
-3. **Early check 3:** the owner places the guest order on the development store's website with the test customer's email before the phone check; Claude never places an order. Agreed?
-4. **Code generation:** if the preset cannot generate Customer Account API types, is a hand-written, tested type layer acceptable, or a different generator (a `DECISIONS.md` entry either way)?
+1. **Placement (D-048):** (a) right after the first login, which never measures customers who browse without logging in, or (b) at a natural pause before login, such as adding the first book to the cart (Phase 8), with the account-linking line shown after login? (b) needs the cart, so it would wait for Phase 8.
+2. **Wording:** a short title, one or two sentences that name what is recorded and that it is linked to the account, and the two buttons "Allow" and "Don't allow". Claude drafts it in the plan; the owner approves it.
+3. **Analytics user ID (D-050):** D-050 asks for a random or salted one-way value, never an email, phone or raw Shopify customer ID. A salted value needs a secret that cannot ship in the app, so it needs the backend (Phase 10). A random ID made on the phone would differ on each phone and after a reinstall, so it is not stable per customer. Proposed: no user ID in P7-03; the backend issues it in Phase 10; the consent wording still says usage is linked to the account. Agreed?
+4. **`login` and `logout` events:** send them now, under consent and with no parameters (`ANALYTICS.md`), or keep them off?
 5. **Phone check over USB** again (proposed)?
 
 ## Out of scope
 
-- Editing the profile or addresses, returns and rentals (later phases); the consent request and the analytics user ID (P7-03).
-- Cart and checkout (Phases 8 and 9).
-- Anything on the live store, including its Customer Account API settings.
+- The privacy policy's app section (the owner's task, risk 21) and its adviser review.
+- Cart and checkout (Phases 8 and 9); the backend (Phase 10).
+- Anything on the live store.
 
-## Follow-ups (recorded, not part of P7-02)
+## Follow-ups (recorded, not part of P7-03)
 
 - **Customer Account API version (P7-02, D-124, D-125; quarterly API review):** the app reads `2026-04`, the version of the only schema it can generate types from (`@shopify/hydrogen-react` 2026.4.4). Move to `2026-10` (or `2027-01`) once Hydrogen React publishes a release built for it (`npm run schema:update:customer`), and **before 16 April 2027**, when `2026-04` stops being accessible. Recorded in `SHOPIFY_INTEGRATION.md` ("API version").
 - **"Delivered" needs a rule (owner, P7-02 plan approval; Phase 11):** the orders list shows "Delivered" only when Shopify records the delivery. Delhivery reports it; Ekart does not (`SHOPIFY_AUDIT.md`), so an Ekart order stays "Shipped" unless staff mark it delivered. Phase 11 (books at home, due dates, returns) needs a rule for when an order counts as delivered (D-128).

@@ -631,7 +631,7 @@ The checks in `SHOPIFY_INTEGRATION.md` each run before anything is built on thei
 | --- | --- |
 | 1a (redirect to Razorpay and back) and 1b (hand-off to a real UPI app) | Both at the owner-approved launch rehearsal in Phase 19, on the live store, with one small real order (D-033). Razorpay cannot be installed on the development store, whose business entity is in Bahrain, and UPI Intent works only in Razorpay live mode |
 | 2 (cash on delivery and checkout rules) | Passed on Android in Phase 3 (P3-02). iPhone side in Phase 9 (D-036) |
-| 3 (guest order after login) | Phase 7, P7-02 phone check, on the development store ("Profile and orders (P7-02)" above) |
+| 3 (guest order after login) | **Passed on 13 October 2026** (P7-02 phone check, development store; `SHOPIFY_INTEGRATION.md`) |
 | 4 (return through the Admin API) | Phase 10, backend foundation (D-034, D-035) |
 | 5 (links open the app) | Phase 12, notifications and deep links (D-034, D-035, risk 17) |
 | 6 (Judge.me reviews) | Phase 13, reviews (D-034, D-035) |
