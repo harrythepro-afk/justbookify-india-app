@@ -45,12 +45,14 @@ export const RENTED_OUT_IN_CART_MESSAGE =
   'A book in your cart has been rented out. Remove it to continue.';
 export const JUST_RENTED_OUT_MESSAGE = 'This book has just been rented out.';
 export const GO_TO_CART = 'Go to Cart';
+/** The cap pop-up's title (owner, 14 October 2026, D-140). The other alerts have none. */
+export const CAP_ALERT_TITLE = 'Order limit reached';
 
 const CART_HREF = '/cart';
 
-function showMessage(message: string, withCartButton = false): void {
+function showMessage(message: string, withCartButton = false, title = ''): void {
   Alert.alert(
-    '',
+    title,
     message,
     withCartButton
       ? [
@@ -78,7 +80,7 @@ export function afterAdd(productGid: string, result: AddOutcome | CartChangeFail
       return;
     case 'cap':
       trackCapReached(result.cart.countedSubtotal);
-      showMessage(capRefusalMessage(formatCartAmount(orderCapAmount())), true);
+      showMessage(capRefusalMessage(formatCartAmount(orderCapAmount())), true, CAP_ALERT_TITLE);
       return;
     case 'rented-out':
       trackBookUnavailable(productGid, 'add_to_cart');

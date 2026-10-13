@@ -63,10 +63,10 @@ beforeEach(() => {
 
 type AlertButton = { text?: string; onPress?: () => void };
 
-function lastAlert(): { message: string; buttons: AlertButton[] } {
+function lastAlert(): { title: string; message: string; buttons: AlertButton[] } {
   const call = alertSpy.mock.calls.at(-1);
   if (call === undefined) throw new Error('no alert');
-  return { message: call[1] ?? '', buttons: (call[2] ?? []) as AlertButton[] };
+  return { title: call[0], message: call[1] ?? '', buttons: (call[2] ?? []) as AlertButton[] };
 }
 
 async function press(book: BookCard) {
@@ -150,6 +150,8 @@ describe('after "Add to Cart"', () => {
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
     const alert = lastAlert();
+    // The owner's title (14 October 2026, D-140); the message is unchanged.
+    expect(alert.title).toBe('Order limit reached');
     expect(alert.message).toBe(
       'Each order can have books worth less than ₹500. Remove a book to add this one.',
     );
@@ -169,6 +171,7 @@ describe('after "Add to Cart"', () => {
     await press(book);
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+    expect(lastAlert().title).toBe('Order limit reached');
     expect(lastAlert().message).toMatch(/^Each order can have books worth less than ₹500/);
     expect(mockSendEvent).toHaveBeenCalledWith('order_cap_reached', { cart_value: 500 });
   });
@@ -182,6 +185,7 @@ describe('after "Add to Cart"', () => {
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
     expect(lastAlert()).toEqual({
+      title: '',
       message: 'This book has just been rented out.',
       buttons: [{ text: 'OK' }],
     });
@@ -202,6 +206,7 @@ describe('after "Add to Cart"', () => {
     await press(book);
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+    expect(lastAlert().title).toBe('');
     expect(lastAlert().message).toBe(text);
     expect(mockSendEvent).not.toHaveBeenCalled();
   });
