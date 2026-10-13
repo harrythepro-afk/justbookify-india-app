@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAnalyticsConsent } from '@/analytics/consent';
+import { resetAnalyticsConsent, useAnalyticsConsent } from '@/analytics/consent';
 import { BookCard } from '@/components/BookCard';
 import { openBook } from '@/components/openBook';
 import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
@@ -340,14 +340,30 @@ function FeatureFlagStatus() {
   );
 }
 
-/** Development builds only: whether analytics collection is on, and the stored consent. */
+/**
+ * Development builds only: whether analytics collection is on, and the stored consent; and a
+ * button that puts the choice back to `not asked` for the consent request's phone check (P7-03,
+ * D-131).
+ */
 function AnalyticsStatus() {
-  const { consent } = useAnalyticsConsent();
+  const { consent, busy, saveFailed } = useAnalyticsConsent();
   if (consent === 'loading') return <Text style={styles.note}>Analytics: consent loading</Text>;
   return (
-    <Text style={styles.note}>
-      Analytics: {consent === 'granted' ? 'on' : 'off'} (consent: {consent})
-    </Text>
+    <>
+      <Text style={styles.note}>
+        Analytics: {consent === 'granted' ? 'on' : 'off'} (consent: {consent})
+        {saveFailed ? ', last change not saved' : ''}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: busy }}
+        disabled={busy}
+        onPress={() => void resetAnalyticsConsent()}
+        style={styles.control}
+      >
+        <Text style={styles.controlText}>Reset analytics choice</Text>
+      </Pressable>
+    </>
   );
 }
 

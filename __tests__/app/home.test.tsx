@@ -54,8 +54,10 @@ jest.mock('@/customerAccount/session', () => ({
   refreshSession: () => mockRefreshSession(),
 }));
 
+const mockResetConsent = jest.fn();
 jest.mock('@/analytics/consent', () => ({
   useAnalyticsConsent: () => mockConsent,
+  resetAnalyticsConsent: () => mockResetConsent(),
 }));
 
 jest.mock('@/featureFlags/session', () => ({
@@ -667,6 +669,26 @@ describe('HomeScreen development tools', () => {
     await renderHome();
 
     expect(screen.getByText(line)).toBeOnTheScreen();
+  });
+
+  it('offers a button that resets the analytics choice to not asked (P7-03, D-131)', async () => {
+    mockConsent = { consent: 'denied', busy: false, saveFailed: false };
+
+    await renderHome();
+    await fireEvent.press(screen.getByRole('button', { name: 'Reset analytics choice' }));
+
+    expect(mockResetConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables the reset button while a change is applied, and says when it was not saved', async () => {
+    mockConsent = { consent: 'not asked', busy: true, saveFailed: true };
+
+    await renderHome();
+
+    expect(screen.getByRole('button', { name: 'Reset analytics choice' })).toBeDisabled();
+    expect(
+      screen.getByText('Analytics: off (consent: not asked), last change not saved'),
+    ).toBeOnTheScreen();
   });
 
   it('shows whether the query cache counts the phone as online, and the network log', async () => {

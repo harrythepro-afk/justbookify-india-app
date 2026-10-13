@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 
+import { getAppEnvironment } from '@/config/environment';
 import { safeErrorCode } from '@/crashReporting/errorCode';
 import { reportAnalyticsProblem } from '@/crashReporting/sentry';
 
@@ -129,6 +130,36 @@ export async function withdrawAnalyticsConsent(): Promise<void> {
   }
 }
 
+/**
+ * Development builds only (P7-03, D-131): back to `not asked`, for phone checks of the consent
+ * request. Sending stops at once, collection is switched off, the analytics data on the phone is
+ * cleared, then the stored value is deleted. Does nothing on any other build.
+ */
+export async function resetAnalyticsConsent(): Promise<void> {
+  if (getAppEnvironment() !== 'development') return;
+  const current = await loadAnalyticsConsent().then(() => state);
+  if (current.busy) return;
+  setState({ consent: 'not asked', busy: true, saveFailed: false });
+
+  try {
+    await turnCollectionOff();
+  } catch (error) {
+    report('collection off', error);
+  }
+  try {
+    await clearAnalyticsData();
+  } catch (error) {
+    report('data reset', error);
+  }
+  try {
+    await deleteStoredConsent();
+    setState({ consent: 'not asked', busy: false, saveFailed: false });
+  } catch (error) {
+    report('consent delete', error);
+    setState({ consent: 'not asked', busy: false, saveFailed: true });
+  }
+}
+
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
@@ -138,6 +169,17 @@ function subscribe(listener: () => void): () => void {
 
 function getState(): AnalyticsConsentState {
   return state;
+}
+
+/** The choice now, outside React: the consent request reads it after a login (P7-03). */
+export function getAnalyticsConsentState(): AnalyticsConsentState {
+  return state;
+}
+
+/** For tests that render screens with this module: back to a fresh launch. */
+export function resetAnalyticsConsentForTests(): void {
+  state = { consent: 'loading', busy: false, saveFailed: false };
+  loading = undefined;
 }
 
 export function useAnalyticsConsent(): AnalyticsConsentState {

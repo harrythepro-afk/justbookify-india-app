@@ -274,35 +274,42 @@ async function runRefresh(): Promise<RefreshOutcome> {
   return 'refreshed';
 }
 
-async function failLogin(code: string): Promise<void> {
+function failLogin(code: string): 'failed' {
   reportCustomerAccountProblem(code);
   setState(signedOut('loginFailed'));
+  return 'failed';
 }
+
+/**
+ * How a call to `login()` ended (P7-03): `signedIn` only for a login that has just succeeded,
+ * never for a login restored at launch or a refresh; the consent request follows it (D-129).
+ */
+export type LoginOutcome = 'signedIn' | 'cancelled' | 'failed' | 'ignored';
 
 /**
  * Opens Shopify's login in the system browser (D-119). Ignored while a login is running or when
  * already signed in. A login the customer closes leaves "Log in" with no message.
  */
-export async function login(): Promise<void> {
-  if (loginInFlight || state.status !== 'signedOut') return;
+export async function login(): Promise<LoginOutcome> {
+  if (loginInFlight || state.status !== 'signedOut') return 'ignored';
   const setup = setupOrUndefined();
-  if (setup === undefined) return;
+  if (setup === undefined) return 'ignored';
 
   loginInFlight = true;
   setState({ status: 'signedOut', notice: 'none', loggingIn: true });
   try {
-    await runLogin(setup);
+    return await runLogin(setup);
   } finally {
     loginInFlight = false;
   }
 }
 
-async function runLogin(setup: Setup): Promise<void> {
+async function runLogin(setup: Setup): Promise<LoginOutcome> {
   const { config } = setup;
   const endpoints = await loadDiscovery(setup);
   if (endpoints === undefined) {
     setState(signedOut('loginFailed'));
-    return;
+    return 'failed';
   }
 
   const nonce = randomUrlSafe();
@@ -322,34 +329,30 @@ async function runLogin(setup: Setup): Promise<void> {
   try {
     result = await request.promptAsync({ authorizationEndpoint: endpoints.authorizationEndpoint });
   } catch {
-    await failLogin('browser_failed');
-    return;
+    return failLogin('browser_failed');
   }
 
   if (result.type !== 'success' && result.type !== 'error') {
     // cancel, dismiss (including Android ending the app while the page was open) or locked.
     setState(signedOut('none'));
-    return;
+    return 'cancelled';
   }
   if (result.type === 'error') {
     const code = result.error?.code;
-    await failLogin(
+    return failLogin(
       code === 'state_mismatch'
         ? 'state_mismatch'
         : `authorize_${typeof code === 'string' && /^[a-z_]{1,40}$/.test(code) ? code : 'error'}`,
     );
-    return;
   }
   // The library compares state too; the app checks it again itself.
   if (result.params.state !== expectedState) {
-    await failLogin('state_mismatch');
-    return;
+    return failLogin('state_mismatch');
   }
   const code = result.params.code;
   const verifier = request.codeVerifier;
   if (typeof code !== 'string' || code === '' || verifier === undefined) {
-    await failLogin('authorize_no_code');
-    return;
+    return failLogin('authorize_no_code');
   }
 
   const exchange = await postTokenRequest(endpoints.tokenEndpoint, {
@@ -360,18 +363,15 @@ async function runLogin(setup: Setup): Promise<void> {
     code_verifier: verifier,
   });
   if (!exchange.ok) {
-    await failLogin(`exchange_${exchange.code}`);
-    return;
+    return failLogin(`exchange_${exchange.code}`);
   }
   const { accessToken, expiresIn, refreshToken, idToken } = exchange.tokens;
   // A client set up outside the Headless channel gets no refresh token (Shopify's reference).
   if (refreshToken === undefined) {
-    await failLogin('exchange_no_refresh_token');
-    return;
+    return failLogin('exchange_no_refresh_token');
   }
   if (idToken === undefined) {
-    await failLogin('exchange_no_id_token');
-    return;
+    return failLogin('exchange_no_id_token');
   }
   const check = checkIdToken(idToken, {
     issuer: endpoints.issuer,
@@ -381,8 +381,7 @@ async function runLogin(setup: Setup): Promise<void> {
     now: Math.floor(Date.now() / 1000),
   });
   if (!check.ok) {
-    await failLogin(check.code);
-    return;
+    return failLogin(check.code);
   }
 
   const next: StoredSession = {
@@ -395,13 +394,13 @@ async function runLogin(setup: Setup): Promise<void> {
   try {
     await writeStoredSession(next);
   } catch (error) {
-    await failLogin(
+    return failLogin(
       error instanceof TokenStorageError ? `storage_${error.code}` : 'storage_write_failed',
     );
-    return;
   }
   session = next;
   setState(signedInState(next));
+  return 'signedIn';
 }
 
 /**

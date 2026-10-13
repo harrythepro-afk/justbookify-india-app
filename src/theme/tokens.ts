@@ -153,6 +153,8 @@ export const iconSize = {
   pageCoverFallback: 72,
   /** The search button on Home and Browse (P6-06). */
   search: 24,
+  /** The consent request's close button (P7-03). */
+  close: 24,
 } as const;
 
 /** Extra space between letters, in points. */

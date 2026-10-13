@@ -77,6 +77,10 @@ jest.mock(
     ),
 );
 
+// The consent request's link to a login (P7-03) loads Firebase's native module; these screens
+// never log in, so it is replaced whole and never called.
+jest.mock('@/analytics/loginConsent', () => ({}));
+
 jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
 jest.mock('expo-constants', () => ({
   __esModule: true,
