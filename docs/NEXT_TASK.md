@@ -136,7 +136,7 @@ Before checkout (Phase 9), the cart shows what delivery is likely to cost (R4) a
 - `npm run audit:gate` exception for `@grpc/grpc-js` (D-047) is reviewed by 2026-11-15, with the `braces` entry; it never applies to the Phase 10 backend.
 - Phase 9: the checkout flag must take effect without waiting for two restarts (D-046).
 - Phase 14: restrict the Android API key in each `google-services.json`, then repeat the flag fetch check on every build (D-044).
-- **Store variables for EAS (from P5-01):** add `EXPO_PUBLIC_STORE_COUNTRY` and `EXPO_PUBLIC_STORE_LANGUAGE` to the EAS environment when the staging build is set up (D-058).
+- **Store variables for EAS (from P5-01 and P8-02):** add `EXPO_PUBLIC_STORE_COUNTRY` and `EXPO_PUBLIC_STORE_LANGUAGE` (D-058) and `EXPO_PUBLIC_SHIPPING_DISCOUNT` (75 for the India store, D-141; owner, 14 October 2026) to the staging and production EAS environments when those builds are set up. A build without `EXPO_PUBLIC_SHIPPING_DISCOUNT` reports its store as not configured.
 - **Storefront domain for staging and production (architect, P5-01):** when the staging and production configurations are set up, confirm from Shopify's documentation which store domain the Storefront API calls should use, so that requests are not redirected.
 - **Code generator audit entries (D-060):** reviewed by 2026-11-15 with the `braces` and `@grpc/grpc-js` entries; re-checked whenever the preset or the codegen CLI is upgraded; each removed in the commit that picks up a compatible fix.
 - **Offline question (architect, D-087):** closed in P6-10 (D-111): queries keep pausing with D-082's safety net; risk 22 mitigated.

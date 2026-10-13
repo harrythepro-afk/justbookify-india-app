@@ -636,7 +636,7 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
 - No store additions on the live store. No access to the Apple or Google developer accounts yet (D-036: Apple in Phase 9, Google Play in Phase 18).
 - Sentry, still unproven (release gate in `TESTING.md`, risk 19; no build to any tester other than the owner until it passes): the native-crash report and the source-map upload. Sentry's upload script skips debug variants, and a development build's dev client catches native crashes. Both are checked at the first staging build, which also needs `EXPO_PUBLIC_SENTRY_DSN` as an EAS variable for that environment.
 - Screens that read through the cache come from Phase 6; logout, which calls `clearAllCaches()`, from Phase 7. The offline message's design is Phase 6 (D-065).
-- The two new store variables are not yet EAS environment variables; they are needed when the staging build is set up (follow-up in `NEXT_TASK.md`).
+- The store variables `EXPO_PUBLIC_STORE_COUNTRY`, `EXPO_PUBLIC_STORE_LANGUAGE` (P5-01) and `EXPO_PUBLIC_SHIPPING_DISCOUNT` (P8-02, D-141; the owner added it to `.env.local` on 14 October 2026) are not yet EAS environment variables; they are needed when the staging and production builds are set up (follow-up in `NEXT_TASK.md`).
 
 ## Known issues
 
@@ -651,7 +651,7 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
 - Since P4-03, `npm audit` reports GHSA-m9gg-hp2v-232j (high) and GHSA-f596-whhp-79r4 (low) in `@grpc/grpc-js` 1.9.16, which Firebase's JS SDK pins through `@firebase/firestore`. The Android bundle does not contain it (source-map check); the high one is allowlisted for the mobile app only until **2026-11-15**, never for the Phase 10 backend (D-047).
 - npm 11 skipped the install scripts of `@firebase/util` and `protobufjs` (web and Node.js side of Firebase's JS SDK, not in the Android bundle; D-045).
 - Icons and splash image are the Expo placeholders. They must be replaced before any store build.
-- Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125, and ₹75 off either from a cart total of ₹200, so free prepaid and ₹50 cash on delivery (D-023, D-031; the ACOD app adds no fee, correcting D-024). The configuration does not yet carry the ₹75 discount amount; that comes with the cart screens. Checkout sets the final amount.
+- Every fee in the store configuration is a cart hint: prepaid ₹75, cash on delivery ₹125, and ₹75 off either from a cart total of ₹200, so free prepaid and ₹50 cash on delivery (D-023, D-031; the ACOD app adds no fee, correcting D-024). Since P8-02 the configuration carries the ₹75 discount (`EXPO_PUBLIC_SHIPPING_DISCOUNT`, D-141), and the Cart tab shows the hint. Checkout sets the final amount.
 - `userInterfaceStyle` is fixed to light until a dark theme is designed. Since D-043 it is enforced on Android too, by `expo-system-ui`.
 - npm 11 on this machine skips package install scripts it has not been told to allow, including `@sentry/cli`'s postinstall. `@sentry/cli` 3.x ships its binary as optional platform packages, so it is still installed; `@sentry/bundler-plugins` also brings `@sentry/cli` 2.58.6, which the React Native build does not use.
 
