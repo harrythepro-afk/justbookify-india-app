@@ -604,6 +604,34 @@ Unit tests (Shopify, the session and the reporters are stand-ins where named):
 7. "Log out" on the Account tab: My Books asks to log in again; Account shows "Log in" and no details.
 8. The app's own log, filtered to its process: no crash, no JavaScript error; no email-shaped string except Sentry's DSN line; no `eyJ`, `shc…_`, `gid://shopify/Customer` or `gid://shopify/Order`, the order number or the made-up name.
 
+### The cart (P8-01)
+
+Unit and screen tests (Shopify is a stand-in that answers each operation like the real cart):
+
+- `__tests__/shopify/orderCap.test.ts`: **₹499 allowed, exactly ₹500 refused** (also with paise and floating-point sums); the configured cap, not a fixed ₹500; the room line's whole amount (₹199 with ₹300 in the cart).
+- `__tests__/shopify/cart.test.ts`: the mapping; Shopify's subtotal wins; a rented-out book (not for sale, or set to zero) not counted; orderable at zero stock counted; other currencies refused; each operation's variables; user errors as codes only.
+- `__tests__/shopify/cartId.test.ts`: the ID kept across launches under `cart_id`, read once per launch; a value that is not a cart ID deleted; an unreadable store gives no cart and deletes nothing; a logout wins over a read or a save in flight; a gone cart forgotten but a newer one kept; storage problems reported by code, never the ID.
+- `__tests__/shopify/cartChanges.test.ts`: create, add, read first when needed; **one copy per book**; **the cap before Shopify (₹499 / ₹500) and against Shopify's subtotal, with the undo and the failed undo**; rented-out books not counted against the cap; **an expired cart replaced quietly**, before and after a refused add; `MERCHANDISE_NOT_APPLICABLE` and a zero line; **offline fails at once with one request**; **a logout during an add or a removal saves nothing**; removals of a gone cart or line.
+- `__tests__/shopify/hooks/cart.test.tsx`: "Adding…" then "In cart" and the count; **a double tap adds once; two quick adds never create two carts; Remove ignored while an add runs**; offline and other failures; the catalogue marked stale after "just rented out"; the Cart tab reads again on focus; an expired cart empty and forgotten; **logout: the count goes to 0 with no read of the old cart, and an add in flight shows and saves nothing**; the cart ID in no cache key or report.
+- `__tests__/components/AddToCartButton.test.tsx`: each state and its touch target; no message after an add; **the cap alert word for word with "Go to Cart"**; the rented-out, offline and error messages; **events only under consent**, with no title, handle or cart ID.
+- `__tests__/app/cart.test.tsx`: every state word for word: empty with "Books for Rent", expired, rows, subtotal, the three cap lines, **a rented-out book (badge, not counted, the line, the event once per opening)**, removal and its event, offline, error, the offline notice; `view_cart` once per opening, an empty cart included; nothing without consent.
+- `__tests__/app/cartBadge.test.tsx`: the count on the Cart tab only, its colours and its screen-reader name.
+- `__tests__/customerAccount/session.test.ts`: **"Log out" and a refused refresh forget the cart before the caches are emptied**; a refresh Shopify cannot answer keeps it.
+- `__tests__/crashReporting/scrub.test.ts`: Cart and CartLine IDs removed. `__tests__/customerAccount/lintGuards.test.ts`: secure storage only in `cartStorage.ts` among the cart's files.
+- Existing tests changed: the D-081 tests on Home, Browse, the collection screen and the book page now expect "Add to Cart" on orderable books and still no button on rented-out ones; `BookCard.test.tsx` uses `cartButton`; the preview's test and Home's preview link test are removed with the preview (D-139); screen tests gain a stand-in for the cart's storage.
+
+**The phone check** (USB, standing permission D-095 and every rule in `CLAUDE.md`; Do Not Disturb blocking calls and all notifications; `am force-stop` for cold starts, the owner's yes for this check only; no native change, so build 5f5c789a with JavaScript from Metro). **Never checkout, never an order.**
+
+1. From a card on Browse, "Add to Cart": the button turns to "In cart", the Cart tab shows 1.
+2. From a book page, "Add to Cart": "In cart" there and on its card; the count 2.
+3. The Cart tab: both books, their prices, "Subtotal" and "You can add books worth up to ₹X more."
+4. Add books until the cap: five ₹99 books make ₹495 (allowed); any further book shows "Each order can have books worth less than ₹500. Remove a book to add this one." with "OK" and "Go to Cart"; "Go to Cart" opens the Cart tab.
+5. "Remove" a book: it goes, the subtotal and count follow.
+6. A cold start keeps the cart and the count.
+7. Log in (the owner types the email and code; no input and no screenshot while Shopify's page is open): the cart is still there. "Log out": the count goes and the Cart tab says "Your cart is empty."
+8. The standing background step: more than 5 minutes, no false offline notice.
+9. The app's own log, filtered to its process: no crash, no JavaScript error, no `gid://shopify/Cart`, no `key=`.
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).

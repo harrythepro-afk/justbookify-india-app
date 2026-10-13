@@ -234,9 +234,21 @@ Each `shopify--*` metaobject has the fields `label` and `taxonomy_reference`. Th
 - **Symbols:** `*`, `har*`, `&`, `%`, `#`, `{}` and `\"` each find all 42 books; `:`, `-`, `(`, `)`, `\`, `OR`, `AND`, `NOT` alone, an emoji and Hindi find 0. None of 31 odd terms caused an error. Only letters and digits count towards the minimum length, so a term of symbols alone never runs a search (owner, answer 2).
 - A 100-character term finds 0, without an error.
 
+## The cart (P8-01)
+
+D-133 to D-137. Storefront Cart API at `2026-10`, through the app's client: `CartRead`, `CartCreate` (`buyerIdentity: { countryCode }` only; the customer's identity is attached at checkout in Phase 9), `CartLinesAdd`, `CartLinesRemove`, one copy per line. Read on 13 October 2026 in Shopify's documentation:
+
+- "Create and update a cart with the Storefront API": the cart ID is `<token>?key=<secret>`; the key protects the buyer's private data; treat it like a password; a mutation without the key fails as if the cart did not exist. The app keeps it in secure storage only (`SECURITY.md`).
+- "Migrate to the Storefront Cart API": a completed cart is deleted when its order is created; no webhooks for cart changes. The app reads a missing cart as `null` and starts again quietly.
+- "Cart warnings": a line that goes out of stock may be set to quantity 0 with `MERCHANDISE_OUT_OF_STOCK`. The app shows such a line as rented out.
+- Storefront changelog, 29 August 2025 (version 2025-10): `MERCHANDISE_NOT_APPLICABLE` for merchandise that cannot be added (out of stock, unavailable). The app says the book has just been rented out.
+- Shopify's docs give no fixed lifetime for an idle cart; the app does not assume one.
+
+Not checked against the live store; nothing on the live store is touched.
+
 ## Checkout behaviour to respect
 
-- Order subtotal under ₹500 (R2). The rule checks the subtotal, not the total with shipping (P3-02).
+- Order subtotal under ₹500 (R2). The rule checks the subtotal, not the total with shipping (P3-02). The app keeps the cart's subtotal strictly under the configured cap, checked against Shopify's own subtotal (P8-01, D-134).
 - Pincode prefix rule (R3).
 - Flat shipping rates and the automatic shipping discount: ₹75 off either rate from ₹200 (R4, D-031).
 - ACOD: the cash-on-delivery rate goes with the Cash on Delivery payment method, which is offered only up to a cart total of ₹500 (D-031).

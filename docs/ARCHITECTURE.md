@@ -67,7 +67,7 @@ Follow Shopify for each book: if Shopify marks it available for sale, it can be 
 
 1. Build the cart with the Storefront API; keep the cart ID on the device.
 2. After login, attach the customer's token as buyer identity.
-3. Check the order cap and pincode in the app before opening checkout.
+3. Check the order cap and pincode in the app before opening checkout. The cap is checked at every add since P8-01 (D-134); the pincode comes in P8-02.
 4. Present the cart's checkout URL with Checkout Kit.
 5. On the completed event, show confirmation and clear the cart.
 6. The Shopify order is the source of truth for everything afterwards.
@@ -213,6 +213,30 @@ My Books (src/app/(tabs)/my-books.tsx)       Account tab: AccountProfile (src/co
 
 - **Boundaries** (ESLint, D-126): `fetch` only in the transport and `oauthHttp.ts`; the transport only from the two clients; the Customer Account API client only inside `src/customerAccountApi/`; screens and components import only its `hooks/` and `errors`.
 - **Code generation:** `codegen.ts` has a Storefront project and a Customer project, each reading its saved schema; `npm run schema:update:customer` takes the schema from Shopify's `@shopify/hydrogen-react` package for one exact version (D-125).
+
+## The cart (P8-01)
+
+D-133 to D-139. Shopify holds the cart; the phone keeps only its ID.
+
+```
+Book card / book page: AddToCartButton            Cart tab (src/app/(tabs)/cart.tsx)   Tab bar count
+   └─ useCartButtonState, useAddToCart               └─ useCart, useRemoveFromCart         └─ useCartCount
+        src/shopify/hooks/cart.ts: one query ['storefront', 'cart', 'current', <forgets>] (liveStock);
+        one change at a time app-wide (a second tap is ignored); mutations never retried or queued
+   cartChanges.ts: the add and remove flows
+        ├─ cap check with the book's price (orderCap.ts, R2: subtotal < cap)
+        ├─ no cart: cartCreate, then the ID is saved; else cartLinesAdd; a cart that has gone: new cart
+        ├─ MERCHANDISE_NOT_APPLICABLE or a zero line: "just rented out", the line removed again
+        └─ Shopify's subtotal at or over the cap: the add is undone (a removal)
+   cart.ts: the four #graphql operations and the mapping (rented-out lines not counted)
+   cartId.ts: the ID in memory, read once per launch; a generation per logout; forget counter
+   cartStorage.ts: the only file that keeps the ID (expo-secure-store, key cart_id)
+"Log out" or a refused refresh (session.ts endSession): forgetCart(), then clearAllCaches()
+```
+
+- The cart ID holds Shopify's secret key for the cart: never in a log, a report, analytics, a cache key or on screen (`SECURITY.md`).
+- Events under consent: `select_book`, `remove_book`, `view_cart`, `order_cap_reached`, `book_unavailable_shown` (`ANALYTICS.md`, "Cart events").
+- Checkout (step 2 to 5 of "Checkout" above) is Phase 9.
 
 ## Built for a second country
 
