@@ -1,6 +1,6 @@
 # Next task (proposal): P7-03, the analytics consent request
 
-Status: proposal. P7-02 (the customer's profile and orders, read only; early check 3; D-124 to D-128) is on branch `p7-02-profile-orders`, PR #26, CI green, phone check passed on 13 October 2026 (early check 3 passed); see `CURRENT_STATUS.md`. P7-03 starts when the owner starts it, after PR #26 is merged. **Its first commit records P7-02 as merged** (in this file and `CURRENT_STATUS.md`). P7-01 is merged (`9be8a6d`, PR #25).
+Status: in progress on branch `p7-03-consent-request` (plan accepted by the owner on 13 October 2026). P7-02 (the customer's profile and orders, read only; early check 3; D-124 to D-128) is merged (`bf63b65`, PR #26); the owner approved D-128's wording on 13 October 2026. P7-01 is merged (`9be8a6d`, PR #25).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -31,8 +31,8 @@ Status: proposal. P7-02 (the customer's profile and orders, read only; early che
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P7-01 (done, 9be8a6d) | Login and logout with the Customer Account API on the development store: the system browser, PKCE, the app's own state and a nonce; tokens crash-safe in secure storage; refresh, logged out only on `invalid_grant`; logout on the phone and Shopify's mobile logout; the Account tab; phone check passed (a website sign-out keeps the app logged in; access token about 60 minutes) | D-119 to D-123 |
-| P7-02 (branch `p7-02-profile-orders`, PR #26) | The customer's profile on the Account tab and orders in My Books, read only, through the Customer Account API (`2026-04`, types from Shopify's Hydrogen React schema); one GraphQL transport shared with the Storefront client; a 401 refreshes once; customer data in memory under `['customer', …]`, cleared at logout; the plain status table; no "At home" or "Returns" yet; **early check 3 passed** (guest order #1003 in the app after login with the same email) | D-124 to D-128 |
-| P7-03 (proposed) | The analytics consent request at the owner's chosen placement (D-048), and the analytics user ID question (D-050); a release gate | |
+| P7-02 (done, bf63b65) | The customer's profile on the Account tab and orders in My Books, read only, through the Customer Account API (`2026-04`, types from Shopify's Hydrogen React schema); one GraphQL transport shared with the Storefront client; a 401 refreshes once; customer data in memory under `['customer', …]`, cleared at logout; the plain status table; no "At home" or "Returns" yet; **early check 3 passed** (guest order #1003 in the app after login with the same email) | D-124 to D-128 |
+| P7-03 (in progress, branch `p7-03-consent-request`) | The analytics consent request at the owner's chosen placement (D-048), and the analytics user ID question (D-050); a release gate | |
 
 ## Goal of P7-03
 
