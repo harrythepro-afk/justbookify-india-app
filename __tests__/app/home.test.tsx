@@ -1,9 +1,10 @@
 import { onlineManager, type QueryClient } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { ScrollView, StyleSheet } from 'react-native';
 
 import type { AnalyticsConsentState } from '@/analytics/consent';
 import HomeScreen from '@/app/(tabs)/index';
+import { HOME_CONTENT } from '@/config';
 import type { FeatureFlagState } from '@/featureFlags/session';
 import { toBookCard, type BookCard } from '@/shopify/bookCard';
 import type { CollectionBooksPage } from '@/shopify/catalogue';
@@ -213,7 +214,7 @@ describe('HomeScreen (P6-03)', () => {
     expect(screen.queryByText(/search/i)).not.toBeOnTheScreen();
   });
 
-  it('shows only the series and age groups the store has, in order, then "All series"', async () => {
+  it('shows only the series, authors and age groups the store has, in order', async () => {
     await renderHome();
 
     expect(linkTargets()).toEqual([
@@ -224,6 +225,14 @@ describe('HomeScreen (P6-03)', () => {
       '/collection/geronimo-stilton',
       '/collection/read-it-yourself',
       '/browse',
+      // "Popular authors" (P6-10, D-114): the 7 of 12 the development store has.
+      '/collection/julia-donaldson',
+      '/collection/enid-blyton',
+      '/collection/sudha-murthy',
+      '/collection/roald-dahl',
+      '/collection/ruskin-bond',
+      '/collection/jeff-kinney',
+      '/collection/j-k-rowling',
       '/collection/early-readers',
       '/collection/emerging-readers',
       '/collection/junior-readers',
@@ -237,6 +246,85 @@ describe('HomeScreen (P6-03)', () => {
     expect(screen.queryByText('Dog Man')).not.toBeOnTheScreen();
     expect(screen.queryByText('Ella Diaries')).not.toBeOnTheScreen();
     expect(mockFetchHandles).toHaveBeenCalledTimes(1);
+  });
+
+  describe('"Popular authors" (P6-10, D-114)', () => {
+    /** The text of each heading on Home, in order. */
+    function headings(): string[] {
+      return screen
+        .getAllByRole('header')
+        .map((node) => String((node.props as { children?: unknown }).children));
+    }
+
+    it('comes after "Popular series" and before "Browse by age"', async () => {
+      await renderHome();
+
+      const order = headings();
+      expect(order.indexOf('Popular authors')).toBe(order.indexOf('Popular series') + 1);
+      expect(order.indexOf('Browse by age')).toBe(order.indexOf('Popular authors') + 1);
+    });
+
+    it("shows the authors the store has, in the website's order and with its names", async () => {
+      await renderHome();
+
+      const row = within(screen.getByTestId('popular-authors'));
+      expect(row.getAllByRole('link')).toHaveLength(7);
+      expect(
+        row.getAllByRole('link').map((link) => within(link).getByText(/./).props.children),
+      ).toEqual([
+        'Julia Donaldson',
+        'Enid Blyton',
+        'Sudha Murty',
+        'Roald Dahl',
+        'Ruskin Bond',
+        'Jeff Kinney',
+        'J. K. Rowling',
+      ]);
+      // Not on the development store: no tile that leads nowhere (D-076).
+      for (const missing of ['R. L. Stine', 'David Walliams', 'Rick Riordan', 'R. K. Narayan']) {
+        expect(screen.queryByText(missing)).not.toBeOnTheScreen();
+      }
+      expect(screen.queryByText('Mary Pope Osborne')).not.toBeOnTheScreen();
+      expect(row.queryByText('All authors')).not.toBeOnTheScreen();
+    });
+
+    it('opens an author on its collection screen', async () => {
+      await renderHome();
+
+      expect(
+        (screen.getByRole('link', { name: 'Roald Dahl' }).props as { accessibilityHint?: string })
+          .accessibilityHint,
+      ).toBe('/collection/roald-dahl');
+    });
+
+    it('shows every author the store has, including the store spellings of two handles', async () => {
+      mockFetchHandles.mockResolvedValue(
+        collectionMap(HOME_CONTENT.popularAuthors.map((link) => link.handle)),
+      );
+      await renderHome();
+
+      expect(within(screen.getByTestId('popular-authors')).getAllByRole('link')).toHaveLength(12);
+      expect(
+        (
+          screen.getByRole('link', { name: 'David Walliams' }).props as {
+            accessibilityHint?: string;
+          }
+        ).accessibilityHint,
+      ).toBe('/collection/david-williams-collection');
+      expect(
+        (screen.getByRole('link', { name: 'Sudha Murty' }).props as { accessibilityHint?: string })
+          .accessibilityHint,
+      ).toBe('/collection/sudha-murthy');
+    });
+
+    it('leaves the row out when the store has none of the authors', async () => {
+      mockFetchHandles.mockResolvedValue(collectionMap(['harry-potter-series', 'early-readers']));
+      await renderHome();
+
+      expect(screen.queryByText('Popular authors')).not.toBeOnTheScreen();
+      expect(screen.queryByTestId('popular-authors')).not.toBeOnTheScreen();
+      expect(screen.getByText('Popular series')).toBeOnTheScreen();
+    });
   });
 
   it('reads the new arrivals by handle and shows the first 6 books with "See all"', async () => {

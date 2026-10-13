@@ -37,8 +37,8 @@ function collectionHref(handle: string): Href {
 
 /**
  * Home (`PRODUCT_REQUIREMENTS.md`, "Screen layouts"; D-037): the store name, the banner, "Popular
- * series", "Browse by age" and "New arrivals", as on the website, with a search button beside the
- * store name (P6-06). Rows show only the configured
+ * series", "Popular authors" (P6-10), "Browse by age" and "New arrivals", as on the website,
+ * with a search button beside the store name (P6-06). Rows show only the configured
  * collections that exist in the store (D-076). The header and banner are local and always show;
  * what comes from Shopify shows its own loading, offline and error states (D-078). The tab bar
  * already leaves room for Android's navigation bar, so no bottom inset is added here.
@@ -124,7 +124,12 @@ function SectionHeading({ children }: { readonly children: string }) {
   );
 }
 
-/** "Popular series" and "Browse by age": no tile shows until the store's handles are known. */
+/**
+ * "Popular series", "Popular authors" and "Browse by age": no tile shows until the store's
+ * handles are known. The authors are text tiles like the series, each opening its collection
+ * screen (which sends `view_collection`), with no "All authors" tile; the row is left out when
+ * the store has none of them (P6-10, D-114).
+ */
 function CollectionRows({
   handles,
   isFetching,
@@ -145,6 +150,7 @@ function CollectionRows({
   const existing = (links: readonly CollectionLink[]) =>
     links.filter((link) => handles.has(link.handle));
   const series = existing(HOME_CONTENT.popularSeries);
+  const authors = existing(HOME_CONTENT.popularAuthors);
   const ages = existing(HOME_CONTENT.ageGroups);
 
   return (
@@ -161,6 +167,22 @@ function CollectionRows({
         ))}
         <SeriesTile href={BROWSE} label="All series" />
       </ScrollView>
+      {authors.length > 0 && (
+        <>
+          <SectionHeading>Popular authors</SectionHeading>
+          <ScrollView
+            contentContainerStyle={styles.row}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.rowScroll}
+            testID="popular-authors"
+          >
+            {authors.map((link) => (
+              <SeriesTile href={collectionHref(link.handle)} key={link.handle} label={link.label} />
+            ))}
+          </ScrollView>
+        </>
+      )}
       {ages.length > 0 && (
         <>
           <SectionHeading>Browse by age</SectionHeading>
