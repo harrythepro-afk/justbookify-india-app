@@ -8,13 +8,14 @@ import {
 import { colors, fonts, fontSize, spacing } from '@/theme/tokens';
 
 // DRAFT wording (D-048), to be reviewed by the owner's adviser with the privacy policy's app
-// section (risk 21). Phase 7 adds that usage is linked to the customer's account (D-050).
+// section (risk 21). The account-linking sentence was added in P7-03 (owner, D-130; D-050).
 export const ANALYTICS_SWITCH_LABEL = 'Share app usage';
 export const ANALYTICS_SWITCH_DESCRIPTION =
   'Helps us improve the app. We record which screens you open, what you do in the app and the ' +
-  'link you installed it from. We never record your name, email, phone number or address, and ' +
-  "the app never asks for or records a child's name or date of birth. Turning this off stops " +
-  'it at once and clears the usage data on this phone.';
+  "link you installed it from. When you're logged in, it's linked to your account. We never " +
+  'record your name, email, phone number or address, and the app never asks for or records a ' +
+  "child's name or date of birth. Turning this off stops it at once and clears the usage data " +
+  'on this phone.';
 
 /** The customer's analytics consent (D-048). Off unless the customer has turned it on. */
 export function AnalyticsConsentSwitch() {

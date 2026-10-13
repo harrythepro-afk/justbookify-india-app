@@ -1,7 +1,18 @@
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { trackLogout } from '@/analytics/events';
+import { analyticsAfterLogin } from '@/analytics/loginConsent';
 import { getAppEnvironment } from '@/config';
-import { login, logout, useCustomerSession } from '@/customerAccount/session';
+import {
+  getCustomerSessionState,
+  login,
+  logout,
+  useCustomerSession,
+  type CustomerSessionState,
+} from '@/customerAccount/session';
+
+import { AnalyticsConsentRequest } from './AnalyticsConsentRequest';
 import {
   colors,
   disabledOpacity,
@@ -25,12 +36,42 @@ export const LOGIN_NOT_SET_UP = 'Login is not set up on this build.';
 
 /**
  * The Account tab's login section (P7-01, D-123): "Log in" when signed out, the customer's email
- * and "Log out" when signed in. The email comes from the ID token and is shown only here. No
- * pop-up in any state.
+ * and "Log out" when signed in. The email comes from the ID token and is shown only here.
+ *
+ * P7-03 (D-129, D-130): right after a login that succeeded here, while the analytics choice is
+ * `not asked`, the consent request opens, once for that login; otherwise `login` is sent under
+ * consent. "Log out" sends `logout` under consent before the session ends. No other pop-up.
  */
 export function AccountLogin() {
   const session = useCustomerSession();
+  const [asking, setAsking] = useState(false);
 
+  const logIn = async () => {
+    if ((await login()) !== 'signedIn') return;
+    if ((await analyticsAfterLogin()) === 'ask') setAsking(true);
+  };
+
+  const logOut = () => {
+    if (getCustomerSessionState().status !== 'signedIn') return;
+    trackLogout();
+    void logout();
+  };
+
+  return (
+    <>
+      <LoginSection onLogIn={() => void logIn()} onLogOut={logOut} session={session} />
+      <AnalyticsConsentRequest onDone={() => setAsking(false)} visible={asking} />
+    </>
+  );
+}
+
+type LoginSectionProps = {
+  readonly session: CustomerSessionState;
+  readonly onLogIn: () => void;
+  readonly onLogOut: () => void;
+};
+
+function LoginSection({ session, onLogIn, onLogOut }: LoginSectionProps) {
   switch (session.status) {
     case 'loading':
       return (
@@ -59,7 +100,7 @@ export function AccountLogin() {
           )}
           <Pressable
             accessibilityRole="button"
-            onPress={() => void logout()}
+            onPress={onLogOut}
             style={[styles.button, styles.secondaryButton]}
           >
             <Text style={styles.secondaryButtonText}>{LOG_OUT_LABEL}</Text>
@@ -84,7 +125,7 @@ export function AccountLogin() {
             accessibilityRole="button"
             accessibilityState={{ disabled: session.loggingIn }}
             disabled={session.loggingIn}
-            onPress={() => void login()}
+            onPress={onLogIn}
             style={[styles.button, styles.primaryButton, session.loggingIn && styles.disabled]}
           >
             <Text style={styles.primaryButtonText}>
