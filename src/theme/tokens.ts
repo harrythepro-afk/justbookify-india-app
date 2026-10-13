@@ -180,3 +180,6 @@ export const coverAspectRatio = 1;
 
 /** The width of a book's small cover in an order on My Books (P7-02). */
 export const orderCoverWidth = 56;
+
+/** The width of a book's small cover in the cart (P8-01). */
+export const cartCoverWidth = 72;

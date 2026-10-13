@@ -12,6 +12,16 @@ import { StorefrontError } from '@/shopify/errors';
 import { bookProduct, collectionGid, collectionMap, EXAMPLES } from '../helpers/catalogue';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
 import { withScreen } from '../helpers/screen';
+import { loadCartId } from '@/shopify/cartId';
+
+// The cart (P8-01): cards and the book page draw "Add to Cart"; no cart is stored on this phone.
+jest.mock('@/shopify/cartStorage', () => ({
+  readStoredCartId: () => Promise.resolve(null),
+  writeStoredCartId: () => Promise.resolve(),
+  deleteStoredCartId: () => Promise.resolve(),
+}));
+// The stored cart is read before any screen draws, so no test sees it arrive after its end.
+beforeAll(() => loadCartId());
 
 // Loads React Native's ScrollView and FlatList with the file, before any test's time limit (a
 // cold Jest cache takes several seconds; see collection.test.tsx).
@@ -466,8 +476,12 @@ describe('Browse, "Books for Rent" (P6-04)', () => {
       maxPrice: null,
     });
     expect(screen.getByText('Rented Out')).toBeOnTheScreen();
-    // No cart or notify-me button until they are wired (D-081).
-    expect(screen.queryByRole('button', { name: /cart|Notify/ })).not.toBeOnTheScreen();
+    // The rented-out book has no button: notify-me is not wired yet (D-081). The book orderable
+    // at zero stock has "Add to Cart" (P8-01).
+    expect(screen.queryByRole('button', { name: /Gruffalo|Notify/ })).not.toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Add Harry Potter and the Deathly Hallows to cart' }),
+    ).toBeOnTheScreen();
   });
 
   it('says how to see rented-out books when nothing is available, and "No books here yet." when off', async () => {

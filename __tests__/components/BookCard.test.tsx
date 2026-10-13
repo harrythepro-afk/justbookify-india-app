@@ -15,11 +15,29 @@ function card(product = bookProduct()): BookCardData {
   return result;
 }
 
-const onAddToCart = jest.fn();
+// The card draws the cart's own button (P8-01), which is tested on its own
+// (AddToCartButton.test.tsx); here a stand-in records which book it was drawn for and pressed with.
+const mockAddToCart = jest.fn();
+jest.mock('@/components/AddToCartButton', () => {
+  const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    AddToCartButton: ({ book }: { book: { title: string } }) => (
+      <Pressable
+        accessibilityLabel={`Add ${book.title} to cart`}
+        accessibilityRole="button"
+        onPress={() => mockAddToCart(book)}
+      >
+        <Text>Add to Cart</Text>
+      </Pressable>
+    ),
+  };
+});
+
+const onAddToCart = mockAddToCart;
 const onNotifyMe = jest.fn();
 
 async function renderCard(book: BookCardData) {
-  return render(<BookCard book={book} onAddToCart={onAddToCart} onNotifyMe={onNotifyMe} />);
+  return render(<BookCard book={book} cartButton onNotifyMe={onNotifyMe} />);
 }
 
 beforeEach(() => {
@@ -63,7 +81,7 @@ describe('an orderable book', () => {
     expect(screen.getByText(title).props.numberOfLines).toBe(1);
   });
 
-  it('passes the book to onAddToCart', async () => {
+  it('draws the cart button for the book (P8-01)', async () => {
     const book = card(EXAMPLES.inStock());
     await renderCard(book);
 
@@ -132,9 +150,10 @@ describe('a book without a cover (owner, plan review)', () => {
   });
 });
 
-// Cart and notify-me are wired later; until then no customer screen shows a dead button (D-081).
+// Notify-me is wired later; until then no customer screen shows a dead button (D-081). The cart
+// button is drawn only when the screen asks for it (P8-01).
 describe('without actions (owner, P6-03)', () => {
-  it('draws no "Add to Cart" when no action is passed', async () => {
+  it('draws no "Add to Cart" without the cart button', async () => {
     await render(<BookCard book={card(EXAMPLES.inStock())} />);
 
     expect(screen.queryByRole('button')).not.toBeOnTheScreen();
@@ -149,7 +168,8 @@ describe('without actions (owner, P6-03)', () => {
   });
 
   it('draws each button only with its own action', async () => {
-    await render(<BookCard book={card(EXAMPLES.rentedOut())} onAddToCart={onAddToCart} />);
+    // A rented-out book never has a cart button.
+    await render(<BookCard book={card(EXAMPLES.rentedOut())} cartButton />);
     expect(screen.queryByRole('button')).not.toBeOnTheScreen();
 
     await render(<BookCard book={card(EXAMPLES.inStock())} onNotifyMe={onNotifyMe} />);
@@ -178,11 +198,12 @@ describe('accessibility', () => {
     expect(screen.getByTestId('book-card-cover').props.accessibilityLabel).toBe(book.title);
   });
 
+  // The cart button's own touch target is checked in AddToCartButton.test.tsx (P8-01).
   it('gives each button a touch target of at least 44 points', async () => {
-    await renderCard(card(EXAMPLES.inStock()));
+    await renderCard(card(EXAMPLES.rentedOut()));
 
     const style = StyleSheet.flatten(
-      screen.getByRole('button', { name: /to cart$/ }).props.style,
+      screen.getByRole('button', { name: /is back$/ }).props.style,
     ) as { minHeight?: number };
     expect(style.minHeight).toBeGreaterThanOrEqual(44);
   });
@@ -203,9 +224,7 @@ describe('opening the book page (P6-05)', () => {
 
   it('keeps the buttons apart from the link', async () => {
     const onOpen = jest.fn();
-    await render(
-      <BookCard book={card(EXAMPLES.inStock())} onAddToCart={onAddToCart} onOpen={onOpen} />,
-    );
+    await render(<BookCard book={card(EXAMPLES.inStock())} cartButton onOpen={onOpen} />);
 
     await fireEvent.press(screen.getByRole('button', { name: /to cart$/ }));
 

@@ -231,6 +231,17 @@ describe('scrubString', () => {
     ['a JWT', 'jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2ln', `jwt ${FILTERED}`],
     ['a long token-like run', `cart ${TOKEN_LIKE}`, `cart ${FILTERED}`],
     ['a customer GID', 'gid://shopify/Customer/7612', `gid://shopify/Customer/${FILTERED}`],
+    // P8-01: a cart's ID holds Shopify's secret key for the cart; a line's ID the cart's token.
+    [
+      'a cart ID',
+      'cart gid://shopify/Cart/test-cart?key=test-key',
+      `cart gid://shopify/Cart/${FILTERED}`,
+    ],
+    [
+      'a cart line ID',
+      'line gid://shopify/CartLine/line-1?cart=test-cart',
+      `line gid://shopify/CartLine/${FILTERED}`,
+    ],
     ['a myshopify host', 'other-shop.myshopify.com down', `${STORE} down`],
     ['a URL query string', 'https://example.com/a/b?x=1#frag end', 'https://example.com/a/b end'],
     ['an app path query string', 'opened /account?tab=orders', 'opened /account'],

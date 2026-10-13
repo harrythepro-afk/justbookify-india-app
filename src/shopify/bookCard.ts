@@ -30,6 +30,8 @@ export type BookCover = {
 export type BookCard = {
   /** The product's GID. */
   readonly id: string;
+  /** The GID of the book's one variant, which the cart holds (P8-01). */
+  readonly variantId: string;
   readonly handle: string;
   readonly title: string;
   /** `vendor`, as stored: casing differs between products and is not corrected. */
@@ -41,6 +43,8 @@ export type BookCard = {
   readonly orderable: boolean;
   /** The rental price, formatted, such as "₹49". */
   readonly price: string;
+  /** The rental price in the store's currency, for the order cap's check before adding (R2). */
+  readonly priceAmount: number;
   /** The retail (compare-at) price, formatted, or null when there is none above the price. */
   readonly retailPrice: string | null;
 };
@@ -128,6 +132,7 @@ export function toBookCard(
 
   return {
     id: product.id,
+    variantId: variant.id,
     handle: product.handle,
     title: product.title,
     author: product.vendor,
@@ -143,6 +148,7 @@ export function toBookCard(
     availability,
     orderable: availability !== 'rented-out',
     price: formatPrice(price, config.currencyCode, locale),
+    priceAmount: price,
     retailPrice:
       compareAt !== null && compareAt > price
         ? formatPrice(compareAt, config.currencyCode, locale)

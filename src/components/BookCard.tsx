@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { BookCard as BookCardData } from '@/shopify/hooks/catalogue';
 import { colors, fonts, fontSize, iconSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
 
+import { AddToCartButton } from './AddToCartButton';
 import { BookCover } from './BookCover';
 
 type Props = {
@@ -15,11 +16,14 @@ type Props = {
    */
   readonly onOpen?: (book: BookCardData) => void;
   /**
-   * Called with the book when "Add to Cart" is tapped. The cart wires it (Phase 8). Without it,
-   * the button is not drawn: no customer screen shows a button that does nothing (D-081).
+   * Draws "Add to Cart" (or "In cart") for a book that can be ordered (P8-01), wired to the cart.
+   * Customer screens pass it; without it no cart button is drawn.
    */
-  readonly onAddToCart?: (book: BookCardData) => void;
-  /** Called with the book when "Notify me" is tapped. Notify-me wires it later. Same rule. */
+  readonly cartButton?: boolean;
+  /**
+   * Called with the book when "Notify me" is tapped. Notify-me wires it later. Without it, the
+   * button is not drawn: no customer screen shows a button that does nothing (D-081).
+   */
   readonly onNotifyMe?: (book: BookCardData) => void;
 };
 
@@ -39,13 +43,13 @@ export function bookCardSummary(book: BookCardData): string {
 /**
  * The book card used on every catalogue screen (`PRODUCT_REQUIREMENTS.md`, "Screen layouts";
  * D-073): cover, title on one line, author, the rental price in bold with the retail price struck
- * through, and "Add to Cart". A book that cannot be ordered has a "Rented Out" badge on its cover
- * and "Notify me" instead. A book orderable at zero stock looks exactly like one in stock. A
- * button is drawn only when its action is passed (D-081). With `onOpen`, the cover, title, author
+ * through, and "Add to Cart" ("In cart" once it is in the cart, P8-01). A book that cannot be ordered has a
+ * "Rented Out" badge on its cover and "Notify me" instead. A book orderable at zero stock looks
+ * exactly like one in stock. "Notify me" is drawn only when its action is passed (D-081). With `onOpen`, the cover, title, author
  * and prices are one link to the book page (P6-05). Memoised: a long list re-renders a card only
  * when its book or actions change (P6-03 phone check, slow-list warning).
  */
-export const BookCard = memo(function BookCard({ book, onOpen, onAddToCart, onNotifyMe }: Props) {
+export const BookCard = memo(function BookCard({ book, onOpen, cartButton, onNotifyMe }: Props) {
   const summary = (
     <>
       <BookCover book={book} iconSize={iconSize.coverFallback} testID="book-card-cover">
@@ -84,16 +88,7 @@ export const BookCard = memo(function BookCard({ book, onOpen, onAddToCart, onNo
         </Pressable>
       )}
       {book.orderable
-        ? onAddToCart !== undefined && (
-            <Pressable
-              accessibilityLabel={`Add ${book.title} to cart`}
-              accessibilityRole="button"
-              onPress={() => onAddToCart(book)}
-              style={[styles.button, styles.primaryButton]}
-            >
-              <Text style={styles.primaryButtonText}>Add to Cart</Text>
-            </Pressable>
-          )
+        ? cartButton === true && <AddToCartButton book={book} style={styles.cartButton} />
         : onNotifyMe !== undefined && (
             <Pressable
               accessibilityLabel={`Notify me when ${book.title} is back`}
@@ -150,12 +145,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radius.md,
   },
-  primaryButton: { backgroundColor: colors.primaryButton },
-  primaryButtonText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: fontSize.body,
-    color: colors.onPrimaryButton,
-  },
+  cartButton: { marginTop: spacing.sm },
   secondaryButton: {
     borderWidth: 1,
     borderColor: colors.secondaryButtonBorder,

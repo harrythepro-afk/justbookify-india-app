@@ -11,6 +11,16 @@ import { StorefrontError } from '@/shopify/errors';
 import { bookProduct, collectionGid } from '../helpers/catalogue';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
 import { SAFE_AREA, withScreen } from '../helpers/screen';
+import { loadCartId } from '@/shopify/cartId';
+
+// The cart (P8-01): cards and the book page draw "Add to Cart"; no cart is stored on this phone.
+jest.mock('@/shopify/cartStorage', () => ({
+  readStoredCartId: () => Promise.resolve(null),
+  writeStoredCartId: () => Promise.resolve(),
+  deleteStoredCartId: () => Promise.resolve(),
+}));
+// The stored cart is read before any screen draws, so no test sees it arrive after its end.
+beforeAll(() => loadCartId());
 
 // React Native loads ScrollView's module tree on first access, which takes several seconds on a
 // cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
@@ -207,10 +217,13 @@ it("shows the books in two columns, in the collection's own order", async () => 
   expect(screen.getByText('Junior 1')).toBeOnTheScreen();
 });
 
-it('shows no cart or notify-me button until they are wired (D-081)', async () => {
+// P8-01 ends D-081 for the cart: each orderable card has "Add to Cart". Notify-me is still not
+// wired, so no card shows it (D-081).
+it('shows "Add to Cart" on the cards and no notify-me button (P8-01, D-081)', async () => {
   await renderScreen();
 
-  expect(screen.queryByRole('button', { name: /cart|Notify/ })).not.toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Add Junior 1 to cart' })).toBeOnTheScreen();
+  expect(screen.queryByRole('button', { name: /Notify/ })).not.toBeOnTheScreen();
 });
 
 it('shows 20 books, then 26 after "Load more", and then no button', async () => {

@@ -33,8 +33,6 @@ export { genreCode, genreCodeFromParam, genreOptionForCode } from '../genres';
 export type { PriceOption } from '../priceFilter';
 export type { BookGenre, BookPage } from '../bookPage';
 export type { RichSpan, RichTextBlock } from '../richText';
-// The development preview shows a sample description through the book page's parser (D-094).
-export { parseDescriptionHtml } from '../richText';
 export {
   CatalogueDataError,
   type BookAvailability,

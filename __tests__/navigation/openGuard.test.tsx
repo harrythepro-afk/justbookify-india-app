@@ -24,6 +24,9 @@ import { toBookCard, type BookCard as BookCardData } from '@/shopify/bookCard';
 
 import { bookProduct } from '../helpers/catalogue';
 
+// The card's cart button loads the analytics events (P8-01); nothing is sent here.
+jest.mock('@/analytics/firebase', () => ({}));
+
 const mockPush = jest.fn();
 const mockNavigate = jest.fn();
 

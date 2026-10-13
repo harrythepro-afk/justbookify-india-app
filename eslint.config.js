@@ -80,13 +80,14 @@ const FETCH_MESSAGE =
   'Only src/graphql/transport.ts and src/customerAccount/oauthHttp.ts call the network (D-056, D-119, D-126). Use storefrontQuery, storefrontMutation, customerAccountQuery or src/customerAccount/session.ts.';
 
 // The customer's login (P7-01). Tokens reach secure storage only through tokenStorage.ts (and
-// the analytics consent through consentStorage.ts, D-052); the login library and the browser it
+// the analytics consent through consentStorage.ts, D-052, and the cart's ID through
+// src/shopify/cartStorage.ts, P8-01); the login library and the browser it
 // opens are used only in src/customerAccount/ (D-119, D-121). The core rule is used, so these
 // blocks do not replace the TypeScript rule's options above.
 const SECURE_STORE_PATH = {
   name: 'expo-secure-store',
   message:
-    'Only src/customerAccount/tokenStorage.ts and src/analytics/consentStorage.ts use secure storage (D-052, D-121).',
+    'Only src/customerAccount/tokenStorage.ts, src/analytics/consentStorage.ts and src/shopify/cartStorage.ts use secure storage (D-052, D-121, P8-01).',
 };
 const LOGIN_LIBRARY_PATHS = ['expo-auth-session', 'expo-web-browser'].map((name) => ({
   name,
@@ -231,7 +232,11 @@ module.exports = defineConfig([
   {
     // Secure storage and the login library, outside their own files (P7-01).
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/customerAccount/**', 'src/analytics/consentStorage.ts'],
+    ignores: [
+      'src/customerAccount/**',
+      'src/analytics/consentStorage.ts',
+      'src/shopify/cartStorage.ts',
+    ],
     rules: {
       'no-restricted-imports': ['error', { paths: [SECURE_STORE_PATH, ...LOGIN_LIBRARY_PATHS] }],
     },
@@ -242,7 +247,7 @@ module.exports = defineConfig([
     rules: { 'no-restricted-imports': ['error', { paths: [SECURE_STORE_PATH] }] },
   },
   {
-    files: ['src/analytics/consentStorage.ts'],
+    files: ['src/analytics/consentStorage.ts', 'src/shopify/cartStorage.ts'],
     rules: { 'no-restricted-imports': ['error', { paths: LOGIN_LIBRARY_PATHS }] },
   },
   {

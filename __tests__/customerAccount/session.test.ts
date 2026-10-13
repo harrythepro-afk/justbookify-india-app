@@ -14,6 +14,7 @@ import {
   startCustomerSession,
 } from '@/customerAccount/session';
 import { readStoredSession, writeStoredSession } from '@/customerAccount/tokenStorage';
+import { getCartIdState, loadCartId, resetCartIdForTests } from '@/shopify/cartId';
 
 import {
   makeIdToken,
@@ -730,6 +731,54 @@ describe('logout (D-122)', () => {
     await logout();
     expect(shopify.calls).toEqual([]);
     expect(mockClearAllCaches).not.toHaveBeenCalled();
+  });
+});
+
+// P8-01, answer 4: a shared phone never inherits another person's cart.
+describe('the cart at logout (P8-01)', () => {
+  const CART = 'gid://shopify/Cart/test-cart-0001?key=test-key';
+  let cartWhenCachesEmptied: unknown;
+
+  beforeEach(async () => {
+    resetCartIdForTests();
+    mockSecureStore.set('cart_id', CART);
+    await loadCartId();
+    cartWhenCachesEmptied = undefined;
+    mockClearAllCaches.mockImplementation(() => {
+      cartWhenCachesEmptied = getCartIdState();
+    });
+    await storeSession(60);
+    await startCustomerSession();
+  });
+
+  afterEach(() => {
+    mockClearAllCaches.mockReset();
+  });
+
+  it('"Log out" forgets the cart before it empties the caches', async () => {
+    await logout();
+
+    expect(getCartIdState()).toEqual({ status: 'ready', cartId: null });
+    expect(mockSecureStore.has('cart_id')).toBe(false);
+    expect(cartWhenCachesEmptied).toEqual({ status: 'ready', cartId: null });
+  });
+
+  it('a refused refresh forgets the cart too', async () => {
+    shopify.tokenAnswers = [{ status: 400, body: { error: 'invalid_grant' } }];
+
+    expect(await refreshSession()).toBe('refused');
+
+    expect(getCartIdState()).toEqual({ status: 'ready', cartId: null });
+    expect(mockSecureStore.has('cart_id')).toBe(false);
+  });
+
+  it('a refresh Shopify cannot answer keeps the cart', async () => {
+    shopify.tokenAnswers = ['network'];
+
+    expect(await refreshSession()).toBe('unavailable');
+
+    expect(getCartIdState()).toEqual({ status: 'ready', cartId: CART });
+    expect(mockSecureStore.get('cart_id')).toBe(CART);
   });
 });
 

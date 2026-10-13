@@ -13,6 +13,16 @@ import { colors, fonts } from '@/theme/tokens';
 import { bookPageProduct, genre } from '../helpers/catalogue';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
 import { SAFE_AREA, withScreen } from '../helpers/screen';
+import { loadCartId } from '@/shopify/cartId';
+
+// The cart (P8-01): cards and the book page draw "Add to Cart"; no cart is stored on this phone.
+jest.mock('@/shopify/cartStorage', () => ({
+  readStoredCartId: () => Promise.resolve(null),
+  writeStoredCartId: () => Promise.resolve(),
+  deleteStoredCartId: () => Promise.resolve(),
+}));
+// The stored cart is read before any screen draws, so no test sees it arrive after its end.
+beforeAll(() => loadCartId());
 
 // React Native loads ScrollView's module tree on first access, which takes several seconds on a
 // cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
@@ -286,7 +296,8 @@ it('shows the genres as chips under "Genre"; one with no taxonomy value is plain
   expect(screen.getByText('Genre')).toBeOnTheScreen();
   expect(screen.getByText('Humor & Comedy')).toBeOnTheScreen();
   expect(screen.getByText('Realistic Fiction')).toBeOnTheScreen();
-  expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+  // The page's one button is "Add to Cart" (P8-01); no chip is a button or a link.
+  expect(screen.queryByRole('button', { name: /Humor|Realistic|Genre/ })).not.toBeOnTheScreen();
   expect(screen.queryByRole('link')).not.toBeOnTheScreen();
 });
 
@@ -421,13 +432,39 @@ it('leaves out "Genre" when the book has none', async () => {
   expect(screen.queryByText('Genre')).not.toBeOnTheScreen();
 });
 
-it('shows no rating, cart, buy, notify or shipping text (answers 3, 7, 8; D-081)', async () => {
+// "Add to Cart" came with the cart in P8-01; everything else here stays off the page.
+it('shows no rating, buy, notify or shipping text (answers 3, 7, 8; D-081)', async () => {
   await renderBook(BOOKS.inStock());
 
   const text = textsInOrder().join(' ');
   expect(text).not.toMatch(
-    /rating|review|stars?\b|add to cart|buy it now|notify me|shipping|isbn|publisher|pages|binding|language/i,
+    /rating|review|stars?\b|buy it now|notify me|shipping|isbn|publisher|pages|binding|language/i,
   );
+});
+
+describe('the cart button (P8-01)', () => {
+  it('shows "Add to Cart" under the prices for a book that can be ordered', async () => {
+    await renderBook(BOOKS.inStock());
+
+    const text = textsInOrder();
+    expect(text.indexOf('Add to Cart')).toBe(text.indexOf('Rent') + 1);
+    expect(
+      screen.getByRole('button', { name: 'Add Diary of a Wimpy Kid: No Brainer to cart' }),
+    ).toBeOnTheScreen();
+  });
+
+  it('shows it for a book orderable at zero stock too', async () => {
+    await renderBook(BOOKS.orderableAtZeroStock());
+
+    expect(screen.getByText('Add to Cart')).toBeOnTheScreen();
+  });
+
+  it('shows no cart button and no notify-me for a rented-out book (D-081)', async () => {
+    await renderBook(BOOKS.rentedOut());
+
+    expect(screen.queryByText('Add to Cart')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+  });
 });
 
 it('says "This book is not available." for a book that does not exist (answer 5)', async () => {

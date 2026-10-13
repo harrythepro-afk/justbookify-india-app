@@ -46,10 +46,11 @@ Event data is kept for 14 months in each Google Analytics property, with "Reset 
 - **Fixed codes** (filter types, stages, error codes, channels) come from `analyticsToken()`: lowercase snake case, starting with a letter. Free text does not type-check.
 - **The guard** (`src/analytics/guard.ts`) checks every event again and drops the whole event if any parameter fails. Sentry is told which event and parameter, never the value.
 - **A parameter whose kind depends on a code** (D-110): `filter_applied`'s `value` follows its `filter_type`, and `search`'s `match_id` follows its `match_type` (and is not sent for `other`). The guard checks the pairing, and the TypeScript types rule out a wrong one.
-- **Screens** are named by their file route with groups removed: `index`, `browse`, `cart`, `my-books`, `account`, `dev-checkout`, `dev-catalogue`, `collection/[handle]`, `book/[handle]` (P6-05). Never the address or its parameters.
+- **Screens** are named by their file route with groups removed: `index`, `browse`, `cart`, `my-books`, `account`, `dev-checkout`, `collection/[handle]`, `book/[handle]` (P6-05). `dev-catalogue` went with the development preview in P8-01 (D-139). Never the address or its parameters.
 - `app_open` fires with `source` `cold_start` or `foreground`. The phases that build the other screens wire their events.
 - **Catalogue events (P6-09):** `view_collection`, `view_book`, `filter_applied` and `search` are wired (below, "Catalogue events").
 - **Login events (P7-03, D-130):** `login` and `logout` are wired, with no parameters; `sign_up` is not sent.
+- **Cart events (P8-01, D-138):** `select_book`, `remove_book`, `view_cart`, `order_cap_reached` and `book_unavailable_shown` are wired (below, "Cart events").
 - Nothing is sent under Jest, or before or without consent.
 
 ## What Firebase sends by itself once consent is granted
@@ -84,7 +85,7 @@ Besides the app's own events, Firebase Analytics sends events and data of its ow
 
 Google Analytics also derives device model, operating system version, language and an approximate location (country and city, from the network address) for its reports. Firebase keeps an app instance ID, which a withdrawal resets.
 
-**The privacy policy's app section (risk 21) must cover these automatic events and data as well as the app's own events,** including the catalogue events (`view_collection`, `view_book`, `filter_applied`, `search`) and the fact that, under consent, the app records which catalogue item a search matched (P6-09, D-109). If a later phase adds an SDK that brings more automatic events (for example, push notifications in Phase 12), this list and the privacy policy are updated together.
+**The privacy policy's app section (risk 21) must cover these automatic events and data as well as the app's own events,** including the catalogue events (`view_collection`, `view_book`, `filter_applied`, `search`), the cart events (`select_book`, `remove_book`, `view_cart`, `order_cap_reached`, `book_unavailable_shown`; P8-01, D-138) and the fact that, under consent, the app records which catalogue item a search matched (P6-09, D-109). If a later phase adds an SDK that brings more automatic events (for example, push notifications in Phase 12), this list and the privacy policy are updated together.
 
 ## Catalogue events (P6-09, D-107 to D-110)
 
@@ -132,6 +133,20 @@ On the development store (`npm run check:dev-store`): harry is the series `harry
 
 With the phone check's list (`["David Walliams", "Rick Riordan", "Tintin", "Harry Potter"]`) on the development store: walliams is `wanted` `david_walliams`, riordan `wanted` `rick_riordan`, tintin the series 528439279891, harry the series 528438755603 (7 results), zzqxv `other`; walliams with "Available now" on is `other`.
 
+## Cart events (P8-01, D-138)
+
+Wired in `src/analytics/cartEvents.ts`, called by the cart's button (`src/components/cartMessages.ts`) and the Cart tab. Every value is one of Shopify's numeric product IDs, a count, an amount or one of the app's codes. **Never the cart's ID** (it holds Shopify's secret key for the cart, D-133), a line's ID, a title, a handle or anything personal.
+
+| Event | When | Parameters |
+| --- | --- | --- |
+| `select_book` | Shopify confirmed an add | `product_id`; `cart_size`, the number of books in the cart afterwards |
+| `remove_book` | Shopify confirmed a removal on the Cart tab | `product_id`; `cart_size` afterwards |
+| `view_cart` | Once per opening of the Cart tab, when a cart is on screen; an empty cart too, with 0 and ₹0 (plan review, answer (c)); not again for a newer read in the same visit | `book_count` (every book shown, rented-out ones included); `cart_value`, the counted subtotal (D-134) |
+| `order_cap_reached` | An add refused by the order cap (R2): before Shopify is asked, or after Shopify's subtotal reached the cap and the add was undone (D-134) | `cart_value`, the counted subtotal then |
+| `book_unavailable_shown` | A rented-out book shown in the cart, once per book per opening (`stage` `cart`); a book found rented out as it was added (`stage` `add_to_cart`, approved at plan review) (D-137) | `product_id`, `stage` |
+
+`cart_value` is in rupees, rounded to paise. Nothing is sent for a tap ignored while another change runs, for a book already in the cart, for a change a logout overtook, or for a change that failed (the customer sees the offline or error message). A rented-out book on a card or a book page sends nothing: `book_unavailable_shown` is for a book the customer had selected.
+
 ## Rules
 
 - Snake case event names. IDs, never titles or free text.
@@ -153,12 +168,12 @@ With the phone check's list (`["David Walliams", "Rick Riordan", "Tintin", "Harr
 | filter_applied | The customer changes a filter, "Available now" or the sort, or taps "Clear", on Browse or the collection screen (D-107) | filter_type, value |
 | view_collection | The collection screen shows its collection; an age group or series is chosen on Browse (D-107) | collection_id |
 | view_book | The book page shows its book, once per opening (D-107) | product_id, available |
-| select_book | Book added to the cart | product_id, cart_size |
-| remove_book | Book removed from the cart | product_id, cart_size |
-| book_unavailable_shown | A selected book went unavailable | product_id, stage |
+| select_book | Book added to the cart, once Shopify confirmed it (D-138) | product_id, cart_size |
+| remove_book | Book removed from the cart, once Shopify confirmed it (D-138) | product_id, cart_size |
+| book_unavailable_shown | A selected book went unavailable: in the cart (`cart`) or as it was added (`add_to_cart`) (D-137, D-138) | product_id, stage |
 | notify_me_requested | Customer asks for a back-in-stock alert | product_id |
-| view_cart | Cart is opened | book_count, cart_value |
-| order_cap_reached | Cart hits the order cap | cart_value |
+| view_cart | Cart is opened, once per opening, an empty cart included (D-138) | book_count, cart_value |
+| order_cap_reached | An add is refused by the order cap (D-134, D-138) | cart_value |
 | begin_checkout | Checkout is presented | book_count, cart_value |
 | rental_order_success | Checkout completes | order_id, book_count, payment_type |
 | checkout_failed | Checkout errors or is abandoned | stage, error_code |
