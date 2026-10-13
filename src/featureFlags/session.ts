@@ -176,6 +176,15 @@ export function loadFeatureFlags(): Promise<FeatureFlagSnapshot> {
   return loading;
 }
 
+/**
+ * Resolves with this session's wanted list (D-115) once the snapshot is frozen, on the same timing
+ * as `loadFeatureFlags()`. It never rejects: every failure resolves with the empty default.
+ */
+export async function loadWantedList(): Promise<WantedListSnapshot> {
+  await loadFeatureFlags();
+  return state.status === 'ready' ? state.wantedList : NO_WANTED_LIST;
+}
+
 /** Called once at start-up, before the first render. Nothing waits for it. */
 export function startFeatureFlags(): void {
   void loadFeatureFlags();

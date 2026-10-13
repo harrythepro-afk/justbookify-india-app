@@ -4,6 +4,7 @@ const mockActivateLastFetched = jest.fn();
 const mockFetchForNextLaunch = jest.fn();
 const mockReportProblem = jest.fn();
 const mockReportMalformed = jest.fn();
+const mockReportList = jest.fn();
 let mockAppEnv = 'production';
 
 // Remote Config is mocked whole: these tests never load Firebase or touch a network.
@@ -15,6 +16,8 @@ jest.mock('@/featureFlags/remoteConfig', () => ({
 jest.mock('@/crashReporting/sentry', () => ({
   reportFeatureFlagProblem: (problem: string) => mockReportProblem(problem),
   reportMalformedFeatureFlag: (name: string) => mockReportMalformed(name),
+  reportMalformedRemoteConfigList: (parameter: string, summary: string) =>
+    mockReportList(parameter, summary),
 }));
 
 jest.mock('expo-constants', () => ({
@@ -89,7 +92,11 @@ function track<T>(promise: Promise<T>) {
 }
 
 function reportedText(): string {
-  return JSON.stringify([mockReportProblem.mock.calls, mockReportMalformed.mock.calls]);
+  return JSON.stringify([
+    mockReportProblem.mock.calls,
+    mockReportMalformed.mock.calls,
+    mockReportList.mock.calls,
+  ]);
 }
 
 describe('feature flag session', () => {
@@ -295,5 +302,121 @@ describe('feature flag session', () => {
 
     expect(await session.loadFeatureFlags()).toEqual(SHEET_DEFAULT);
     expect(mockReportProblem).toHaveBeenCalledWith('activation failed (Error)');
+  });
+});
+
+describe('the wanted list in the session (P6-11, D-115, D-116)', () => {
+  const LIST = JSON.stringify(['David Walliams', 'Rick Riordan', 'Tintin', 'Harry Potter']);
+  const WITH_LIST: Record<string, RawRemoteConfigValue> = {
+    ...BROWSER,
+    search_wanted_list: { value: LIST, source: 'remote' },
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    mockAppEnv = 'production';
+    mockFetchForNextLaunch.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('freezes the list with the flags, from the same activated values', async () => {
+    mockActivateLastFetched.mockResolvedValue(WITH_LIST);
+    const session = loadModule();
+
+    const wanted = await session.loadWantedList();
+
+    expect(wanted.source).toBe('remote');
+    expect(wanted.list.map((name) => name.code)).toEqual([
+      'david_walliams',
+      'rick_riordan',
+      'tintin',
+      'harry_potter',
+    ]);
+    // The checkout flag is read exactly as before (D-046).
+    expect(await session.loadFeatureFlags()).toEqual(BROWSER_REMOTE);
+    expect(mockActivateLastFetched).toHaveBeenCalledTimes(1);
+    expect(mockReportList).not.toHaveBeenCalled();
+  });
+
+  it('keeps the list for the whole launch, whatever the background fetch does', async () => {
+    const fetch = deferred<void>();
+    mockFetchForNextLaunch.mockReturnValue(fetch.promise);
+    mockActivateLastFetched.mockResolvedValue(WITH_LIST);
+    const session = loadModule();
+
+    const first = await session.loadWantedList();
+    mockActivateLastFetched.mockResolvedValue({});
+    fetch.resolve();
+    await settle();
+
+    expect(await session.loadWantedList()).toBe(first);
+  });
+
+  it('uses the empty default when Remote Config has no list', async () => {
+    mockActivateLastFetched.mockResolvedValue(BROWSER);
+    const session = loadModule();
+
+    expect(await session.loadWantedList()).toEqual({ list: [], source: 'default' });
+    expect(mockReportList).not.toHaveBeenCalled();
+  });
+
+  it('uses the empty default when activation fails', async () => {
+    mockActivateLastFetched.mockRejectedValue(firebaseError('remoteConfig/unknown'));
+    const session = loadModule();
+
+    expect(await session.loadWantedList()).toEqual({ list: [], source: 'default' });
+  });
+
+  it('uses the empty default after 3 seconds, and never the list that activates late', async () => {
+    const activation = deferred<Record<string, RawRemoteConfigValue>>();
+    mockActivateLastFetched.mockReturnValue(activation.promise);
+    const session = loadModule();
+
+    const read = track(session.loadWantedList());
+    await jest.advanceTimersByTimeAsync(3000);
+    activation.resolve(WITH_LIST);
+    await settle();
+
+    expect(read.value).toEqual({ list: [], source: 'default' });
+    expect(await session.loadWantedList()).toEqual({ list: [], source: 'default' });
+    expect(mockReportList).not.toHaveBeenCalled();
+  });
+
+  it('reports dropped entries once per launch, by reason codes and counts only', async () => {
+    mockActivateLastFetched.mockResolvedValue({
+      search_wanted_list: {
+        value: JSON.stringify(['Asha Rao', 'asha rao', '', 'asha.rao@example.com 9876543210']),
+        source: 'remote',
+      },
+    });
+    const session = loadModule();
+
+    await Promise.all([session.loadWantedList(), session.loadFeatureFlags()]);
+    await session.loadWantedList();
+    session.startFeatureFlags();
+    await settle();
+
+    expect(mockReportList.mock.calls).toEqual([
+      ['search_wanted_list', 'dropped entries (empty 1, no_code 1, duplicate_code 1)'],
+    ]);
+    expect(reportedText()).not.toMatch(/asha|rao|example|9876543210/i);
+  });
+
+  it('ignores a value that is not a list, reports it once, and keeps the checkout flag', async () => {
+    mockActivateLastFetched.mockResolvedValue({
+      ...BROWSER,
+      search_wanted_list: { value: '{"Asha Rao": true}', source: 'remote' },
+    });
+    const session = loadModule();
+
+    expect(await session.loadWantedList()).toEqual({ list: [], source: 'default' });
+    expect(await session.loadFeatureFlags()).toEqual(BROWSER_REMOTE);
+    expect(mockReportList.mock.calls).toEqual([['search_wanted_list', 'ignored (not_list)']]);
+    expect(mockReportMalformed).not.toHaveBeenCalled();
+    expect(reportedText()).not.toMatch(/asha|rao/i);
   });
 });

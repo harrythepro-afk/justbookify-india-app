@@ -18,7 +18,7 @@ import {
   trackSortChosen,
 } from '@/analytics/catalogueEvents';
 import { trackFilterApplied, trackSearch, type FilterAppliedParams } from '@/analytics/events';
-import { analyticsCollectionId, type AnalyticsCollectionId } from '@/analytics/ids';
+import { analyticsCollectionId, analyticsToken, type AnalyticsCollectionId } from '@/analytics/ids';
 import { BROWSE_CONTENT, type BookSort } from '@/config';
 
 let mockGranted = true;
@@ -228,6 +228,46 @@ describe('the guard (D-053, D-110)', () => {
     trackSearch({ term_length: 5, result_count: 0, match_type: 'other', match_id: 'zzqxv' });
     // @ts-expect-error: a title needs its product ID.
     trackSearch({ term_length: 5, result_count: 0, match_type: 'title' });
+    expect(mockSendEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe('the wanted match (P6-11, D-118)', () => {
+  it('sends wanted with the listed name’s code', () => {
+    const code = analyticsToken('david_walliams');
+    if (code === undefined) throw new Error('expected a code');
+
+    trackSearch({ term_length: 8, result_count: 0, match_type: 'wanted', match_id: code });
+
+    expect(mockSendEvent.mock.calls).toEqual([
+      [
+        'search',
+        { term_length: 8, result_count: 0, match_type: 'wanted', match_id: 'david_walliams' },
+      ],
+    ]);
+  });
+
+  it.each([
+    ['the name as typed', { match_type: 'wanted', match_id: 'David Walliams' }],
+    ['a collection ID', { match_type: 'wanted', match_id: '528439279891' }],
+    ['no code', { match_type: 'wanted' }],
+    ['a run of seven digits', { match_type: 'wanted', match_id: 'asha_9876543210' }],
+    ['an email', { match_type: 'wanted', match_id: 'asha.rao@example.com' }],
+  ])('drops search with wanted and %s, even past the types', (_case, match) => {
+    trackSearch({ term_length: 8, result_count: 0, ...match } as unknown as Parameters<
+      typeof trackSearch
+    >[0]);
+
+    expect(mockSendEvent).not.toHaveBeenCalled();
+    expect(JSON.stringify(mockReportProblem.mock.calls)).not.toMatch(/walliams|asha|528439/i);
+  });
+
+  it('rules out a wrong pairing by type', () => {
+    mockGranted = false;
+    // @ts-expect-error: wanted needs the listed name's code.
+    trackSearch({ term_length: 8, result_count: 0, match_type: 'wanted' });
+    // @ts-expect-error: a code is built by analyticsToken(), never free text.
+    trackSearch({ term_length: 8, result_count: 0, match_type: 'wanted', match_id: 'walliams' });
     expect(mockSendEvent).not.toHaveBeenCalled();
   });
 });
