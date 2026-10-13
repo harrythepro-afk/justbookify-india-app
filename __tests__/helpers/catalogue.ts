@@ -97,14 +97,30 @@ export const EXAMPLES = {
 };
 
 /** One reference in the genre metafield: a genre with a label, or a node of another type. */
-export type GenreNode = { type?: string; label?: { value?: string | null } | null };
+export type GenreNode = {
+  type?: string;
+  label?: { value?: string | null } | null;
+  taxonomyReference?: { value?: string | null } | null;
+};
 
-/** A genre metaobject as the BookPage operation reads it. */
-export function genre(label: string | null): {
+/**
+ * A genre metaobject as the BookPage operation reads it: its label and, when given, the number of
+ * the taxonomy value it stands for (P6-10), such as 20853 for Fantasy on the development store.
+ */
+export function genre(
+  label: string | null,
+  taxonomyValue: number | null = null,
+): {
   type: string;
   label: { value: string } | null;
+  taxonomyReference: { value: string } | null;
 } {
-  return { type: 'shopify--genre', label: label === null ? null : { value: label } };
+  return {
+    type: 'shopify--genre',
+    label: label === null ? null : { value: label },
+    taxonomyReference:
+      taxonomyValue === null ? null : { value: `gid://shopify/TaxonomyValue/${taxonomyValue}` },
+  };
 }
 
 /**

@@ -1,4 +1,7 @@
 import {
+  genreCode,
+  genreCodeFromParam,
+  genreOptionForCode,
   parseGenreInput,
   SHARED_NAME_SEPARATOR,
   toGenreOptions,
@@ -195,5 +198,52 @@ describe('parseGenreInput', () => {
   it('refuses something that is not text or an object', () => {
     expect(parseGenreInput(42)).toBeNull();
     expect(parseGenreInput(undefined)).toBeNull();
+  });
+});
+
+describe('genre codes in links (P6-10, D-113)', () => {
+  it('gives the number of a taxonomy value as the code', () => {
+    expect(genreCode(gid(20853))).toBe('20853');
+    expect(genreCode(gid(15730))).toBe('15730');
+  });
+
+  it.each([
+    ['another kind of ID', 'gid://shopify/Collection/528438755603'],
+    ['no number', 'gid://shopify/TaxonomyValue/'],
+    ['letters after the prefix', 'gid://shopify/TaxonomyValue/12a'],
+    ['a name', 'Fantasy'],
+    ['more than 20 digits', gid(1).replace('1', '1'.repeat(21))],
+    ['a nested path', 'gid://shopify/TaxonomyValue/1/2'],
+  ])('gives no code for %s', (_case, gidText) => {
+    expect(genreCode(gidText)).toBeNull();
+  });
+
+  it('accepts only digits as a code from a screen parameter', () => {
+    expect(genreCodeFromParam('20853')).toBe('20853');
+    for (const param of [
+      undefined,
+      '',
+      'Fantasy',
+      '20853 ',
+      '-1',
+      '1.5',
+      '20853&x=1',
+      gid(20853),
+      ['20853'],
+      ['20853', '15730'],
+      20853,
+      '1'.repeat(21),
+    ]) {
+      expect(genreCodeFromParam(param)).toBeNull();
+    }
+  });
+
+  it('finds the option a code stands for, and none when the list does not offer it', () => {
+    const { options } = toGenreOptions([value(20853), value(15730)], DEV_ENTRIES, LOCALE);
+
+    expect(genreOptionForCode(options, '20853')?.name).toBe('Fantasy');
+    expect(genreOptionForCode(options, '15730')?.name).toBe('Manga');
+    expect(genreOptionForCode(options, '15727')).toBeNull();
+    expect(genreOptionForCode([], '20853')).toBeNull();
   });
 });

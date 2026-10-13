@@ -21,7 +21,9 @@ void FlatList;
 void Modal;
 void Switch;
 
-let mockParams: { handle?: string | string[] } = { handle: 'junior-readers' };
+let mockParams: { handle?: string | string[]; genre?: string | string[] } = {
+  handle: 'junior-readers',
+};
 let mockHeaderTitle: string | undefined;
 const mockPush = jest.fn();
 
@@ -677,4 +679,190 @@ describe('usage events (P6-09, D-107)', () => {
     expect(sent()).toEqual([]);
     expect(mockReportAnalytics).not.toHaveBeenCalled();
   });
+});
+
+describe('opened from a genre chip on a book page (owner and architect, P6-10, D-113)', () => {
+  const MANGA = 15730;
+  const ALL_GENRES: CollectionGenres = {
+    kind: 'found',
+    locale: 'en-IN',
+    values: [genreValue(FANTASY, 9), genreValue(MANGA, 3), genreValue(REALISTIC, 0)],
+  };
+  const ALL_ENTRIES: readonly GenreEntry[] = [
+    ...ENTRIES,
+    { label: 'Manga', taxonomyReference: gid(MANGA) },
+  ];
+  const sent = () => mockSendEvent.mock.calls;
+
+  function allBooksPage({ after }: { after: string | null }): CollectionBooksPage {
+    const start = after === null ? 0 : 20;
+    return {
+      kind: 'found',
+      id: collectionGid('all-books'),
+      title: 'All books',
+      books: JUNIOR.slice(start, start + 20),
+      nextCursor: after === null ? 'end-0' : null,
+    };
+  }
+
+  beforeEach(() => {
+    mockParams = { handle: 'all-books', genre: String(FANTASY) };
+    mockFetchPage.mockImplementation(async (options) => allBooksPage(options));
+    mockFetchGenres.mockResolvedValue(ALL_GENRES);
+    mockFetchEntries.mockResolvedValue(ALL_ENTRIES);
+  });
+
+  it('reads all books once, with the genre chosen, "Available now" on, A-Z and no price', async () => {
+    await renderScreen();
+
+    expect(mockFetchPage).toHaveBeenCalledTimes(1);
+    expect(mockFetchPage.mock.calls[0]?.[0]).toEqual({
+      handle: 'all-books',
+      after: null,
+      list: {
+        available: true,
+        sort: 'title-ascending',
+        genre: genreFilter(FANTASY),
+        maxPrice: null,
+      },
+      signal: expect.anything(),
+    });
+    expect(screen.getByRole('button', { name: 'Genre, Fantasy' })).toBeOnTheScreen();
+    expect(screen.getByRole('switch', { name: 'Available now' }).props.value).toBe(true);
+    expect(screen.getByRole('button', { name: 'Sort, Alphabetically, A-Z' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Price' })).toBeOnTheScreen();
+    await waitFor(() => expect(mockHeaderTitle).toBe('All books'));
+  });
+
+  it('never reads or shows all books before the genre is applied', async () => {
+    let releaseGenres: (value: CollectionGenres) => void = () => undefined;
+    mockFetchGenres.mockReturnValue(
+      new Promise((resolve) => {
+        releaseGenres = resolve;
+      }),
+    );
+    await render(<CollectionScreen />, { wrapper: withScreen(client) });
+    await act(async () => undefined);
+
+    expect(mockFetchPage).not.toHaveBeenCalled();
+    expect(screen.queryByText('Junior 1')).not.toBeOnTheScreen();
+    expect(screen.getAllByLabelText('Loading').length).toBeGreaterThan(0);
+
+    await act(async () => releaseGenres(ALL_GENRES));
+    await waitFor(() => expect(mockFetchPage).toHaveBeenCalledTimes(1));
+    expect(mockFetchPage.mock.calls[0]?.[0].list?.genre).toEqual(genreFilter(FANTASY));
+    expect(await screen.findByText('Junior 1')).toBeOnTheScreen();
+  });
+
+  it('offers no Featured for all books', async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Sort, Alphabetically, A-Z' }));
+
+    expect(screen.queryByRole('button', { name: 'Featured' })).not.toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Alphabetically, Z-A' })).toBeOnTheScreen();
+  });
+
+  it('sends one filter_applied for the genre, and no view_collection for all books', async () => {
+    mockSendEvent.mockClear();
+    await renderScreen();
+    await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
+    await waitFor(() => expect(mockHeaderTitle).toBe('All books'));
+
+    expect(sent()).toEqual([['filter_applied', { filter_type: 'genre', value: String(FANTASY) }]]);
+  });
+
+  it('then sends filter_applied for each change, as before, and keeps the genre when they change', async () => {
+    await renderScreen();
+    mockSendEvent.mockClear();
+
+    await fireEvent(screen.getByRole('switch', { name: 'Available now' }), 'valueChange', false);
+    await waitFor(() =>
+      expect(mockFetchPage.mock.calls.at(-1)?.[0].list).toMatchObject({
+        available: false,
+        genre: genreFilter(FANTASY),
+      }),
+    );
+
+    expect(sent()).toEqual([['filter_applied', { filter_type: 'available', value: 'off' }]]);
+    expect(screen.getByRole('button', { name: 'Genre, Fantasy' })).toBeOnTheScreen();
+  });
+
+  it.each([
+    ['a genre the list does not offer (no available book)', String(REALISTIC)],
+    ['a genre the store has no value for', '99999'],
+    ['a name instead of a code', 'Fantasy'],
+    ['a code with more than digits', `${FANTASY}&available=false`],
+    ['a full ID instead of a code', gid(FANTASY)],
+    ['an empty code', ''],
+  ])('shows all books with no genre, and sends nothing, for %s', async (_case, genre) => {
+    mockParams = { handle: 'all-books', genre };
+    mockSendEvent.mockClear();
+    await renderScreen();
+
+    expect(mockFetchPage).toHaveBeenCalledTimes(1);
+    expect(mockFetchPage.mock.calls[0]?.[0].list).toEqual({
+      available: true,
+      sort: 'title-ascending',
+      genre: null,
+      maxPrice: null,
+    });
+    expect(screen.getByRole('button', { name: 'Genre' })).toBeOnTheScreen();
+    expect(sent()).toEqual([]);
+  });
+
+  it('ignores a repeated genre parameter', async () => {
+    mockParams = { handle: 'all-books', genre: [String(FANTASY), String(MANGA)] };
+    await renderScreen();
+
+    expect(mockFetchPage.mock.calls[0]?.[0].list?.genre).toBeNull();
+  });
+
+  it('shows all books with no genre when the Genre list cannot be read', async () => {
+    mockFetchGenres.mockRejectedValue(HTTP_ERROR);
+    await renderScreen();
+
+    await waitFor(() => expect(mockFetchPage).toHaveBeenCalledTimes(1));
+    expect(mockFetchPage.mock.calls[0]?.[0].list?.genre).toBeNull();
+    expect(await screen.findByText('Junior 1')).toBeOnTheScreen();
+  });
+
+  it('reads the parameter once: a later change of it changes nothing', async () => {
+    const view = await render(<CollectionScreen />, { wrapper: withScreen(client) });
+    await genreSettled();
+    await waitFor(() => expect(screen.queryAllByLabelText('Loading')).toHaveLength(0));
+
+    mockParams = { handle: 'all-books', genre: String(MANGA) };
+    await view.rerender(<CollectionScreen />);
+    await act(async () => undefined);
+
+    expect(screen.getByRole('button', { name: 'Genre, Fantasy' })).toBeOnTheScreen();
+    expect(
+      mockFetchPage.mock.calls.every((call) => call[0].list?.genre?.value === gid(FANTASY)),
+    ).toBe(true);
+  });
+
+  it("applies a code on a group collection too, from that collection's own list", async () => {
+    mockParams = { handle: 'junior-readers', genre: String(FANTASY) };
+    mockFetchPage.mockImplementation(async (options) => juniorPage(options));
+    mockFetchGenres.mockResolvedValue(JUNIOR_GENRES);
+    await renderScreen();
+
+    expect(mockFetchPage.mock.calls[0]?.[0].list).toEqual({
+      available: true,
+      sort: 'featured',
+      genre: genreFilter(FANTASY),
+      maxPrice: null,
+    });
+  });
+});
+
+it('keeps Featured, and view_collection, for a group opened without a genre (unchanged)', async () => {
+  mockSendEvent.mockClear();
+  await renderScreen();
+
+  expect(mockFetchPage.mock.calls[0]?.[0].list?.sort).toBe('featured');
+  await waitFor(() =>
+    expect(mockSendEvent.mock.calls.map(([name]) => name)).toEqual(['view_collection']),
+  );
 });

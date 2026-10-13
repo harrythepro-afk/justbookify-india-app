@@ -1,4 +1,4 @@
-import { genreLabels, toBookPage } from '@/shopify/bookPage';
+import { bookGenres, toBookPage } from '@/shopify/bookPage';
 import { CatalogueDataError } from '@/shopify/bookCard';
 
 import { bookPageProduct, genre } from '../helpers/catalogue';
@@ -13,7 +13,7 @@ describe('toBookPage (P6-05)', () => {
         title: 'Harry Potter and the Half-Blood Prince',
         vendor: 'J.K. Rowling',
         descriptionHtml: '<p><strong>Why You will Love It:</strong> magic</p>',
-        genres: [genre('Fantasy'), genre('Action & Adventure')],
+        genres: [genre('Fantasy', 20853), genre('Action & Adventure', 15724)],
       }),
       CONFIG,
     );
@@ -26,7 +26,10 @@ describe('toBookPage (P6-05)', () => {
       retailPrice: '₹350',
       availability: 'in-stock',
       orderable: true,
-      genres: ['Fantasy', 'Action & Adventure'],
+      genres: [
+        { name: 'Fantasy', taxonomyValue: 'gid://shopify/TaxonomyValue/20853' },
+        { name: 'Action & Adventure', taxonomyValue: 'gid://shopify/TaxonomyValue/15724' },
+      ],
       description: [
         {
           kind: 'paragraph',
@@ -65,22 +68,25 @@ describe('toBookPage (P6-05)', () => {
   });
 });
 
-describe('genreLabels', () => {
+describe('bookGenres', () => {
   it('gives none when the metafield or its references are missing', () => {
-    expect(genreLabels(null)).toEqual([]);
-    expect(genreLabels(undefined)).toEqual([]);
-    expect(genreLabels({ references: null })).toEqual([]);
-    expect(genreLabels({ references: { nodes: [] } })).toEqual([]);
+    expect(bookGenres(null)).toEqual([]);
+    expect(bookGenres(undefined)).toEqual([]);
+    expect(bookGenres({ references: null })).toEqual([]);
+    expect(bookGenres({ references: { nodes: [] } })).toEqual([]);
   });
 
   it("keeps Shopify's order, trims labels and shows a repeated one once", () => {
     expect(
-      genreLabels({
+      bookGenres({
         references: {
           nodes: [genre(' Humor & Comedy '), genre('Fantasy'), genre('Humor & Comedy')],
         },
       }),
-    ).toEqual(['Humor & Comedy', 'Fantasy']);
+    ).toEqual([
+      { name: 'Humor & Comedy', taxonomyValue: null },
+      { name: 'Fantasy', taxonomyValue: null },
+    ]);
   });
 
   it('skips a node of another type, and a genre with no or a blank label', () => {
@@ -93,8 +99,45 @@ describe('genreLabels', () => {
       genre('Picture Book'),
     ];
 
-    expect(genreLabels({ references: { nodes: nodes as { type: string }[] } })).toEqual([
-      'Picture Book',
+    expect(bookGenres({ references: { nodes: nodes as { type: string }[] } })).toEqual([
+      { name: 'Picture Book', taxonomyValue: null },
     ]);
+  });
+});
+
+describe('bookGenres: taxonomy values (P6-10, D-113)', () => {
+  it('reads the taxonomy value of each genre with its name', () => {
+    expect(
+      bookGenres({ references: { nodes: [genre('Manga', 15730), genre('Fantasy', 20853)] } }),
+    ).toEqual([
+      { name: 'Manga', taxonomyValue: 'gid://shopify/TaxonomyValue/15730' },
+      { name: 'Fantasy', taxonomyValue: 'gid://shopify/TaxonomyValue/20853' },
+    ]);
+  });
+
+  it('gives no value for a missing, empty or blank reference, and trims one', () => {
+    const nodes = [
+      genre('A'),
+      { type: 'shopify--genre', label: { value: 'B' }, taxonomyReference: { value: null } },
+      { type: 'shopify--genre', label: { value: 'C' }, taxonomyReference: { value: '  ' } },
+      {
+        type: 'shopify--genre',
+        label: { value: 'D' },
+        taxonomyReference: { value: ' gid://shopify/TaxonomyValue/15727 ' },
+      },
+    ];
+
+    expect(bookGenres({ references: { nodes: nodes as { type: string }[] } })).toEqual([
+      { name: 'A', taxonomyValue: null },
+      { name: 'B', taxonomyValue: null },
+      { name: 'C', taxonomyValue: null },
+      { name: 'D', taxonomyValue: 'gid://shopify/TaxonomyValue/15727' },
+    ]);
+  });
+
+  it('keeps the first value when a name repeats', () => {
+    expect(
+      bookGenres({ references: { nodes: [genre('Fairy tale', 15733), genre('Fairy tale', 1)] } }),
+    ).toEqual([{ name: 'Fairy tale', taxonomyValue: 'gid://shopify/TaxonomyValue/15733' }]);
   });
 });

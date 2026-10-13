@@ -28,8 +28,10 @@ import { storefrontKeys } from '../queryKeys';
 
 export { CATALOGUE_PAGE_SIZE, type BookListOptions, type CollectionBooksPage } from '../catalogue';
 export type { GenreFilter, GenreOption } from '../genres';
+// A genre chip on the book page opens the collection screen with the genre's code (D-113).
+export { genreCode, genreCodeFromParam, genreOptionForCode } from '../genres';
 export type { PriceOption } from '../priceFilter';
-export type { BookPage } from '../bookPage';
+export type { BookGenre, BookPage } from '../bookPage';
 export type { RichSpan, RichTextBlock } from '../richText';
 // The development preview shows a sample description through the book page's parser (D-094).
 export { parseDescriptionHtml } from '../richText';
@@ -48,8 +50,14 @@ export { recheckNetwork, useIsOffline } from '@/query/online';
  * `fetchNextPage()` reads the next one while `hasNextPage` is true. Without `list`, every book
  * in the collection's own order; with it, a sort, "Available now", a genre and a price (D-085,
  * D-086, D-101, D-104), each combination cached on its own. Browse's all books are a collection too (D-100).
+ * `enabled: false` holds the read back, as the collection screen does until a genre from a link
+ * is applied (P6-10, D-113); a held-back read is not refetched on focus either.
  */
-export function useCollectionBooks(handle: string, list?: BookListOptions) {
+export function useCollectionBooks(
+  handle: string,
+  list?: BookListOptions,
+  { enabled = true }: { readonly enabled?: boolean } = {},
+) {
   const queryKey = storefrontKeys.catalogue.collectionBooks(handle, list);
   useRefetchStaleOnFocus(queryKey);
   return useInfiniteQuery({
@@ -59,6 +67,7 @@ export function useCollectionBooks(handle: string, list?: BookListOptions) {
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => (lastPage.kind === 'found' ? lastPage.nextCursor : null),
     ...freshness.catalogue,
+    enabled,
   });
 }
 

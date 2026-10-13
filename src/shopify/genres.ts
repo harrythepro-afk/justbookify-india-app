@@ -34,6 +34,38 @@ export type GenreEntry = {
 export type GenreFault =
   'catalogue/genre-bad-input' | 'catalogue/genre-without-name' | 'catalogue/genre-shared-value';
 
+const TAXONOMY_VALUE_GID_PREFIX = 'gid://shopify/TaxonomyValue/';
+
+/** A taxonomy value's number: only digits, at most 20 of them. */
+const TAXONOMY_VALUE_NUMBER = /^\d{1,20}$/;
+
+/**
+ * A genre's code in an in-app link (P6-10, D-113): its taxonomy value's number, such as `20853`
+ * for `gid://shopify/TaxonomyValue/20853`; null for anything else. A link never carries a genre's
+ * name.
+ */
+export function genreCode(taxonomyValueGid: string): string | null {
+  if (!taxonomyValueGid.startsWith(TAXONOMY_VALUE_GID_PREFIX)) return null;
+  const number = taxonomyValueGid.slice(TAXONOMY_VALUE_GID_PREFIX.length);
+  return TAXONOMY_VALUE_NUMBER.test(number) ? number : null;
+}
+
+/**
+ * A screen parameter read as a genre code (P6-10, D-113): only digits are accepted; anything
+ * else, including a repeated parameter, is no code. The parameter is untrusted input.
+ */
+export function genreCodeFromParam(param: unknown): string | null {
+  return typeof param === 'string' && TAXONOMY_VALUE_NUMBER.test(param) ? param : null;
+}
+
+/** The option a genre code stands for in a Genre list, or null when the list does not offer it. */
+export function genreOptionForCode(
+  options: readonly GenreOption[],
+  code: string,
+): GenreOption | null {
+  return options.find((option) => genreCode(option.filter.value) === code) ?? null;
+}
+
 /** Between the names of two entries that stand for the same value. */
 export const SHARED_NAME_SEPARATOR = ' / ';
 

@@ -186,7 +186,8 @@ query BookCardByHandle($handle: String!, $country: CountryCode, $language: Langu
 /**
  * One book's page (P6-05, D-090): the card's fields, a larger cover, the description as HTML
  * (shown as native text, D-091) and the genre labels. The genre metafield holds `shopify--genre`
- * metaobjects, whose `label` field is the name the website shows. No rating (D-092), and no
+ * metaobjects, whose `label` field is the name the website shows and whose `taxonomy_reference`
+ * is the value the Genre filter lists by, so a chip can open that genre's books (P6-10, D-113). No rating (D-092), and no
  * language, publisher, pages, binding or ISBN (owner, answer 1).
  */
 export const BOOK_PAGE_QUERY = `#graphql
@@ -225,6 +226,9 @@ query BookPage($handle: String!, $country: CountryCode, $language: LanguageCode)
           ... on Metaobject {
             type
             label: field(key: "label") {
+              value
+            }
+            taxonomyReference: field(key: "taxonomy_reference") {
               value
             }
           }
