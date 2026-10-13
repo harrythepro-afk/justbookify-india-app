@@ -1,6 +1,6 @@
 # Next task (proposal): P8-01, the cart
 
-Status: proposal. P7-03 (the analytics consent request after a login, the login events; D-129 to D-132) is on branch `p7-03-consent-request`, PR #27, phone check passed on 13 October 2026; see `CURRENT_STATUS.md`. P8-01 starts when the owner starts it, after that pull request is merged. **Its first commit records P7-03 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`, where Phase 7 becomes done). P7-02 is merged (`bf63b65`, PR #26).
+Status: **in progress** on branch `p8-01-cart`; plan accepted by the owner and the architect on 13 October 2026 (answers below, in `CURRENT_STATUS.md`). P7-03 (the analytics consent request after a login, the login events; D-129 to D-132) is merged (`b5ce914`, PR #27), so **Phase 7 is done** (`ROADMAP.md`). P7-02 is merged (`bf63b65`, PR #26).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -32,7 +32,7 @@ Status: proposal. P7-03 (the analytics consent request after a login, the login 
 | --- | --- | --- |
 | P7-01 (done, 9be8a6d) | Login and logout with the Customer Account API on the development store: the system browser, PKCE, the app's own state and a nonce; tokens crash-safe in secure storage; refresh, logged out only on `invalid_grant`; logout on the phone and Shopify's mobile logout; the Account tab; phone check passed (a website sign-out keeps the app logged in; access token about 60 minutes) | D-119 to D-123 |
 | P7-02 (done, bf63b65) | The customer's profile on the Account tab and orders in My Books, read only, through the Customer Account API (`2026-04`, types from Shopify's Hydrogen React schema); one GraphQL transport shared with the Storefront client; a 401 refreshes once; customer data in memory under `['customer', …]`, cleared at logout; the plain status table; no "At home" or "Returns" yet; **early check 3 passed** (guest order #1003 in the app after login with the same email) | D-124 to D-128 |
-| P7-03 (branch `p7-03-consent-request`, PR #27) | The analytics consent request right after a login on the Account tab, only while the choice is "not asked", once per login (owner's placement (a)); Allow, Don't allow, Close; draft wording for the adviser; `login` (also right after Allow) and `logout` under consent; the switch's account line; Home's development reset; the user ID required before outside testers (Phase 10) | D-129 to D-132 |
+| P7-03 (done, b5ce914) | The analytics consent request right after a login on the Account tab, only while the choice is "not asked", once per login (owner's placement (a)); Allow, Don't allow, Close; draft wording for the adviser; `login` (also right after Allow) and `logout` under consent; the switch's account line; Home's development reset; the user ID required before outside testers (Phase 10) | D-129 to D-132 |
 
 ## Phase 8: cart and rental rules
 
