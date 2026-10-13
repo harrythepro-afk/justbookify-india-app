@@ -14,7 +14,7 @@ const COLOUR_RULES = [
 // A string that starts like a GraphQL operation: `#graphql`, or `query Name {` / `mutation Name(`.
 const GRAPHQL_LITERAL = String.raw`/^\s*(#graphql|(query|mutation)\s+[A-Za-z_]\w*\s*[({])/`;
 const GRAPHQL_LITERAL_MESSAGE =
-  'Storefront API operations live in src/shopify/ only (D-056). Call a function from there.';
+  'Shopify API operations live in src/shopify/ (Storefront, D-056) and src/customerAccountApi/ (Customer Account API, D-126) only. Call a function from there.';
 const GRAPHQL_RULES = [
   { selector: `Literal[value=${GRAPHQL_LITERAL}]`, message: GRAPHQL_LITERAL_MESSAGE },
   { selector: `TemplateElement[value.raw=${GRAPHQL_LITERAL}]`, message: GRAPHQL_LITERAL_MESSAGE },
@@ -37,6 +37,21 @@ const CLIENT_PATTERN = {
     'Only src/shopify/ calls the Storefront client (D-063). Use a hook from src/shopify/hooks/.',
   allowTypeImports: true,
 };
+// The Customer Account API client (P7-02, D-126), used only inside src/customerAccountApi/, and
+// the shared transport, used only by the two clients.
+const CUSTOMER_CLIENT_PATTERN = {
+  group: ['**/customerAccountApi/client'],
+  message:
+    'Only src/customerAccountApi/ calls the Customer Account API client (D-126). Use a hook from src/customerAccountApi/hooks/.',
+  allowTypeImports: true,
+};
+const TRANSPORT_PATTERN = {
+  group: ['**/graphql/transport'],
+  message:
+    'Only src/shopify/client.ts and src/customerAccountApi/client.ts use the GraphQL transport (D-126).',
+  allowTypeImports: true,
+};
+const CLIENT_PATTERNS = [CLIENT_PATTERN, CUSTOMER_CLIENT_PATTERN, TRANSPORT_PATTERN];
 const SCREEN_PATTERNS = [
   {
     group: ['**/shopify/*', '!**/shopify/hooks', '!**/shopify/errors'],
@@ -49,10 +64,20 @@ const SCREEN_PATTERNS = [
     message: 'Screens use the query cache through hooks only (D-063).',
     allowTypeImports: true,
   },
+  {
+    group: [
+      '**/customerAccountApi/*',
+      '!**/customerAccountApi/hooks',
+      '!**/customerAccountApi/errors',
+    ],
+    message:
+      'Screens read customer data through hooks only (D-063, D-127). Import from src/customerAccountApi/hooks/.',
+    allowTypeImports: true,
+  },
 ];
 
 const FETCH_MESSAGE =
-  'Only src/shopify/client.ts and src/customerAccount/oauthHttp.ts call the network (D-056, D-119). Use storefrontQuery, storefrontMutation or src/customerAccount/session.ts.';
+  'Only src/graphql/transport.ts and src/customerAccount/oauthHttp.ts call the network (D-056, D-119, D-126). Use storefrontQuery, storefrontMutation, customerAccountQuery or src/customerAccount/session.ts.';
 
 // The customer's login (P7-01). Tokens reach secure storage only through tokenStorage.ts (and
 // the analytics consent through consentStorage.ts, D-052); the login library and the browser it
@@ -106,17 +131,24 @@ module.exports = defineConfig([
     },
   },
   {
-    // The same rule again, with operation strings added, for everything outside src/shopify/.
-    // A later block replaces the rule's options, so the colour rules are repeated.
+    // The same rule again, with operation strings added, for everything outside src/shopify/
+    // and src/customerAccountApi/. A later block replaces the rule's options, so the colour rules
+    // are repeated.
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/theme/tokens.ts', 'src/shopify/**'],
+    ignores: ['src/theme/tokens.ts', 'src/shopify/**', 'src/customerAccountApi/**'],
     rules: {
       'no-restricted-syntax': ['error', ...COLOUR_RULES, ...GRAPHQL_RULES],
     },
   },
   {
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/shopify/client.ts', 'src/customerAccount/oauthHttp.ts'],
+    // src/shopify/client.ts keeps the permission it had before the transport moved out of it
+    // (D-126), so the existing lint tests are unchanged; it no longer calls fetch itself.
+    ignores: [
+      'src/graphql/transport.ts',
+      'src/shopify/client.ts',
+      'src/customerAccount/oauthHttp.ts',
+    ],
     rules: {
       'no-restricted-globals': ['error', { name: 'fetch', message: FETCH_MESSAGE }],
       'no-restricted-properties': ['error', ...FETCH_PROPERTIES, ...ROUTER_PROPERTIES],
@@ -131,28 +163,69 @@ module.exports = defineConfig([
   },
   // Each block below covers different files, because a later block replaces the rule's options.
   {
-    // Everything else in src/: no TanStack, no Storefront client.
+    // Everything else in src/: no TanStack, no client, no transport.
     files: ['src/**/*.{ts,tsx}'],
     ignores: [
       'src/query/**',
       'src/*/hooks/**',
       'src/shopify/**',
+      'src/customerAccountApi/**',
       'src/app/**',
       'src/components/**',
     ],
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',
-        { paths: TANSTACK_PATHS, patterns: [CLIENT_PATTERN] },
+        { paths: TANSTACK_PATHS, patterns: CLIENT_PATTERNS },
       ],
     },
   },
   {
-    // src/shopify/ may call its client, but uses TanStack only in its hooks folder.
-    files: ['src/shopify/**/*.{ts,tsx}'],
-    ignores: ['src/shopify/hooks/**'],
+    // Hooks folders: TanStack, but neither client nor the transport directly.
+    files: ['src/*/hooks/**/*.{ts,tsx}'],
     rules: {
-      '@typescript-eslint/no-restricted-imports': ['error', { paths: TANSTACK_PATHS }],
+      '@typescript-eslint/no-restricted-imports': ['error', { patterns: CLIENT_PATTERNS }],
+    },
+  },
+  {
+    // src/shopify/ may call its client, but uses TanStack only in its hooks folder; only its
+    // client uses the transport.
+    files: ['src/shopify/**/*.{ts,tsx}'],
+    ignores: ['src/shopify/hooks/**', 'src/shopify/client.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        { paths: TANSTACK_PATHS, patterns: [CUSTOMER_CLIENT_PATTERN, TRANSPORT_PATTERN] },
+      ],
+    },
+  },
+  {
+    files: ['src/shopify/client.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        { paths: TANSTACK_PATHS, patterns: [CUSTOMER_CLIENT_PATTERN] },
+      ],
+    },
+  },
+  {
+    // The same for src/customerAccountApi/ (D-126, D-127).
+    files: ['src/customerAccountApi/**/*.{ts,tsx}'],
+    ignores: ['src/customerAccountApi/hooks/**', 'src/customerAccountApi/client.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        { paths: TANSTACK_PATHS, patterns: [CLIENT_PATTERN, TRANSPORT_PATTERN] },
+      ],
+    },
+  },
+  {
+    files: ['src/customerAccountApi/client.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        { paths: TANSTACK_PATHS, patterns: [CLIENT_PATTERN] },
+      ],
     },
   },
   {
@@ -178,7 +251,7 @@ module.exports = defineConfig([
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',
-        { paths: TANSTACK_PATHS, patterns: [CLIENT_PATTERN, ...SCREEN_PATTERNS] },
+        { paths: TANSTACK_PATHS, patterns: [...CLIENT_PATTERNS, ...SCREEN_PATTERNS] },
       ],
     },
   },

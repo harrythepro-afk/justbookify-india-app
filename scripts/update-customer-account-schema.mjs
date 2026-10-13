@@ -23,6 +23,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { Buffer } from 'node:buffer';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -65,26 +66,41 @@ if (!dist.integrity.startsWith('sha512-')) fail('The integrity value is not SHA-
 
 const folder = mkdtempSync(join(tmpdir(), 'hydrogen-react-'));
 let schema;
+let problem;
 try {
-  const archiveResponse = await fetch(dist.tarball);
-  if (!archiveResponse.ok) fail(`The archive download answered HTTP ${archiveResponse.status}.`);
-  const archive = Buffer.from(await archiveResponse.arrayBuffer());
-  const integrity = `sha512-${createHash('sha512').update(archive).digest('base64')}`;
-  if (integrity !== dist.integrity)
-    fail("The archive does not match the registry's integrity value.");
-
-  const archivePath = join(folder, 'package.tgz');
-  writeFileSync(archivePath, archive);
-  const extracted = spawnSync('tar', ['-xzf', archivePath, '-C', folder, MEMBER], {
-    stdio: 'ignore',
-  });
-  if (extracted.status !== 0) fail(`tar could not extract ${MEMBER}.`);
-
-  schema = readFileSync(join(folder, MEMBER));
-  const parsed = JSON.parse(schema.toString('utf8'));
-  if (!Array.isArray(parsed?.__schema?.types)) fail('The file is not an introspection result.');
+  schema = await extractSchema(folder);
+} catch (error) {
+  problem = error instanceof Error ? error.message : 'The schema could not be read.';
 } finally {
   rmSync(folder, { recursive: true, force: true });
+}
+if (problem !== undefined) fail(problem);
+
+async function extractSchema(into) {
+  const archiveResponse = await fetch(dist.tarball);
+  if (!archiveResponse.ok) {
+    throw new Error(`The archive download answered HTTP ${archiveResponse.status}.`);
+  }
+  const archive = Buffer.from(await archiveResponse.arrayBuffer());
+  const integrity = `sha512-${createHash('sha512').update(archive).digest('base64')}`;
+  if (integrity !== dist.integrity) {
+    throw new Error("The archive does not match the registry's integrity value.");
+  }
+
+  writeFileSync(join(into, 'package.tgz'), archive);
+  // Relative paths inside the folder: GNU tar reads `C:` in an absolute Windows path as a host.
+  const extracted = spawnSync('tar', ['-xzf', 'package.tgz', MEMBER], {
+    cwd: into,
+    stdio: 'ignore',
+  });
+  if (extracted.status !== 0) throw new Error(`tar could not extract ${MEMBER}.`);
+
+  const file = readFileSync(join(into, MEMBER));
+  const parsed = JSON.parse(file.toString('utf8'));
+  if (!Array.isArray(parsed?.__schema?.types)) {
+    throw new Error('The file is not an introspection result.');
+  }
+  return file;
 }
 
 // Every saved schema is removed first, including one for an older version. Each is kept in
