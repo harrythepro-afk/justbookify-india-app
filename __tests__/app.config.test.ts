@@ -1,5 +1,6 @@
-import { buildConfig, resolveAppEnv } from '../app.config';
+import { buildConfig, resolveAppEnv, resolveShopId } from '../app.config';
 import { APP_ENVIRONMENTS, parseAppEnvironment } from '@/config/appEnvironment';
+import { parseCustomerAccountConfig, SHOP_ID_PATTERN } from '@/config/customerAccount';
 
 describe('buildConfig', () => {
   it.each([
@@ -151,5 +152,70 @@ describe('parseAppEnvironment', () => {
 
   it.each([undefined, '', 'prod', 'Production', 42])('rejects %p', (value) => {
     expect(() => parseAppEnvironment(value)).toThrow('APP_ENV must be one of');
+  });
+});
+
+describe('the login callback scheme (P7-01, D-120)', () => {
+  it.each(APP_ENVIRONMENTS)(
+    'registers only the app ID as the scheme on %s without a shop ID',
+    (appEnv) => {
+      const config = buildConfig(appEnv);
+      expect(config.scheme).toBe(config.android?.package);
+    },
+  );
+
+  it.each(APP_ENVIRONMENTS)('adds shop.<shop ID>.app after the app ID on %s', (appEnv) => {
+    const config = buildConfig(appEnv, {}, undefined, '987654321012');
+    expect(config.scheme).toEqual([config.android?.package, 'shop.987654321012.app']);
+  });
+
+  it('builds the same scheme as the app reads from src/config', () => {
+    const config = buildConfig('development', {}, undefined, '42');
+    const fromApp = parseCustomerAccountConfig({
+      EXPO_PUBLIC_CUSTOMER_ACCOUNT_CLIENT_ID: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+      EXPO_PUBLIC_SHOP_ID: '42',
+    });
+    expect(config.scheme).toContain(fromApp.callbackScheme);
+  });
+});
+
+describe('resolveShopId', () => {
+  it.each(['development', 'staging'] as const)(
+    'treats an unset or empty value as a build without login on %s',
+    (appEnv) => {
+      expect(resolveShopId(undefined, appEnv)).toBeUndefined();
+      expect(resolveShopId('', appEnv)).toBeUndefined();
+      expect(resolveShopId('  ', appEnv)).toBeUndefined();
+    },
+  );
+
+  it('stops a production build that has no shop ID', () => {
+    expect(() => resolveShopId(undefined, 'production')).toThrow(
+      'EXPO_PUBLIC_SHOP_ID is required for production.',
+    );
+    expect(() => resolveShopId('', 'production')).toThrow('required for production');
+  });
+
+  it.each(APP_ENVIRONMENTS)('accepts digits, trimmed, on %s', (appEnv) => {
+    expect(resolveShopId(' 987654321012 ', appEnv)).toBe('987654321012');
+  });
+
+  it.each(['shop.123.app', '12a', '-1', '123456789012345678901'])(
+    'stops the build for %p, without echoing it',
+    (value) => {
+      expect(() => resolveShopId(value, 'development')).toThrow(
+        'EXPO_PUBLIC_SHOP_ID must be digits only.',
+      );
+    },
+  );
+
+  it('uses the same rule as src/config', () => {
+    for (const value of ['1', '42', '987654321012', '12345678901234567890']) {
+      expect(SHOP_ID_PATTERN.test(value)).toBe(true);
+      expect(resolveShopId(value, 'development')).toBe(value);
+    }
+    for (const value of ['', 'a1', '123456789012345678901', '1.2']) {
+      expect(SHOP_ID_PATTERN.test(value)).toBe(false);
+    }
   });
 });

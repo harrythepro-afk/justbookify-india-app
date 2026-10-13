@@ -1,10 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { ScrollView } from 'react-native';
+import { Alert, ScrollView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { AnalyticsConsentState } from '@/analytics/consent';
 import AccountScreen from '@/app/(tabs)/account';
+import type { CustomerSessionState } from '@/customerAccount/session';
 
 // React Native loads ScrollView's module tree on first access, which takes several seconds on a
 // cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
@@ -18,6 +19,26 @@ jest.mock('@/analytics/consent', () => ({
   useAnalyticsConsent: () => mockConsent,
   grantAnalyticsConsent: () => mockGrant(),
   withdrawAnalyticsConsent: () => mockWithdraw(),
+}));
+
+// The login section (P7-01); the session itself has its own tests.
+let mockSession: CustomerSessionState = { status: 'signedOut', notice: 'none', loggingIn: false };
+const mockLogin = jest.fn();
+const mockLogout = jest.fn();
+jest.mock('@/customerAccount/session', () => ({
+  useCustomerSession: () => mockSession,
+  login: () => mockLogin(),
+  logout: () => mockLogout(),
+}));
+
+let mockAppEnv = 'development';
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    get expoConfig() {
+      return { extra: { appEnv: mockAppEnv } };
+    },
+  },
 }));
 
 const SAFE_AREA = {
@@ -91,5 +112,118 @@ describe('AccountScreen: analytics consent switch (D-048)', () => {
     await render(<AccountScreen />, { wrapper: SafeArea });
 
     expect(screen.getByText('Your choice could not be saved. Please try again.')).toBeOnTheScreen();
+  });
+});
+
+describe('AccountScreen: login (P7-01, D-123)', () => {
+  const SIGNED_OUT: CustomerSessionState = {
+    status: 'signedOut',
+    notice: 'none',
+    loggingIn: false,
+  };
+
+  beforeEach(() => {
+    mockConsent = { consent: 'not asked', busy: false, saveFailed: false };
+    mockSession = SIGNED_OUT;
+    mockAppEnv = 'development';
+    jest.clearAllMocks();
+  });
+
+  it('shows "Log in" when signed out, and starts the login when tapped', async () => {
+    await render(<AccountScreen />, { wrapper: SafeArea });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Log in' }));
+
+    expect(mockLogin).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/logged out|didn't finish/)).not.toBeOnTheScreen();
+  });
+
+  it('shows the architect\'s one line above "Log in" after Shopify refused the login', async () => {
+    mockSession = { status: 'signedOut', notice: 'refused', loggingIn: false };
+
+    await render(<AccountScreen />, { wrapper: SafeArea });
+
+    expect(screen.getByText("You've been logged out. Please log in again.")).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Log in' })).toBeOnTheScreen();
+  });
+
+  it('says a login did not finish', async () => {
+    mockSession = { status: 'signedOut', notice: 'loginFailed', loggingIn: false };
+
+    await render(<AccountScreen />, { wrapper: SafeArea });
+
+    expect(screen.getByText("Login didn't finish. Please try again.")).toBeOnTheScreen();
+  });
+
+  it('disables the button while a login runs', async () => {
+    mockSession = { status: 'signedOut', notice: 'none', loggingIn: true };
+
+    await render(<AccountScreen />, { wrapper: SafeArea });
+
+    const button = screen.getByRole('button', { name: 'Logging in…' });
+    expect(button).toBeDisabled();
+    await fireEvent.press(button);
+    expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it('shows the email and "Log out" when signed in, and logs out when tapped', async () => {
+    mockSession = { status: 'signedIn', email: 'reader@example.com' };
+
+    await render(<AccountScreen />, { wrapper: SafeArea });
+
+    expect(screen.getByText('Logged in as')).toBeOnTheScreen();
+    expect(screen.getByText('reader@example.com')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Log out' }));
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it('says "Logged in" when the ID token has no email', async () => {
+    mockSession = { status: 'signedIn' };
+
+    await render(<AccountScreen />, { wrapper: SafeArea });
+
+    expect(screen.getByText('Logged in')).toBeOnTheScreen();
+    expect(screen.queryByText('Logged in as')).not.toBeOnTheScreen();
+  });
+
+  it('shows a spinner, and no login button, while the stored login is read', async () => {
+    mockSession = { status: 'loading' };
+
+    await render(<AccountScreen />, { wrapper: SafeArea });
+
+    expect(screen.getByLabelText('Loading')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeOnTheScreen();
+  });
+
+  it.each(['development', 'staging'])(
+    'says login is not set up on a %s build without it',
+    async (env) => {
+      mockSession = { status: 'notConfigured' };
+      mockAppEnv = env;
+
+      await render(<AccountScreen />, { wrapper: SafeArea });
+
+      expect(screen.getByText('Login is not set up on this build.')).toBeOnTheScreen();
+    },
+  );
+
+  it.each<[string, CustomerSessionState]>([
+    ['signed out', { status: 'signedOut', notice: 'none', loggingIn: false }],
+    ['refused', { status: 'signedOut', notice: 'refused', loggingIn: false }],
+    ['failed', { status: 'signedOut', notice: 'loginFailed', loggingIn: false }],
+    ['logging in', { status: 'signedOut', notice: 'none', loggingIn: true }],
+    ['signed in', { status: 'signedIn', email: 'reader@example.com' }],
+    ['loading', { status: 'loading' }],
+    ['not set up', { status: 'notConfigured' }],
+  ])('keeps "Share app usage" and opens no pop-up when %s', async (_case, state) => {
+    const alert = jest.spyOn(Alert, 'alert');
+    mockSession = state;
+
+    await render(<AccountScreen />, { wrapper: SafeArea });
+
+    expect(usageSwitch()).toBeOnTheScreen();
+    expect(alert).not.toHaveBeenCalled();
+    alert.mockRestore();
   });
 });
