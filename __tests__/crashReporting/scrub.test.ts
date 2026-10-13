@@ -254,3 +254,105 @@ describe('scrubString', () => {
     expect(scrubString(input, {})).toBe(input);
   });
 });
+
+describe('the customer login (P7-01, D-121)', () => {
+  const SHOP_ID = '987654321012';
+  const ACCESS_TOKEN = 'shcat_Zx81Kq0LmN3pR7sT2uV5wY9a'; // gitleaks:allow
+  // Opaque, with no shape the patterns know: only removal by value catches it.
+  const OPAQUE_TOKEN = 'opaque-refresh-value-for-tests';
+  const ID_TOKEN = 'eyJhbGciOiJSUzI1NiJ9.eyJlbWFpbCI6ImFAYi5jIn0.c2lnbmF0dXJl'; // gitleaks:allow
+  const LOGIN: SensitiveValues = {
+    ...SENSITIVE,
+    shopId: SHOP_ID,
+    customerTokens: [ACCESS_TOKEN, OPAQUE_TOKEN, ID_TOKEN],
+  };
+
+  it.each([
+    ['a customer access token', `token ${ACCESS_TOKEN} sent`, `token ${FILTERED} sent`],
+    ['another shc… token', 'refresh shcrt_abc-def_123 sent', `refresh ${FILTERED} sent`],
+    ['an ID token', `id ${ID_TOKEN}`, `id ${FILTERED}`],
+    [
+      'the login callback with its code',
+      `opened shop.${SHOP_ID}.app://callback?code=abc123&state=xyz`,
+      `opened ${FILTERED}`,
+    ],
+    [
+      "another app scheme's query",
+      'opened com.justbookify.india.dev://account?code=abc#x end',
+      'opened com.justbookify.india.dev://account end',
+    ],
+  ])('removes %s by pattern', (_label, input, expected) => {
+    expect(scrubString(input, {})).toBe(expected);
+  });
+
+  it('removes the tokens held in memory by value, whatever their shape', () => {
+    expect(scrubString(`a ${OPAQUE_TOKEN} b`, LOGIN)).toBe(`a ${FILTERED} b`);
+    expect(scrubString(`hint=${OPAQUE_TOKEN}`, LOGIN)).not.toContain(OPAQUE_TOKEN);
+  });
+
+  it('ignores a token value shorter than 8 characters, so it cannot blank ordinary words', () => {
+    expect(scrubString('a short word', { customerTokens: ['short'] })).toBe('a short word');
+  });
+
+  it('removes the shop ID as a whole number only', () => {
+    expect(scrubString(`shop ${SHOP_ID} failed`, LOGIN)).toBe(`shop ${STORE} failed`);
+    expect(scrubString(`id 1${SHOP_ID}5`, LOGIN)).toBe(`id 1${SHOP_ID}5`);
+  });
+
+  it("drops the login's own values by key name", () => {
+    const breadcrumb = scrubBreadcrumb(
+      {
+        category: 'auth',
+        data: {
+          nonce: 'n',
+          code_verifier: 'v',
+          code_challenge: 'c',
+          code: 'abc',
+          state: 's',
+          id_token_hint: 'h',
+          refresh_token: 'r',
+          access_token: 'a',
+          status: 'kept',
+        },
+      },
+      LOGIN,
+    );
+    expect(breadcrumb?.data).toEqual({
+      nonce: FILTERED,
+      code_verifier: FILTERED,
+      code_challenge: FILTERED,
+      code: FILTERED,
+      state: FILTERED,
+      id_token_hint: FILTERED,
+      refresh_token: FILTERED,
+      access_token: FILTERED,
+      status: 'kept',
+    });
+  });
+
+  it('removes every login value from a whole event', () => {
+    const event = scrubEvent(
+      {
+        type: undefined,
+        message: `refresh failed for ${OPAQUE_TOKEN} at shop.${SHOP_ID}.app://callback?code=1`,
+        extra: { detail: `Bearer ${ACCESS_TOKEN}` },
+        breadcrumbs: [
+          {
+            type: 'http',
+            category: 'fetch',
+            data: {
+              method: 'GET',
+              status_code: 200,
+              url: `https://shopify.com/authentication/${SHOP_ID}/logout?id_token_hint=${ID_TOKEN}`,
+            },
+          },
+        ],
+      },
+      LOGIN,
+    );
+    const text = JSON.stringify(event);
+    for (const value of [OPAQUE_TOKEN, ACCESS_TOKEN, ID_TOKEN, SHOP_ID, 'code=1']) {
+      expect(text).not.toContain(value);
+    }
+  });
+});

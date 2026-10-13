@@ -157,6 +157,35 @@ Screen (src/app/, src/components/)
 - **Boundary** (ESLint, D-063): TanStack only in `src/query/` and data-source `hooks/` folders; the Storefront client only from `src/shopify/`; screens and components import values only from hooks, `src/shopify/errors.ts` and the provider, and types from anywhere.
 - **Network awareness** (D-064, D-065): offline only when expo-network reports `isConnected` false with a known type; an unknown state counts as online. Queries pause offline; a mutation is never paused or queued, so offline it fails at once with `no-network`, which is never reported.
 
+## Login: Customer Account API (P7-01)
+
+D-119 to D-123. The app is a public mobile client of the store's Headless channel: a client ID and no secret.
+
+```
+Account tab "Log in" (src/components/AccountLogin.tsx)
+   └─ login() in src/customerAccount/session.ts, the only module screens use
+        ├─ config: src/config/customerAccount.ts (client ID, shop ID → shop.<id>.app://callback)
+        ├─ discovery: GET https://<store>/.well-known/openid-configuration, once per launch,
+        │    refused unless https with the issuer naming the shop (discoveryDocument.ts, D-120)
+        ├─ AuthRequest (expo-auth-session): PKCE S256, the app's own state, a nonce
+        │    └─ expo-web-browser: a Custom Tab (Android) / ASWebAuthenticationSession (iOS)
+        │         └─ Shopify's login page: the customer types the email and the emailed code
+        │              └─ shop.<id>.app://callback?code=…&state=… back to the app
+        │                   (+native-intent.tsx keeps it out of the routes)
+        ├─ state checked again; POST token endpoint (oauthHttp.ts): code + verifier
+        ├─ ID token checked: nonce, issuer, audience, expiry, iat (idToken.ts, D-121)
+        └─ tokenStorage.ts: the set into the inactive slot, then the pointer (crash-safe)
+Launch (_layout.tsx): startCustomerSession() reads the stored set; signed in at once
+Refresh: 5 minutes or less left (launch, foreground, getValidAccessToken), one in flight;
+   invalid_grant → logged out with the one-line message; anything else → still signed in
+"Log out": tokens deleted, clearAllCaches(), then GET end_session_endpoint?id_token_hint=…
+```
+
+- **Only `oauthHttp.ts`** in `src/customerAccount/` calls the network, **only `tokenStorage.ts`** writes tokens, and the login library and browser are used only in `src/customerAccount/` (ESLint, tested).
+- **Screens see** `{ status, email }` and the actions `login()` and `logout()`, never a token. The email comes from the ID token, in memory only.
+- **Customer Account API GraphQL** (P7-02 on) will take its token from `getValidAccessToken()`, with its own query key root, cached in memory only and cleared by `clearAllCaches()` at logout.
+- **A website logout** does not log the app out (answer 3, D-122).
+
 ## Built for a second country
 
-Everything specific to the India store sits in configuration: store domain, currency, fees, order cap, pincode rule. A Bahrain app can be produced from the same code with its own configuration and its own app ID.
+Everything specific to the India store sits in configuration: store domain, currency, fees, order cap, pincode rule, and the login client ID and shop ID (D-120). A Bahrain app can be produced from the same code with its own configuration and its own app ID.

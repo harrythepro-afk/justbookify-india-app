@@ -9,6 +9,7 @@ import { startAnalytics } from '@/analytics/start';
 import { EnvironmentBanner } from '@/components/EnvironmentBanner';
 import { getAppEnvironment } from '@/config';
 import { startCrashReporting } from '@/crashReporting/sentry';
+import { startCustomerSession } from '@/customerAccount/session';
 import { startFeatureFlags } from '@/featureFlags/session';
 import { AppQueryProvider } from '@/query/QueryProvider';
 
@@ -18,6 +19,8 @@ startCrashReporting();
 startFeatureFlags();
 // Reads the customer's analytics consent; nothing is sent without it (D-048).
 startAnalytics();
+// Reads the customer's stored login; a refresh follows when the access token is due (D-121).
+void startCustomerSession();
 
 export default function RootLayout() {
   useScreenTracking();

@@ -14,22 +14,36 @@ import type { Breadcrumb, ErrorEvent, Exception, StackFrame } from '@sentry/reac
 export type SensitiveValues = {
   readonly storeDomain?: string;
   readonly storefrontToken?: string;
+  /** The shop's numeric ID (login configuration, D-120), removed as the store domain is. */
+  readonly shopId?: string;
+  /** The customer's access, refresh and ID tokens held in memory (D-121). */
+  readonly customerTokens?: readonly string[];
 };
 
 export const FILTERED = '[Filtered]';
 export const STORE = '[store]';
 
 // Breadcrumb data and `extra` keys whose values are dropped whole, whatever they contain.
+// `token` also covers access_token, refresh_token, id_token and id_token_hint. P7-01 adds the
+// login's own values: the nonce, the PKCE verifier and challenge, the authorization code and state.
 const SENSITIVE_KEY =
-  /e-?mail|phone|mobile|address|street|city|postal|pincode|zip|name|token|secret|password|passwd|authori[sz]ation|cookie|credit|card|upi/i;
+  /e-?mail|phone|mobile|address|street|city|postal|pincode|zip|name|token|secret|password|passwd|authori[sz]ation|cookie|credit|card|upi|nonce|verifier|code_?challenge|^code$|^state$/i;
 
 const URL_QUERY_OR_FRAGMENT = /\b(https?:\/\/[^\s?#"'<>]*)[?#][^\s"'<>]*/gi;
 // The same for an app path such as /account?tab=orders.
 const PATH_QUERY_OR_FRAGMENT = /(^|[\s"'(])(\/[^\s?#"'<>]*)[?#][^\s"'<>]*/g;
+// The login callback (D-120), shop.<shop ID>.app://callback?code=…&state=…, removed whole: its
+// scheme names the shop and its query holds the authorization code.
+const LOGIN_CALLBACK = /\bshop\.\d{1,20}\.app:\/\/[^\s"'<>]*/gi;
+// Any other app scheme's query or fragment, as for https above.
+const APP_SCHEME_QUERY_OR_FRAGMENT = /\b([a-z][a-z0-9+.-]*:\/\/[^\s?#"'<>]*)[?#][^\s"'<>]*/gi;
 const BEARER = /\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi;
 const JWT = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
 // Shopify's secret tokens carry a prefix such as shpat_ or shpss_ (see src/config/store.ts).
 const SHOPIFY_SECRET = /\bshp[a-z]{2}_[A-Za-z0-9]+/gi;
+// Shopify's customer account tokens. Shopify's docs name no prefix (checked 13 October 2026), so
+// the shc…_ form is covered by shape too; the tokens held in memory are also removed by value.
+const SHOPIFY_CUSTOMER_TOKEN = /\bshc[a-z]{1,4}_[A-Za-z0-9_-]+/gi;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const PERSONAL_GID =
   /gid:\/\/shopify\/(Customer|CustomerAddress|MailingAddress|Order|Checkout|Cart)\/[^\s"'<>]+/g;
@@ -52,12 +66,20 @@ function escapeRegExp(text: string): string {
 }
 
 export function scrubString(value: string, sensitive: SensitiveValues): string {
-  let text = value
+  let text = value;
+  // By value first, before a pattern can change part of a token.
+  for (const token of sensitive.customerTokens ?? []) {
+    if (token.length >= 8) text = text.split(token).join(FILTERED);
+  }
+  text = text
+    .replace(LOGIN_CALLBACK, FILTERED)
     .replace(URL_QUERY_OR_FRAGMENT, '$1')
+    .replace(APP_SCHEME_QUERY_OR_FRAGMENT, '$1')
     .replace(PATH_QUERY_OR_FRAGMENT, '$1$2')
     .replace(BEARER, `Bearer ${FILTERED}`)
     .replace(JWT, FILTERED)
     .replace(SHOPIFY_SECRET, FILTERED)
+    .replace(SHOPIFY_CUSTOMER_TOKEN, FILTERED)
     .replace(EMAIL, FILTERED)
     .replace(PERSONAL_GID, `gid://shopify/$1/${FILTERED}`);
 
@@ -65,6 +87,13 @@ export function scrubString(value: string, sensitive: SensitiveValues): string {
     text = text.replace(new RegExp(escapeRegExp(sensitive.storeDomain), 'gi'), STORE);
   }
   text = text.replace(MYSHOPIFY_HOST, STORE);
+  if (sensitive.shopId) {
+    // As a whole number only, so a longer ID that contains its digits is left alone.
+    text = text.replace(
+      new RegExp(`(^|\\D)${escapeRegExp(sensitive.shopId)}(?!\\d)`, 'g'),
+      `$1${STORE}`,
+    );
+  }
   if (sensitive.storefrontToken) {
     text = text.split(sensitive.storefrontToken).join(FILTERED);
   }

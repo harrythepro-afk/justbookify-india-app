@@ -195,3 +195,52 @@ describe('crash reporting', () => {
     });
   });
 });
+
+describe('the customer login and crash reports (P7-01, D-121)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockConfig = { dsn: DSN };
+  });
+
+  it("removes the session's tokens by value from every event and breadcrumb", () => {
+    const crashReporting = loadModule();
+    const tokens = ['opaque-access-value-one', 'opaque-refresh-value-two'];
+    crashReporting.setCustomerTokenSource(() => tokens);
+    crashReporting.startCrashReporting();
+    const { beforeSend, beforeBreadcrumb } = initOptions();
+
+    const event = beforeSend({ type: undefined, message: `failed with ${tokens[0]}` });
+    const breadcrumb = beforeBreadcrumb({ category: 'auth', message: `kept ${tokens[1]}` });
+
+    expect(event?.message).toBe('failed with [Filtered]');
+    expect(breadcrumb?.message).toBe('kept [Filtered]');
+    expect(crashReporting.getSensitiveValues().customerTokens).toEqual(tokens);
+  });
+
+  it('reads the source at send time, so a logout leaves nothing to remove', () => {
+    const crashReporting = loadModule();
+    let tokens: string[] = ['opaque-access-value-one'];
+    crashReporting.setCustomerTokenSource(() => tokens);
+    tokens = [];
+    expect(crashReporting.getSensitiveValues().customerTokens).toEqual([]);
+  });
+
+  it('reports a login problem as a warning by its code only', () => {
+    const crashReporting = loadModule();
+    crashReporting.startCrashReporting();
+
+    crashReporting.reportCustomerAccountProblem('refresh_refused');
+
+    expect(mockCaptureMessage).toHaveBeenCalledWith('Customer account: refresh_refused', 'warning');
+  });
+
+  it('sends no login report before Sentry starts', () => {
+    mockConfig = undefined;
+    const crashReporting = loadModule();
+    crashReporting.startCrashReporting();
+
+    crashReporting.reportCustomerAccountProblem('refresh_refused');
+
+    expect(mockCaptureMessage).not.toHaveBeenCalled();
+  });
+});

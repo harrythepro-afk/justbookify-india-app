@@ -46,6 +46,31 @@ const ENVIRONMENT_VARIANTS: Record<AppEnvironment, { idSuffix: string; nameSuffi
   production: { idSuffix: '', nameSuffix: '' },
 };
 
+// The shop's numeric ID names the login callback scheme, `shop.<id>.app` (Shopify requires
+// `shop.{shop_id}.*` for mobile clients; D-120). The scheme is compiled into the build, so on EAS
+// EXPO_PUBLIC_SHOP_ID is an environment variable of the build's environment; .env.local is never
+// uploaded. The same rule as SHOP_ID_PATTERN in src/config/customerAccount.ts (a test keeps them
+// in step).
+const SHOP_ID_PATTERN = /^\d{1,20}$/;
+
+/**
+ * Unset or empty means a build without login (development and staging only; the Account tab
+ * says so). A production build without it stops, as does a value that is set but is not a shop
+ * ID, rather than registering a scheme no login can return to.
+ */
+export function resolveShopId(
+  value: string | undefined,
+  appEnv: AppEnvironment,
+): string | undefined {
+  const text = value?.trim();
+  if (text === undefined || text === '') {
+    if (appEnv === 'production') throw new Error('EXPO_PUBLIC_SHOP_ID is required for production.');
+    return undefined;
+  }
+  if (!SHOP_ID_PATTERN.test(text)) throw new Error('EXPO_PUBLIC_SHOP_ID must be digits only.');
+  return text;
+}
+
 /** Unset means development, so a forgotten variable can never yield the production app ID. */
 export function resolveAppEnv(value: string | undefined): AppEnvironment {
   const requested = value ?? 'development';
@@ -62,9 +87,12 @@ export function buildConfig(
   appEnv: AppEnvironment,
   base: Partial<ExpoConfig> = {},
   googleServicesFile: string = LOCAL_GOOGLE_SERVICES_FILE,
+  shopId?: string,
 ): ExpoConfig {
   const { idSuffix, nameSuffix } = ENVIRONMENT_VARIANTS[appEnv];
   const appId = `${PRODUCTION_APP_ID}${idSuffix}`;
+  // The app's own scheme first, then the login callback scheme when the shop ID is known.
+  const scheme = shopId === undefined ? appId : [appId, `shop.${shopId}.app`];
 
   return {
     ...base,
@@ -75,7 +103,7 @@ export function buildConfig(
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
-    scheme: appId,
+    scheme,
     ios: { bundleIdentifier: appId, supportsTablet: true },
     android: {
       package: appId,
@@ -119,6 +147,14 @@ export function buildConfig(
   };
 }
 
-// APP_ENV and GOOGLE_SERVICES_JSON are read when the config is evaluated, at build time.
-export default ({ config }: ConfigContext): ExpoConfig =>
-  buildConfig(resolveAppEnv(process.env.APP_ENV), config, process.env.GOOGLE_SERVICES_JSON);
+// APP_ENV, GOOGLE_SERVICES_JSON and EXPO_PUBLIC_SHOP_ID are read when the config is evaluated,
+// at build time.
+export default ({ config }: ConfigContext): ExpoConfig => {
+  const appEnv = resolveAppEnv(process.env.APP_ENV);
+  return buildConfig(
+    appEnv,
+    config,
+    process.env.GOOGLE_SERVICES_JSON,
+    resolveShopId(process.env.EXPO_PUBLIC_SHOP_ID, appEnv),
+  );
+};

@@ -1,20 +1,50 @@
 import * as Sentry from '@sentry/react-native';
 
-import { getAppEnvironment, getCrashReportingConfig, getStoreConfig } from '@/config';
+import {
+  getAppEnvironment,
+  getCrashReportingConfig,
+  getCustomerAccountConfig,
+  getStoreConfig,
+} from '@/config';
 
 import { scrubBreadcrumb, scrubEvent, type SensitiveValues } from './scrub';
 
 let started = false;
 
+let customerTokenSource: () => readonly string[] = () => [];
+
+/**
+ * The customer's tokens held in memory (D-121), so the scrubber removes them by value as well as
+ * by shape. Set by `src/customerAccount/session.ts`; this module never imports it, so there is
+ * no import cycle.
+ */
+export function setCustomerTokenSource(source: () => readonly string[]): void {
+  customerTokenSource = source;
+}
+
+function shopIdOrUndefined(): string | undefined {
+  try {
+    return getCustomerAccountConfig().shopId;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The store's own values, when configured, so the scrubber can remove them by value too. */
-function getSensitiveValues(): SensitiveValues {
+export function getSensitiveValues(): SensitiveValues {
+  let values: SensitiveValues = {};
   try {
     const { storeDomain, storefrontAccessToken } = getStoreConfig();
-    return { storeDomain, storefrontToken: storefrontAccessToken };
+    values = { storeDomain, storefrontToken: storefrontAccessToken };
   } catch {
     // An unconfigured build still scrubs by pattern.
-    return {};
   }
+  const shopId = shopIdOrUndefined();
+  return {
+    ...values,
+    ...(shopId === undefined ? {} : { shopId }),
+    customerTokens: customerTokenSource(),
+  };
 }
 
 /**
@@ -100,6 +130,16 @@ export function reportStorefrontProblem(code: string, operationName: string): vo
 export function reportUnexpectedDataError(code: string): void {
   if (!started) return;
   Sentry.captureMessage(`Data layer: unexpected ${code}`, 'error');
+}
+
+/**
+ * A login, refresh, storage or logout problem (D-121, D-122). `code` is one of the codes made in
+ * `src/customerAccount/` (for example `refresh_refused` or `exchange_oauth_invalid_client`):
+ * never a token, a URL, Shopify's text or the customer's email.
+ */
+export function reportCustomerAccountProblem(code: string): void {
+  if (!started) return;
+  Sentry.captureMessage(`Customer account: ${code}`, 'warning');
 }
 
 /** Development builds only: sends one handled error, so the owner can see it arrive. */

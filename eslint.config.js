@@ -52,7 +52,21 @@ const SCREEN_PATTERNS = [
 ];
 
 const FETCH_MESSAGE =
-  'Only src/shopify/client.ts calls the network (D-056). Use storefrontQuery or storefrontMutation.';
+  'Only src/shopify/client.ts and src/customerAccount/oauthHttp.ts call the network (D-056, D-119). Use storefrontQuery, storefrontMutation or src/customerAccount/session.ts.';
+
+// The customer's login (P7-01). Tokens reach secure storage only through tokenStorage.ts (and
+// the analytics consent through consentStorage.ts, D-052); the login library and the browser it
+// opens are used only in src/customerAccount/ (D-119, D-121). The core rule is used, so these
+// blocks do not replace the TypeScript rule's options above.
+const SECURE_STORE_PATH = {
+  name: 'expo-secure-store',
+  message:
+    'Only src/customerAccount/tokenStorage.ts and src/analytics/consentStorage.ts use secure storage (D-052, D-121).',
+};
+const LOGIN_LIBRARY_PATHS = ['expo-auth-session', 'expo-web-browser'].map((name) => ({
+  name,
+  message: 'Login is used through src/customerAccount/session.ts only (D-119).',
+}));
 
 const FETCH_PROPERTIES = [
   { object: 'globalThis', property: 'fetch', message: FETCH_MESSAGE },
@@ -101,7 +115,7 @@ module.exports = defineConfig([
   },
   {
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/shopify/client.ts'],
+    ignores: ['src/shopify/client.ts', 'src/customerAccount/oauthHttp.ts'],
     rules: {
       'no-restricted-globals': ['error', { name: 'fetch', message: FETCH_MESSAGE }],
       'no-restricted-properties': ['error', ...FETCH_PROPERTIES, ...ROUTER_PROPERTIES],
@@ -139,6 +153,23 @@ module.exports = defineConfig([
     rules: {
       '@typescript-eslint/no-restricted-imports': ['error', { paths: TANSTACK_PATHS }],
     },
+  },
+  {
+    // Secure storage and the login library, outside their own files (P7-01).
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/customerAccount/**', 'src/analytics/consentStorage.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: [SECURE_STORE_PATH, ...LOGIN_LIBRARY_PATHS] }],
+    },
+  },
+  {
+    files: ['src/customerAccount/**/*.{ts,tsx}'],
+    ignores: ['src/customerAccount/tokenStorage.ts'],
+    rules: { 'no-restricted-imports': ['error', { paths: [SECURE_STORE_PATH] }] },
+  },
+  {
+    files: ['src/analytics/consentStorage.ts'],
+    rules: { 'no-restricted-imports': ['error', { paths: LOGIN_LIBRARY_PATHS }] },
   },
   {
     // Screens and components: hooks, error types and the provider only.

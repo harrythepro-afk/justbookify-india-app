@@ -6,6 +6,11 @@ import type { AnalyticsConsentState } from '@/analytics/consent';
 import type { AnalyticsToken } from '@/analytics/ids';
 import HomeScreen from '@/app/(tabs)/index';
 import { HOME_CONTENT } from '@/config';
+import type {
+  CustomerSessionState,
+  DevelopmentSessionInfo,
+  RefreshOutcome,
+} from '@/customerAccount/session';
 import type { FeatureFlagState } from '@/featureFlags/session';
 import { toBookCard, type BookCard } from '@/shopify/bookCard';
 import type { CollectionBooksPage } from '@/shopify/catalogue';
@@ -34,6 +39,20 @@ jest.mock('@/crashReporting/sentry', () => ({
 
 let mockFlagState: FeatureFlagState = { status: 'not ready' };
 let mockConsent: AnalyticsConsentState = { consent: 'loading', busy: false, saveFailed: false };
+
+// Home's development tools show the login state (P7-01); the session itself is tested on its own.
+let mockCustomerSession: CustomerSessionState = {
+  status: 'signedOut',
+  notice: 'none',
+  loggingIn: false,
+};
+let mockDevelopmentInfo: DevelopmentSessionInfo | undefined;
+const mockRefreshSession = jest.fn<Promise<RefreshOutcome>, []>();
+jest.mock('@/customerAccount/session', () => ({
+  useCustomerSession: () => mockCustomerSession,
+  getDevelopmentSessionInfo: () => mockDevelopmentInfo,
+  refreshSession: () => mockRefreshSession(),
+}));
 
 jest.mock('@/analytics/consent', () => ({
   useAnalyticsConsent: () => mockConsent,
@@ -182,6 +201,8 @@ beforeEach(() => {
   mockCrashReportingOn = true;
   mockFlagState = { status: 'not ready' };
   mockConsent = { consent: 'loading', busy: false, saveFailed: false };
+  mockCustomerSession = { status: 'signedOut', notice: 'none', loggingIn: false };
+  mockDevelopmentInfo = undefined;
   jest.clearAllMocks();
   mockFetchHandles.mockReset().mockResolvedValue(DEV_STORE_HANDLES);
   mockFetchPage.mockReset().mockResolvedValue(arrivals(5));
@@ -700,4 +721,61 @@ it('has a search button named "Search", at least 44 points square, that opens se
   expect(style.minHeight).toBeGreaterThanOrEqual(44);
   await fireEvent.press(button);
   expect(mockPush).toHaveBeenCalledWith('/search');
+});
+
+describe('HomeScreen development tools: login (P7-01)', () => {
+  const SIGNED_IN_INFO: DevelopmentSessionInfo = {
+    expiresInMinutes: 59,
+    lengths: { accessToken: 120, refreshToken: 140, idToken: 900, total: 1210, chunks: 1 },
+  };
+
+  it('shows the login state, and no refresh button, when signed out', async () => {
+    await renderHome();
+
+    expect(screen.getByText('Login: signedOut')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Test token refresh' })).not.toBeOnTheScreen();
+  });
+
+  it("shows the token's expiry and lengths when signed in, never the email", async () => {
+    mockCustomerSession = { status: 'signedIn', email: 'reader@example.com' };
+    mockDevelopmentInfo = SIGNED_IN_INFO;
+
+    await renderHome();
+
+    expect(screen.getByText('Login: signedIn')).toBeOnTheScreen();
+    expect(screen.getByText('Access token expires in 59 min')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Token lengths (characters): access 120, refresh 140, ID 900; stored 1210 in 1 chunk',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(/reader@example\.com/)).not.toBeOnTheScreen();
+  });
+
+  it.each([
+    ['refreshed', /^Token refresh test: refreshed at \d\d:\d\d:\d\d$/],
+    ['unavailable', /^Token refresh test: unavailable \(still logged in\) at /],
+    ['refused', /^Token refresh test: refused by Shopify \(logged out\) at /],
+  ] as const)('runs a refresh on "Test token refresh" and says %s', async (outcome, line) => {
+    mockCustomerSession = { status: 'signedIn', email: 'reader@example.com' };
+    mockDevelopmentInfo = SIGNED_IN_INFO;
+    mockRefreshSession.mockResolvedValue(outcome);
+
+    await renderHome();
+    await fireEvent.press(screen.getByRole('button', { name: 'Test token refresh' }));
+
+    expect(mockRefreshSession).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(line)).toBeOnTheScreen();
+  });
+
+  it.each(['staging', 'production'])('shows no login line on a %s build', async (env) => {
+    mockAppEnv = env;
+    mockCustomerSession = { status: 'signedIn', email: 'reader@example.com' };
+    mockDevelopmentInfo = SIGNED_IN_INFO;
+
+    await renderHome();
+
+    expect(screen.queryByText(/^Login:|^Token lengths|^Access token/)).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Test token refresh' })).not.toBeOnTheScreen();
+  });
 });
