@@ -1,6 +1,6 @@
-# Next task (proposal): P8-01, the cart
+# Next task (proposal): P8-02, the delivery fee hint and the pincode check
 
-Status: **in progress** on branch `p8-01-cart`; plan accepted by the owner and the architect on 13 October 2026 (answers below, in `CURRENT_STATUS.md`). P7-03 (the analytics consent request after a login, the login events; D-129 to D-132) is merged (`b5ce914`, PR #27), so **Phase 7 is done** (`ROADMAP.md`). P7-02 is merged (`bf63b65`, PR #26).
+Status: proposal. P8-01 (the cart: "Add to Cart", the Cart tab, the order cap, the cart events; D-133 to D-139) is on branch `p8-01-cart`; see `CURRENT_STATUS.md`. P8-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P8-01 as merged** (in this file and `CURRENT_STATUS.md`). P7-03 is merged (`b5ce914`, PR #27); Phase 7 is done.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -38,46 +38,47 @@ Status: **in progress** on branch `p8-01-cart`; plan accepted by the owner and t
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P8-01 (proposed) | The cart on Shopify: "Add to Cart" on the book card and the book page, the Cart tab, the order cap (R2), the cart events | |
-| P8-02 (later) | The delivery fee hint (R4) and the pincode check (R3) in the cart, before checkout | |
+| P8-01 (branch `p8-01-cart`) | The cart on Shopify: "Add to Cart" ("In cart") on the book card and the book page, one copy per book, the Cart tab with its count, the order cap (R2: under the cap, checked against Shopify's subtotal), a guest cart forgotten at logout, rented-out books in the cart, the cart events; the development preview removed | D-133 to D-139 |
+| P8-02 (proposed) | The delivery fee hint (R4) and the pincode check (R3) in the cart, before checkout | |
 
-## Goal of P8-01
+## Goal of P8-02
 
-A customer adds books to a cart and sees it on the Cart tab, with the order cap (R2) enforced before checkout. Shopify holds the cart (Storefront Cart API); the app keeps only the cart's ID on the phone (`ARCHITECTURE.md`, "Checkout flow", step 1). Checkout itself is Phase 9.
+Before checkout (Phase 9), the cart shows what delivery is likely to cost (R4) and checks that Shopify can deliver to the customer's pincode (R3), so the customer learns both on the Cart tab, not at Shopify's checkout. Every figure is a hint: checkout sets the final amount (D-024 as corrected by D-031).
 
 ## Proposed scope
 
-1. **The cart on Shopify:** named, typed Storefront operations (`cartCreate`, `cartLinesAdd`, `cartLinesRemove`, the `cart` query), through the existing client and cache (D-054 to D-063). Mutations are never retried (D-057) and never queued offline (D-064, D-065). The cart's ID is kept in secure storage (D-052), under its own key.
-2. **"Add to Cart"** on the book card and the book page for a book that can be ordered (R8); D-081 ends for this button. A rented-out book keeps its badge and shows no cart button until notify-me is built.
-3. **The Cart tab:** each book (cover, title, rental price), "Remove", the subtotal from Shopify's `cost.subtotalAmount`, an empty state, and the existing offline and error states.
-4. **The order cap (R2)** from store configuration (`src/config/`): adding a book that would take the subtotal past the cap is refused with a message; the Cart tab says how much room is left.
-5. **Events under consent (`ANALYTICS.md`):** `select_book` and `remove_book` (`product_id`, `cart_size`), `view_cart` (`book_count`, `cart_value`), `order_cap_reached` (`cart_value`).
-6. **The development-only book card preview** (D-074, D-088) is removed once customer screens draw the card's button, if the owner agrees.
-7. **Tests, docs and a USB phone check** on the development store only: no checkout and no order.
+1. **The delivery fee hint (R4)** on the Cart tab, under the subtotal, from store configuration (`shippingFeePrepaid` ₹75, `shippingFeeCod` ₹125, `freeDeliveryThreshold` ₹200, and a new value for the automatic discount, ₹75 off either rate from ₹200; D-031): prepaid delivery ₹75 under ₹200 and free from ₹200; cash on delivery ₹125 under ₹200 and ₹50 from ₹200. Counted on the subtotal the app counts (D-134), so a rented-out book never lowers or raises the hint.
+2. **The free-delivery hint:** under ₹200, how much more makes prepaid delivery free ("Add books worth ₹X more for free delivery." or the owner's wording), never suggesting more than the order cap allows.
+3. **The pincode check (R3)** on the Cart tab: a six-digit field, checked against the configured prefix ranges (`deliveryPincodeRanges`: 50 to 53, 56 to 69); a clear message when the store does not deliver there. The pincode is personal data: never logged, sent to analytics or reported, and not stored unless the owner decides otherwise.
+4. **Events, if the owner wants any:** `ANALYTICS.md` lists none for the hint or the pincode. A pincode is never sent.
+5. **Tests, docs and a USB phone check** on the development store: no checkout and no order.
 
 ## Questions for the owner and the architect
 
-1. **One copy per book?** Proposed: each book at most once in the cart; a book already in it shows "In cart" instead of "Add to Cart".
-2. **The cap's boundary and wording (R2):** `PRODUCT_REQUIREMENTS.md` says the subtotal must stay *under* ₹500, but the SMART rule's checkout message says "₹500 or less" (P3-02: a ₹490 subtotal was accepted). Is a subtotal of exactly ₹500 allowed? What should the app's message say?
-3. **A cart while signed out:** proposed yes, as a guest cart; the customer's identity is attached at checkout in Phase 9 (`SHOPIFY_INTEGRATION.md`: authenticated carts carry the Customer Account API token).
-4. **The cart across launches and at logout:** proposed: the cart ID is kept across launches, and "Log out" forgets it (a shared phone does not inherit another person's cart). Agreed?
-5. **A book that becomes rented out while in the cart:** proposed: the Cart tab shows it as "Rented Out" with "Remove", it does not count towards the subtotal shown, and checkout (Phase 9) is not offered until it is removed; `book_unavailable_shown` with `stage` `cart`.
-6. **After "Add to Cart":** stay on the screen with a short confirmation on the button (proposed), or open the Cart tab?
-7. **The phone check over USB** (proposed), on the development store, adding and removing books only.
+1. **Which rates to show:** both prepaid and cash on delivery, or prepaid only with a note that cash on delivery costs more?
+2. **Wording** for the fee hint, the free-delivery hint and the pincode messages (drafts at plan review).
+3. **Keep the pincode** between launches (secure storage, cleared at logout), or ask each time? It is personal data.
+4. **Where the pincode check sits:** on the Cart tab always, or only once checkout exists (Phase 9 opens checkout only after a pincode that passes)?
+5. **A cart over ₹500 with cash on delivery:** ACOD offers cash on delivery only up to a cart total of ₹500, and the cap keeps the subtotal under ₹500, but the total with delivery can pass ₹500 (for example ₹460 + ₹50). Should the hint say cash on delivery may not be offered then?
+6. **The phone check over USB**, adding books and typing test pincodes only (the test words in the plan, such as 560001 and 400001).
 
-## What P8-01 needs from the owner
+## What P8-02 needs from the owner
 
 - The answers above.
-- Nothing new on the development store: its 40 sample books (₹34 to ₹99) can reach the cap.
+- A new store configuration value for the ₹75 automatic shipping discount (an `EXPO_PUBLIC_` value in `.env.local`, nothing secret), unless the owner prefers it fixed in code.
 
 ## Out of scope
 
 - Checkout, the cart's buyer identity and order confirmation (Phase 9).
-- The delivery fee hint (R4) and the pincode check (R3): P8-02.
-- Notify-me (R8) and the books to be collected at delivery (R5, which needs Phase 11's books at home).
+- Notify-me (R8) and the books to be collected at delivery (R5, Phase 11).
+- Reading Shopify's real shipping rates before checkout (the Storefront API gives delivery options only for a cart with a buyer's address; a later decision).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P8-01)
+## Follow-ups (recorded, not part of P8-02)
+
+- **The cart in Phase 9 (P8-01, D-133 to D-137):** checkout must not be offered while a rented-out book is in the cart or the counted subtotal is at or over the cap; attach the customer's identity to the guest cart at checkout; clear the cart after a completed order (`ARCHITECTURE.md`, "Checkout", step 5).
+- **A book rented out while in the cart (P8-01):** tested only, on the owner's decision (no stock change in the development store's admin). A later phone check may cover it if the owner restocks and sells out a book.
+- **Intermittent act warning (P8-01 full run):** `search.test.tsx` logged one "not wrapped in act" warning from VirtualizedList's render timer after an 80-second test, as `browse.test.tsx` did in P7-03. Not caused by the cart; watch CI.
 
 - **Release gate: analytics consent (P7-03, D-132):** the consent request is built and was checked on the phone (`CURRENT_STATUS.md`). Still open before any outside tester: the privacy policy's app section (risk 21) and **the analytics user ID**, issued by the Phase 10 backend, because the consent wording says usage is linked to the account (`TESTING.md`, item 5).
 - **Consent wording (P7-03, D-130; risk 21):** the request's wording and the Account switch's new account line are drafts approved by the owner, for the adviser's review with the privacy policy's app section.
@@ -152,7 +153,7 @@ A customer adds books to a cart and sees it on the Cart tab, with the order cap 
   - **Book page:** done in P6-05: the app shows the website's sentence only for a book that cannot be ordered (D-090).
   - **Ratings:** not on the book page (D-092). Phase 13 (reviews) reads `reviews.rating` and `reviews.rating_count`, handling a rating without a count and a malformed rating (D-071).
   - **Website cards** show no author and no stars; the app's card keeps the author (D-073).
-- **Book card preview** (D-074, D-088): kept until Phase 8, when customer screens draw the card's buttons. Since P6-05 it also holds the book page links and the description sample (D-094).
+- **Book card preview** (D-074, D-088): removed in P8-01 (D-139), once customer screens drew the card's cart button.
 - **Double tap (P6-06 phone check, fixed in PR #19, D-099):** a book card and the search button opened their screen twice on a fast double tap. One guard for every in-app open now ignores a second open within 0.5 seconds.
 - **Description tables (architect's review of PR #18):** fixed in P6-10 (D-112): each row its own line, cells joined by " · ", empty cells skipped.
 - **Development store descriptions (architect's review of PR #18):** all 42 are a single `<p>` with no `<br>` or `<strong>`, so their headings and bullets run together on the book page. No re-import now. Before the release-build check, the owner pastes full descriptions into a few books in the development admin.
