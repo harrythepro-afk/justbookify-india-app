@@ -20,6 +20,12 @@ import {
   type FeatureFlagSource,
 } from '@/config';
 import { isCrashReportingOn, sendTestError, triggerTestNativeCrash } from '@/crashReporting/sentry';
+import {
+  getDevelopmentSessionInfo,
+  refreshSession,
+  useCustomerSession,
+  type RefreshOutcome,
+} from '@/customerAccount/session';
 import { useFeatureFlags } from '@/featureFlags/session';
 import { describeReading, useNetworkLog } from '@/query/QueryProvider';
 import {
@@ -268,6 +274,7 @@ function DevelopmentTools() {
       <CrashReportingTestControls />
       <FeatureFlagStatus />
       <AnalyticsStatus />
+      <LoginStatus />
       <ConnectionStatus />
     </View>
   );
@@ -341,6 +348,59 @@ function AnalyticsStatus() {
     <Text style={styles.note}>
       Analytics: {consent === 'granted' ? 'on' : 'off'} (consent: {consent})
     </Text>
+  );
+}
+
+const REFRESH_OUTCOME_LABELS: Record<RefreshOutcome, string> = {
+  refreshed: 'refreshed',
+  refused: 'refused by Shopify (logged out)',
+  unavailable: 'unavailable (still logged in)',
+  signedOut: 'not logged in',
+};
+
+/**
+ * Development builds only (P7-01): the login state, when the access token expires, and each
+ * token's length in characters (architect's change C), never a token and never the email, so
+ * this line may be photographed; and a button that refreshes the tokens now, for the phone
+ * check's website-logout step.
+ */
+function LoginStatus() {
+  const session = useCustomerSession();
+  const [lastTest, setLastTest] = useState<string | undefined>(undefined);
+  const info = session.status === 'signedIn' ? getDevelopmentSessionInfo() : undefined;
+
+  return (
+    <>
+      <Text style={styles.note}>Login: {session.status}</Text>
+      {info !== undefined && (
+        <>
+          <Text style={styles.note}>Access token expires in {info.expiresInMinutes} min</Text>
+          <Text style={styles.note}>
+            {`Token lengths (characters): access ${info.lengths.accessToken}, refresh ${info.lengths.refreshToken}, ID ${info.lengths.idToken}; stored ${info.lengths.total} in ${info.lengths.chunks} ${info.lengths.chunks === 1 ? 'chunk' : 'chunks'}`}
+          </Text>
+        </>
+      )}
+      {session.status === 'signedIn' && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            void refreshSession().then((outcome) =>
+              setLastTest(
+                `${REFRESH_OUTCOME_LABELS[outcome]} at ${new Date().toLocaleTimeString('en-GB')}`,
+              ),
+            );
+          }}
+          style={styles.control}
+        >
+          <Text style={styles.controlText}>Test token refresh</Text>
+        </Pressable>
+      )}
+      {lastTest !== undefined && (
+        <Text accessibilityLiveRegion="polite" style={styles.note}>
+          Token refresh test: {lastTest}
+        </Text>
+      )}
+    </>
   );
 }
 
