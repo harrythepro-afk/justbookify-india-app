@@ -1,4 +1,5 @@
 import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
+import { CustomerAccountApiError } from '@/customerAccountApi/errors';
 import { StorefrontError } from '@/shopify/errors';
 
 const NO_NETWORK = new StorefrontError('no-network', { operationName: 'CollectionBooks' });
@@ -34,5 +35,23 @@ describe('showsOfflineNotice', () => {
     expect(showsOfflineNotice({ hasData: true, isOffline: false, error: NO_NETWORK })).toBe(true);
     expect(showsOfflineNotice({ hasData: false, isOffline: true, error: null })).toBe(false);
     expect(showsOfflineNotice({ hasData: true, isOffline: false, error: SERVER })).toBe(false);
+  });
+});
+
+// P7-02: the Customer Account API's error counts the same way (D-126).
+describe('a Customer Account API error', () => {
+  const CUSTOMER_NO_NETWORK = new CustomerAccountApiError('no-network', {
+    operationName: 'CustomerOrders',
+  });
+  const CUSTOMER_GRAPHQL = new CustomerAccountApiError('graphql-error', {
+    operationName: 'CustomerOrders',
+  });
+
+  it('is offline when Shopify could not be reached, and an error otherwise', () => {
+    expect(catalogueViewState({ ...BASE, error: CUSTOMER_NO_NETWORK })).toBe('offline');
+    expect(catalogueViewState({ ...BASE, error: CUSTOMER_GRAPHQL })).toBe('error');
+    expect(
+      showsOfflineNotice({ hasData: true, isOffline: false, error: CUSTOMER_NO_NETWORK }),
+    ).toBe(true);
   });
 });
