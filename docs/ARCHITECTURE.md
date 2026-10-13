@@ -153,7 +153,7 @@ Screen (src/app/, src/components/)
 
 - **Freshness presets** (`src/query/freshness.ts`, D-062): `catalogue` (default) 5 min fresh, 30 min kept; `liveStock` 30 s fresh, 5 min kept, refetched whenever a screen using it opens; `staticContent` 6 h fresh, 24 h kept; `checkout` never cached.
 - **Clearing:** `clearStorefrontCache()` (`src/shopify/cache.ts`) cancels and removes only `['storefront', …]` queries and mutations. `clearAllCaches()` (`src/query/queryClient.ts`) cancels every query in flight and empties the cache; Phase 7's logout calls it.
-- **Personal data:** each data source has its own key root and its own rule. Storefront operations select no personal field (a test enforces it); customer data (Phase 7) will be cached in memory only and cleared on logout.
+- **Personal data:** each data source has its own key root and its own rule. Storefront operations select no personal field (a test enforces it); the customer's profile and orders (P7-02, D-127) are cached in memory only under `['customer', …]` and cleared on logout.
 - **Boundary** (ESLint, D-063): TanStack only in `src/query/` and data-source `hooks/` folders; the Storefront client only from `src/shopify/`; screens and components import values only from hooks, `src/shopify/errors.ts` and the provider, and types from anywhere.
 - **Network awareness** (D-064, D-065): offline only when expo-network reports `isConnected` false with a known type; an unknown state counts as online. Queries pause offline; a mutation is never paused or queued, so offline it fails at once with `no-network`, which is never reported.
 
@@ -183,8 +183,36 @@ Refresh: 5 minutes or less left (launch, foreground, getValidAccessToken), one i
 
 - **Only `oauthHttp.ts`** in `src/customerAccount/` calls the network, **only `tokenStorage.ts`** writes tokens, and the login library and browser are used only in `src/customerAccount/` (ESLint, tested).
 - **Screens see** `{ status, email }` and the actions `login()` and `logout()`, never a token. The email comes from the ID token, in memory only.
-- **Customer Account API GraphQL** (P7-02 on) will take its token from `getValidAccessToken()`, with its own query key root, cached in memory only and cleared by `clearAllCaches()` at logout.
+- **Customer Account API GraphQL** (P7-02): see the next section.
 - **A website logout** does not log the app out (answer 3, D-122).
+
+## Customer data: Customer Account API GraphQL (P7-02)
+
+D-124 to D-128. Read only: the profile on the Account tab and the orders in My Books.
+
+```
+My Books (src/app/(tabs)/my-books.tsx)       Account tab: AccountProfile (src/components/)
+   └─ OrderList                                  │
+        └─ useCustomerOrders ─────┐   ┌────────── useCustomerProfile
+                                  │   │   src/customerAccountApi/hooks/customer.ts:
+                                  │   │   enabled only while signedIn; key root ['customer'];
+                                  │   │   the account preset (fresh 1 min, kept 30 min)
+   orders.ts / profile.ts: #graphql operations (typed from the saved 2026-04 schema, D-125),
+        mapping, the plain status table (D-128)
+   client.ts: customerAccountQuery
+        ├─ endpoint: apiEndpoint.ts reads /.well-known/customer-account-api once per launch,
+        │    keeps the URL up to /customer/api/, pins 2026-04 (D-124)
+        ├─ token: getValidAccessToken() (session.ts, D-121) as Authorization, no Bearer
+        ├─ 401: refreshSession() once, then one more try; refused → signed-out (caches
+        │    already emptied by the session); unavailable → unauthorized, still signed in
+        └─ src/graphql/transport.ts: the shared attempt, timeout and retry loop (D-057, D-126),
+             also used by src/shopify/client.ts
+   Errors: CustomerAccountApiError, reported by code from the query cache (D-061)
+"Log out" or a refused refresh: clearAllCaches() empties ['customer', …]
+```
+
+- **Boundaries** (ESLint, D-126): `fetch` only in the transport and `oauthHttp.ts`; the transport only from the two clients; the Customer Account API client only inside `src/customerAccountApi/`; screens and components import only its `hooks/` and `errors`.
+- **Code generation:** `codegen.ts` has a Storefront project and a Customer project, each reading its saved schema; `npm run schema:update:customer` takes the schema from Shopify's `@shopify/hydrogen-react` package for one exact version (D-125).
 
 ## Built for a second country
 
