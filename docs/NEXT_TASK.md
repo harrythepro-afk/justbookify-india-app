@@ -1,6 +1,6 @@
-# Next task (proposal): P7-01, login with the Customer Account API
+# Next task: P7-01, login with the Customer Account API
 
-Status: proposal. P6-11 (the wanted list, the last Phase 6 task; D-115 to D-118) is on branch `p6-11-wanted-list`, PR #24, phone check passed; see `CURRENT_STATUS.md`. P7-01 starts when the owner starts it, after P6-11's pull request is merged. **Its first commit records P6-11 as merged** (in this file, `CURRENT_STATUS.md`, and Phase 6 as done in `ROADMAP.md`). P6-10 is merged (`ad12f44`, PR #23).
+Status: **in progress** on branch `p7-01-login` (plan accepted by the owner on 13 October 2026). P6-11 (the wanted list, the last Phase 6 task; D-115 to D-118) is merged (`7c37841`, PR #24), so **Phase 6 is done** (`ROADMAP.md`). P6-10 is merged (`ad12f44`, PR #23).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -10,7 +10,7 @@ Status: proposal. P6-11 (the wanted list, the last Phase 6 task; D-115 to D-118)
 | P5-02 (done, ac714e8) | One app-wide TanStack Query cache, in memory only: freshness presets, error reporting in one place, foreground refetch, `clearStorefrontCache()` and `clearAllCaches()`, hooks-only boundary enforced by ESLint | D-061 to D-063 |
 | P5-03 (done, 6bb14f2) | Network awareness with `expo-network` (queries pause offline, mutations never queue), a development APK built for `arm64-v8a` only (95.1 MB, was 246 MB), and local debug builds as a fallback | D-064 to D-067 |
 
-## Phase 6: catalogue, search, filtering (complete once P6-11 is merged)
+## Phase 6: catalogue, search, filtering (complete)
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
@@ -24,13 +24,13 @@ Status: proposal. P6-11 (the wanted list, the last Phase 6 task; D-115 to D-118)
 | P6-08 (done, c757ff2) | The Price filter ("All prices", then up to ₹34, ₹49, ₹74; a maximum only; store configuration, labels in the store's currency format) on Browse and the collection screen, not on search; one filter row that scrolls sideways with "Clear" pinned at its right edge; the CI act warnings fixed in the test setup | D-104 to D-106 |
 | P6-09 (done, ac0a9fd) | The catalogue usage events under consent: `view_collection` (collection screen, a group chosen on Browse), `view_book`, `filter_applied` (codes only, the customer's own changes), `search` (2 seconds on screen, the search key or a book opened; length, count and the store's own catalogue item matched, never the term); the guard's dependent parameters | D-107 to D-110 |
 | P6-10 (done, ad12f44) | The last Phase 6 task: the offline question closed (queries keep pausing, D-082's safety net), description tables (cells joined by " · "), tappable genre chips (all books with that genre, pushed on the book page), "Popular authors" on Home | D-111 to D-114 |
-| P6-11 (branch `p6-11-wanted-list`, PR #24) | The wanted list: one JSON Remote Config parameter of names, codes made by the app, validated and frozen per launch; a search that finds no books with "Available now" off and matches nothing in the catalogue records the listed name's code (`wanted`); phone check passed | D-115 to D-118 |
+| P6-11 (done, 7c37841) | The wanted list: one JSON Remote Config parameter of names, codes made by the app, validated and frozen per launch; a search that finds no books with "Available now" off and matches nothing in the catalogue records the listed name's code (`wanted`); phone check passed | D-115 to D-118 |
 
 ## Phase 7: login and account
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P7-01 (proposed) | Login and logout through the Customer Account API on the development store: OAuth 2.0 with PKCE, state and nonce, in the system browser; tokens in Keystore-backed storage only; refresh; logout clears every cache; the Account tab shows signed in or out | |
+| P7-01 (in progress, branch `p7-01-login`) | Login and logout through the Customer Account API on the development store: OAuth 2.0 with PKCE, state and nonce, in the system browser; tokens in Keystore-backed storage only; refresh; logout clears every cache; the Account tab shows signed in or out | |
 | P7-02 (later) | The customer's profile and orders (read only), early check 3 (a guest order from the website appears after login with the same email) | |
 | P7-03 (later) | The analytics consent request at the owner's chosen placement (D-048), and the analytics user ID after login (D-050); a release gate | |
 
@@ -55,12 +55,14 @@ A customer can log in with the store's own customer account (emailed code, D-005
 3. **A decision on the login library:** `expo-auth-session` with `expo-web-browser` (Expo's own, follows the SDK) or `react-native-app-auth` (AppAuth). Claude proposes one with the reasons in the plan; it needs a `DECISIONS.md` entry (`CLAUDE.md` rule 6) and, being native, a new development build on EAS.
 4. **The consent placement** (D-048: (a) right after the first login, or (b) at a natural pause before login) can wait for P7-03, but deciding it now lets P7-01 leave the right place for it.
 
-## Questions for the owner and the architect
+## The architect's answers (13 October 2026)
 
-1. Is the Account tab the only place to log in during Phase 7 (proposed), with login at checkout added in Phase 9?
-2. After login, should the app return to the screen the customer was on (proposed), or to the Account tab?
-3. If a refresh fails (for example, the session was ended on the website), log out silently and show "Log in" (proposed), or show a message?
-4. Phone check over USB (proposed; wireless dropped during the background step in P6-09, P6-10 and P6-11)?
+1. Login only from the Account tab in Phase 7; login at checkout comes in Phase 9.
+2. After login, back to the Account tab.
+3. Logging out on the website must not log the customer out of the app (owner, 13 October 2026). The app logs out only when the customer taps "Log out", or when Shopify itself refuses the login (for example a refresh that fails because the login expired). Then: tokens deleted, `clearAllCaches()`, and the Account tab shows "Log in" with one line, "You've been logged out. Please log in again." No pop-up.
+4. Phone check over USB only.
+
+The owner accepted the plan on 13 October 2026, with the plan's recommended options: `expo-auth-session` with `expo-web-browser` and `expo-crypto`, the drafted Account tab wording, and no `login` or `logout` analytics events until P7-03. The two values (`EXPO_PUBLIC_CUSTOMER_ACCOUNT_CLIENT_ID`, `EXPO_PUBLIC_SHOP_ID`) come from the development store's Headless channel; the owner sets them in `.env.local`, and `EXPO_PUBLIC_SHOP_ID` also as an EAS development variable, because the callback scheme is compiled into the build.
 
 ## Out of scope
 
