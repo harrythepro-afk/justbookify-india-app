@@ -15,6 +15,7 @@ const validEnv: RawStoreEnv = {
   EXPO_PUBLIC_SHIPPING_FEE_PREPAID: '4.50',
   EXPO_PUBLIC_SHIPPING_FEE_COD: '7',
   EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD: '30',
+  EXPO_PUBLIC_SHIPPING_DISCOUNT: '4.50',
   EXPO_PUBLIC_ORDER_CAP: '60',
   EXPO_PUBLIC_DELIVERY_PINCODE_RANGES: '10-13, 20',
 };
@@ -40,6 +41,7 @@ describe('parseStoreConfig', () => {
       shippingFeePrepaid: 4.5,
       shippingFeeCod: 7,
       freeDeliveryThreshold: 30,
+      shippingDiscount: 4.5,
       orderCap: 60,
       deliveryPincodeRanges: [
         { from: 10, to: 13 },
@@ -58,6 +60,7 @@ describe('parseStoreConfig', () => {
       EXPO_PUBLIC_SHIPPING_FEE_PREPAID: undefined,
       EXPO_PUBLIC_SHIPPING_FEE_COD: undefined,
       EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD: undefined,
+      EXPO_PUBLIC_SHIPPING_DISCOUNT: undefined,
       EXPO_PUBLIC_ORDER_CAP: undefined,
       EXPO_PUBLIC_DELIVERY_PINCODE_RANGES: '',
     };
@@ -82,6 +85,8 @@ describe('parseStoreConfig', () => {
     ['EXPO_PUBLIC_SHIPPING_FEE_PREPAID', '-1'],
     ['EXPO_PUBLIC_SHIPPING_FEE_COD', 'free'],
     ['EXPO_PUBLIC_FREE_DELIVERY_THRESHOLD', '1.234'],
+    ['EXPO_PUBLIC_SHIPPING_DISCOUNT', '-75'],
+    ['EXPO_PUBLIC_SHIPPING_DISCOUNT', '75 off'],
     ['EXPO_PUBLIC_ORDER_CAP', '0'],
     ['EXPO_PUBLIC_DELIVERY_PINCODE_RANGES', '13-10'],
     ['EXPO_PUBLIC_DELIVERY_PINCODE_RANGES', '1-2'],

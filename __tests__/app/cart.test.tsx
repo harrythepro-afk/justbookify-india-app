@@ -6,6 +6,7 @@ import CartScreen from '@/app/(tabs)/cart';
 import { resetCartIdForTests } from '@/shopify/cartId';
 import { StorefrontError } from '@/shopify/errors';
 import { resetCartChangesForTests } from '@/shopify/hooks/cart';
+import { forgetPincode } from '@/shopify/pincode';
 
 import { CART_ID, cartFields, cartLine, type CartLineNode } from '../helpers/cart';
 import { createTestQueryClient, tearDownQueryClient } from '../helpers/queryClient';
@@ -15,9 +16,25 @@ import { withScreen } from '../helpers/screen';
 // cold Jest cache (CI). Touching it here loads it with the file, before any test's time limit.
 void ScrollView;
 
+// The India store's values (D-031, D-134); a test may change the delivery values (P8-02).
+const MOCK_STORE = {
+  currencyCode: 'INR',
+  language: 'EN',
+  country: 'IN',
+  orderCap: 500,
+  shippingFeePrepaid: 75,
+  shippingFeeCod: 125,
+  freeDeliveryThreshold: 200,
+  shippingDiscount: 75,
+  deliveryPincodeRanges: [
+    { from: 50, to: 53 },
+    { from: 56, to: 69 },
+  ],
+};
+let mockStoreConfig = { ...MOCK_STORE };
 jest.mock('@/config', () => ({
   ...jest.requireActual('@/config'),
-  getStoreConfig: () => ({ currencyCode: 'INR', language: 'EN', country: 'IN', orderCap: 500 }),
+  getStoreConfig: () => mockStoreConfig,
 }));
 
 const mockStore = new Map<string, string>();
@@ -92,10 +109,12 @@ let mockReadError: Error | undefined;
 let mockRemoveError: Error | undefined;
 let mockGone = false;
 const mockOperations: string[] = [];
+const mockShopifyVariables: unknown[] = [];
 
 function mockShopify(document: string, options?: { variables?: Record<string, unknown> }) {
   const operation = /(?:query|mutation)\s+(\w+)/.exec(document)?.[1] ?? '';
   mockOperations.push(operation);
+  mockShopifyVariables.push(options?.variables);
   if (operation === 'CartRead') {
     if (mockReadError !== undefined) return Promise.reject(mockReadError);
     if (mockGone) return Promise.resolve({ cart: null });
@@ -126,6 +145,10 @@ beforeEach(() => {
   mockStore.clear();
   mockFocus.length = 0;
   mockOperations.length = 0;
+  mockShopifyVariables.length = 0;
+  mockStoreConfig = { ...MOCK_STORE };
+  // The pincode lives in memory for the app's session (D-142); each test starts without one.
+  forgetPincode();
   mockLines = [];
   mockSubtotal = undefined;
   mockReadError = undefined;
@@ -386,6 +409,245 @@ describe('loading, offline and error states', () => {
 
     expect(await screen.findByText("You're offline. Showing saved books.")).toBeOnTheScreen();
     expect(screen.getByText('Matilda')).toBeOnTheScreen();
+  });
+});
+
+describe('the delivery fee hint (R4, P8-02, D-141)', () => {
+  it('under ₹200 (₹199): delivery ₹75, the cash-on-delivery line, the note and ₹1 more for free delivery', async () => {
+    withCart([cartLine({ price: '99.0' }), cartLine({ price: '100.0' })]);
+    await renderCart();
+
+    expect(await screen.findByTestId('cart-delivery')).toHaveTextContent('Delivery: ₹75');
+    expect(screen.getByTestId('cart-delivery-cod')).toHaveTextContent(
+      'Cash on delivery: ₹125, or ₹50 from ₹200',
+    );
+    expect(screen.getByText('Final delivery charges are shown at checkout.')).toBeOnTheScreen();
+    expect(screen.getByTestId('cart-free-delivery')).toHaveTextContent(
+      'Add books worth ₹1 more for free delivery.',
+    );
+  });
+
+  it('from ₹200: delivery free, cash on delivery ₹50 and no free-delivery hint', async () => {
+    withCart([cartLine({ price: '100.0' }), cartLine({ price: '100.0' })]);
+    await renderCart();
+
+    expect(await screen.findByTestId('cart-delivery')).toHaveTextContent('Delivery: Free');
+    expect(screen.getByTestId('cart-delivery-cod')).toHaveTextContent('Cash on delivery: ₹50');
+    expect(screen.getByText('Final delivery charges are shown at checkout.')).toBeOnTheScreen();
+    expect(screen.queryByTestId('cart-free-delivery')).not.toBeOnTheScreen();
+  });
+
+  it('counts only the books that can be ordered (D-134), so a rented-out book changes nothing', async () => {
+    withCart([cartLine({ price: '150.0' }), cartLine({ price: '74.0', availableForSale: false })]);
+    await renderCart();
+
+    expect(await screen.findByTestId('cart-delivery')).toHaveTextContent('Delivery: ₹75');
+    expect(screen.getByTestId('cart-free-delivery')).toHaveTextContent(
+      'Add books worth ₹50 more for free delivery.',
+    );
+  });
+
+  it('never suggests books that would take the cart to the order cap (R2)', async () => {
+    // A configuration whose threshold is the cap: ₹200 more on ₹300 would reach ₹500.
+    mockStoreConfig = { ...MOCK_STORE, freeDeliveryThreshold: 500 };
+    withCart([cartLine({ price: '300.0' })]);
+    await renderCart();
+
+    expect(await screen.findByTestId('cart-delivery')).toHaveTextContent('Delivery: ₹75');
+    expect(screen.queryByTestId('cart-free-delivery')).not.toBeOnTheScreen();
+    expect(screen.queryByText(/for free delivery/)).not.toBeOnTheScreen();
+  });
+
+  it('reads every figure from the store configuration', async () => {
+    mockStoreConfig = {
+      ...MOCK_STORE,
+      shippingFeePrepaid: 60,
+      shippingFeeCod: 100,
+      freeDeliveryThreshold: 300,
+      shippingDiscount: 60,
+    };
+    withCart([cartLine({ price: '99.0' })]);
+    await renderCart();
+
+    expect(await screen.findByTestId('cart-delivery')).toHaveTextContent('Delivery: ₹60');
+    expect(screen.getByTestId('cart-delivery-cod')).toHaveTextContent(
+      'Cash on delivery: ₹100, or ₹40 from ₹300',
+    );
+    expect(screen.getByTestId('cart-free-delivery')).toHaveTextContent(
+      'Add books worth ₹201 more for free delivery.',
+    );
+  });
+
+  it('stays under the offline notice over a saved cart', async () => {
+    withCart([cartLine({ title: 'Matilda', price: '99.0' })]);
+    await renderCart();
+    expect(await screen.findByText('Matilda')).toBeOnTheScreen();
+
+    mockOffline = true;
+    await reopenTab();
+
+    expect(await screen.findByText("You're offline. Showing saved books.")).toBeOnTheScreen();
+    expect(screen.getByTestId('cart-delivery')).toHaveTextContent('Delivery: ₹75');
+    expect(screen.getByLabelText('Delivery pincode')).toBeOnTheScreen();
+  });
+
+  it('is not shown on an empty cart, and neither is the pincode field', async () => {
+    await renderCart();
+
+    expect(await screen.findByText('Your cart is empty.')).toBeOnTheScreen();
+    expect(screen.queryByTestId('cart-delivery')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Delivery pincode')).not.toBeOnTheScreen();
+  });
+});
+
+describe('the pincode check (R3, P8-02, D-142)', () => {
+  async function renderWithBook() {
+    withCart([cartLine({ price: '99.0' })]);
+    await renderCart();
+    return screen.findByLabelText('Delivery pincode');
+  }
+
+  async function checkPincode(text: string) {
+    await fireEvent.changeText(screen.getByLabelText('Delivery pincode'), text);
+    await fireEvent.press(screen.getByRole('button', { name: 'Check' }));
+  }
+
+  it('is an optional field with a label, a screen-reader hint and "Check"', async () => {
+    const field = await renderWithBook();
+
+    expect(screen.getByText('Delivery pincode')).toBeOnTheScreen();
+    expect(field).toHaveProp('accessibilityHint', 'Six digits');
+    expect(field).toHaveProp('keyboardType', 'number-pad');
+    expect(field).toHaveProp('maxLength', 6);
+    expect(field).toHaveDisplayValue('');
+    expect(screen.getByRole('button', { name: 'Check' })).toBeOnTheScreen();
+    expect(screen.queryByTestId('pincode-message')).not.toBeOnTheScreen();
+    // The cart is all there without a pincode.
+    expect(screen.getByTestId('cart-subtotal')).toHaveAccessibleName('Subtotal ₹99');
+  });
+
+  it('says "We deliver to 560001." and sends delivery_area_checked in_area', async () => {
+    await renderWithBook();
+    await checkPincode('560001');
+
+    expect(screen.getByTestId('pincode-message')).toHaveTextContent('We deliver to 560001.');
+    expect(screen.getByTestId('pincode-message')).toHaveProp('accessibilityLiveRegion', 'polite');
+    expect(events('delivery_area_checked')).toEqual([{ result: 'in_area' }]);
+  });
+
+  it('says the store does not deliver to 400001, with outside_area', async () => {
+    await renderWithBook();
+    await checkPincode('400001');
+
+    expect(screen.getByTestId('pincode-message')).toHaveTextContent(
+      "Sorry, we don't deliver to this pincode yet.",
+    );
+    expect(events('delivery_area_checked')).toEqual([{ result: 'outside_area' }]);
+  });
+
+  it('asks for six digits for 12345, and sends nothing', async () => {
+    await renderWithBook();
+    await checkPincode('12345');
+
+    expect(screen.getByTestId('pincode-message')).toHaveTextContent('Enter a 6-digit pincode.');
+    expect(events('delivery_area_checked')).toEqual([]);
+  });
+
+  it('asks for six digits when "Check" is pressed on an empty field', async () => {
+    await renderWithBook();
+    await fireEvent.press(screen.getByRole('button', { name: 'Check' }));
+
+    expect(screen.getByTestId('pincode-message')).toHaveTextContent('Enter a 6-digit pincode.');
+  });
+
+  it("checks with the keyboard's key too", async () => {
+    const field = await renderWithBook();
+    await fireEvent.changeText(field, '560001');
+    await fireEvent(field, 'submitEditing');
+
+    expect(screen.getByTestId('pincode-message')).toHaveTextContent('We deliver to 560001.');
+  });
+
+  it('accepts digits only', async () => {
+    const field = await renderWithBook();
+    await fireEvent.changeText(field, '56-00 0a1');
+
+    expect(field).toHaveDisplayValue('560001');
+  });
+
+  it('clears the result when the field is edited, and sends again only for a new check', async () => {
+    const field = await renderWithBook();
+    await checkPincode('560001');
+    await fireEvent.press(screen.getByRole('button', { name: 'Check' }));
+    expect(events('delivery_area_checked')).toHaveLength(1);
+
+    await fireEvent.changeText(field, '56000');
+    expect(screen.queryByTestId('pincode-message')).not.toBeOnTheScreen();
+
+    await checkPincode('400001');
+    expect(events('delivery_area_checked')).toEqual([
+      { result: 'in_area' },
+      { result: 'outside_area' },
+    ]);
+  });
+
+  it('empties the field and the message with "Clear pincode"', async () => {
+    const field = await renderWithBook();
+    expect(screen.queryByRole('button', { name: 'Clear pincode' })).not.toBeOnTheScreen();
+    await checkPincode('560001');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Clear pincode' }));
+
+    expect(field).toHaveDisplayValue('');
+    expect(screen.queryByTestId('pincode-message')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Clear pincode' })).not.toBeOnTheScreen();
+  });
+
+  it('keeps the pincode and its result when the tab is left and opened again', async () => {
+    await renderWithBook();
+    await checkPincode('560001');
+    await reopenTab();
+
+    expect(screen.getByLabelText('Delivery pincode')).toHaveDisplayValue('560001');
+    expect(screen.getByTestId('pincode-message')).toHaveTextContent('We deliver to 560001.');
+    expect(events('delivery_area_checked')).toHaveLength(1);
+  });
+
+  it('shows the result without consent, and sends nothing', async () => {
+    mockConsent = false;
+    await renderWithBook();
+    await checkPincode('560001');
+
+    expect(screen.getByTestId('pincode-message')).toHaveTextContent('We deliver to 560001.');
+    expect(mockSendEvent).not.toHaveBeenCalled();
+  });
+
+  it('never puts the pincode in an event, a log, a crash report or a Shopify request', async () => {
+    const consoleCalls = (['log', 'info', 'warn', 'error', 'debug'] as const).map((method) =>
+      jest.spyOn(console, method),
+    );
+    try {
+      const field = await renderWithBook();
+      await checkPincode('560001');
+      await fireEvent.press(screen.getByRole('button', { name: 'Clear pincode' }));
+      await checkPincode('400001');
+      await fireEvent.changeText(field, '12345');
+      await fireEvent.press(screen.getByRole('button', { name: 'Check' }));
+      await reopenTab();
+      await waitFor(() => expect(events('delivery_area_checked')).toHaveLength(2));
+
+      const sentry = jest.requireMock<Record<string, jest.Mock>>('@/crashReporting/sentry');
+      const recorded = JSON.stringify([
+        mockSendEvent.mock.calls,
+        Object.values(sentry).map((fn) => fn.mock.calls),
+        consoleCalls.map((spy) => spy.mock.calls),
+        mockOperations,
+        mockShopifyVariables,
+      ]);
+      expect(recorded).not.toMatch(/560001|400001|12345|5600|4000/);
+    } finally {
+      for (const spy of consoleCalls) spy.mockRestore();
+    }
   });
 });
 

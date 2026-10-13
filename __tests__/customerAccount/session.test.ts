@@ -15,6 +15,7 @@ import {
 } from '@/customerAccount/session';
 import { readStoredSession, writeStoredSession } from '@/customerAccount/tokenStorage';
 import { getCartIdState, loadCartId, resetCartIdForTests } from '@/shopify/cartId';
+import { editPincode, getPincodeState, submitPincode } from '@/shopify/pincode';
 
 import {
   makeIdToken,
@@ -779,6 +780,42 @@ describe('the cart at logout (P8-01)', () => {
 
     expect(getCartIdState()).toEqual({ status: 'ready', cartId: CART });
     expect(mockSecureStore.get('cart_id')).toBe(CART);
+  });
+});
+
+// P8-02, owner at plan time: a shared phone never shows another person's pincode.
+describe('the pincode at logout (P8-02)', () => {
+  const RANGES = [{ from: 56, to: 69 }];
+
+  beforeEach(async () => {
+    editPincode('560001');
+    submitPincode(RANGES);
+    await storeSession(60);
+    await startCustomerSession();
+  });
+
+  it('"Log out" forgets the pincode and its result', async () => {
+    expect(getPincodeState()).toEqual({ text: '560001', result: 'in_area' });
+
+    await logout();
+
+    expect(getPincodeState()).toEqual({ text: '', result: undefined });
+  });
+
+  it('a refused refresh forgets it too', async () => {
+    shopify.tokenAnswers = [{ status: 400, body: { error: 'invalid_grant' } }];
+
+    expect(await refreshSession()).toBe('refused');
+
+    expect(getPincodeState()).toEqual({ text: '', result: undefined });
+  });
+
+  it('a refresh Shopify cannot answer keeps it', async () => {
+    shopify.tokenAnswers = ['network'];
+
+    expect(await refreshSession()).toBe('unavailable');
+
+    expect(getPincodeState()).toEqual({ text: '560001', result: 'in_area' });
   });
 });
 
