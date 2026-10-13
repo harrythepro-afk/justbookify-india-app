@@ -53,6 +53,10 @@ jest.mock('@/customerAccountApi/hooks/customer', () => ({
 }));
 
 const mockOpenScreen = jest.fn();
+// The login labels come from the Account tab's login section, which loads the analytics layer
+// since P7-03; Firebase's native module is replaced, and these screens send no event.
+jest.mock('@/analytics/firebase', () => ({}));
+
 jest.mock('@/navigation/openGuard', () => ({
   ...jest.requireActual('@/navigation/openGuard'),
   openScreen: (...args: unknown[]) => mockOpenScreen(...args),

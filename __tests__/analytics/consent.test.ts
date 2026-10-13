@@ -35,6 +35,17 @@ jest.mock('@/analytics/firebase', () => ({
   },
 }));
 
+// The build's environment, for the development-only reset (P7-03).
+let mockAppEnv = 'development';
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    get expoConfig() {
+      return { extra: { appEnv: mockAppEnv } };
+    },
+  },
+}));
+
 jest.mock('@/crashReporting/sentry', () => ({
   reportAnalyticsProblem: (problem: string) => mockReportProblem(problem),
 }));
@@ -183,5 +194,65 @@ describe('analytics consent (D-048)', () => {
 
     expect(calls).toEqual(['collection off', 'reset', 'write denied']);
     expect(mockReportProblem).toHaveBeenCalledWith('collection off failed (analytics/unknown)');
+  });
+});
+
+// Development builds only: the phone check's way back to `not asked` (P7-03, D-131).
+describe('resetting the choice (P7-03, D-131)', () => {
+  beforeEach(() => {
+    calls.length = 0;
+    jest.clearAllMocks();
+    mockAppEnv = 'development';
+    mockRead.mockResolvedValue('granted');
+    mockWrite.mockResolvedValue();
+    mockDelete.mockResolvedValue();
+    mockOn.mockResolvedValue();
+    mockOff.mockResolvedValue();
+    mockClear.mockResolvedValue();
+  });
+
+  it('stops sending at once, then switches off, clears the data and deletes the stored value', async () => {
+    const consent = loadModule();
+    await consent.loadAnalyticsConsent();
+    calls.length = 0;
+
+    const reset = consent.resetAnalyticsConsent();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(consent.isAnalyticsConsentGranted()).toBe(false);
+    await reset;
+
+    expect(calls).toEqual(['collection off', 'reset', 'delete']);
+    expect(consent.getAnalyticsConsentState()).toEqual({
+      consent: 'not asked',
+      busy: false,
+      saveFailed: false,
+    });
+  });
+
+  it('says the reset was not saved when the stored value cannot be deleted', async () => {
+    mockDelete.mockRejectedValue(nativeError('ERR_KEY_STORE_ERROR'));
+    const consent = loadModule();
+
+    await consent.resetAnalyticsConsent();
+
+    expect(consent.getAnalyticsConsentState()).toEqual({
+      consent: 'not asked',
+      busy: false,
+      saveFailed: true,
+    });
+    expect(consent.isAnalyticsConsentGranted()).toBe(false);
+  });
+
+  it.each(['staging', 'production'])('does nothing on a %s build', async (env) => {
+    mockAppEnv = env;
+    const consent = loadModule();
+    await consent.loadAnalyticsConsent();
+    calls.length = 0;
+
+    await consent.resetAnalyticsConsent();
+
+    expect(calls).toEqual([]);
+    expect(consent.isAnalyticsConsentGranted()).toBe(true);
   });
 });

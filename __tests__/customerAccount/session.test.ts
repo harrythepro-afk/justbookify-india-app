@@ -65,6 +65,7 @@ jest.mock('expo-web-browser', () => ({
 // Secure storage in memory (the storage itself has its own tests).
 const mockSecureStore = new Map<string, string>();
 let mockSecureStoreReadFails = false;
+let mockSecureStoreWriteFails = false;
 jest.mock('expo-secure-store', () => ({
   AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 'after-first-unlock-this-device-only',
   getItemAsync: async (key: string) => {
@@ -72,6 +73,7 @@ jest.mock('expo-secure-store', () => ({
     return mockSecureStore.get(key) ?? null;
   },
   setItemAsync: async (key: string, value: string) => {
+    if (mockSecureStoreWriteFails) throw new Error('keystore unavailable');
     mockSecureStore.set(key, value);
   },
   deleteItemAsync: async (key: string) => {
@@ -158,6 +160,7 @@ beforeEach(() => {
   global.fetch = shopify.fetch as unknown as typeof fetch;
   mockSecureStore.clear();
   mockSecureStoreReadFails = false;
+  mockSecureStoreWriteFails = false;
   mockLoginConfigured = true;
   mockOpenAuthSession.mockClear();
   mockReport.mockClear();
@@ -428,6 +431,72 @@ describe('login (P7-01, D-119)', () => {
     browserSignsIn();
     await login();
     expect(getCustomerSessionState()).toEqual({ status: 'signedIn', email: 'reader@example.com' });
+  });
+});
+
+// The consent request follows only a `signedIn` outcome (P7-03, D-129).
+describe('how a login ended (P7-03)', () => {
+  it('is signedIn for a login that succeeded, and ignored for a tap while signed in', async () => {
+    await startCustomerSession();
+    await expect(login()).resolves.toBe('signedIn');
+    await expect(login()).resolves.toBe('ignored');
+  });
+
+  it.each(['cancel', 'dismiss'] as const)(
+    'is cancelled when the browser returns %s',
+    async (type) => {
+      await startCustomerSession();
+      mockBrowser = async () => ({ type });
+      await expect(login()).resolves.toBe('cancelled');
+    },
+  );
+
+  it('is failed for a refused state, a failed exchange, a failed save or a failed discovery', async () => {
+    await startCustomerSession();
+    mockBrowser = async () => ({
+      type: 'success',
+      url: callbackUrl({ code: 'test-code-1', state: 'a-state-from-elsewhere' }),
+    });
+    await expect(login()).resolves.toBe('failed');
+
+    browserSignsIn(() => ({ status: 500, body: {} }));
+    await expect(login()).resolves.toBe('failed');
+
+    browserSignsIn();
+    mockSecureStoreWriteFails = true;
+    await expect(login()).resolves.toBe('failed');
+    mockSecureStoreWriteFails = false;
+
+    shopify.discovery = {
+      ...TEST_OPENID_CONFIGURATION,
+      issuer: 'https://shopify.com/authentication/111111111111',
+    };
+    resetCustomerSessionForTests();
+    await startCustomerSession();
+    await expect(login()).resolves.toBe('failed');
+    expect(getCustomerSessionState()).toMatchObject({ status: 'signedOut' });
+  });
+
+  it('is ignored for a second tap while a login runs, and when login is not set up', async () => {
+    await startCustomerSession();
+    let finish: (() => void) | undefined;
+    mockBrowser = (url) =>
+      new Promise((resolve) => {
+        const params = authorizationParams(url);
+        shopify.tokenAnswers = [exchangeAnswer(params.nonce!)];
+        finish = () =>
+          resolve({ type: 'success', url: callbackUrl({ code: 'c', state: params.state! }) });
+      });
+    const first = login();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await expect(login()).resolves.toBe('ignored');
+    finish?.();
+    await expect(first).resolves.toBe('signedIn');
+
+    resetCustomerSessionForTests();
+    mockLoginConfigured = false;
+    await startCustomerSession();
+    await expect(login()).resolves.toBe('ignored');
   });
 });
 

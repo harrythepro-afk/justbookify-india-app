@@ -21,12 +21,24 @@ jest.mock('@/analytics/consent', () => ({
   withdrawAnalyticsConsent: () => mockWithdraw(),
 }));
 
+// The consent request after a login (P7-03); the flow with the real consent store and events is
+// in accountConsentRequest.test.tsx.
+const mockAfterLogin = jest.fn<Promise<'ask' | 'done'>, []>();
+jest.mock('@/analytics/loginConsent', () => ({
+  analyticsAfterLogin: () => mockAfterLogin(),
+  allowAfterLogin: () => Promise.resolve(true),
+  denyAfterLogin: () => Promise.resolve(true),
+}));
+const mockTrackLogout = jest.fn();
+jest.mock('@/analytics/events', () => ({ trackLogout: () => mockTrackLogout() }));
+
 // The login section (P7-01); the session itself has its own tests.
 let mockSession: CustomerSessionState = { status: 'signedOut', notice: 'none', loggingIn: false };
 const mockLogin = jest.fn();
 const mockLogout = jest.fn();
 jest.mock('@/customerAccount/session', () => ({
   useCustomerSession: () => mockSession,
+  getCustomerSessionState: () => mockSession,
   login: () => mockLogin(),
   logout: () => mockLogout(),
 }));
