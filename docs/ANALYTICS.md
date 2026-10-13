@@ -2,7 +2,7 @@
 
 Tool: Google Analytics for Firebase. No advertising SDKs in version 1.
 
-State since P4-04 (D-048 to D-053): the app records the events below through one typed module, `src/analytics/`, and **only after the customer's consent**. Collection is opt-in and off by default. The customer turns it on with the "Share app usage" switch on the Account tab. The consent request comes in Phase 7 (below). `firebase.json` keeps collection off at install (`analytics_auto_collection_enabled` false, `analytics_default_allow_analytics_storage` false). `analytics_collection_deactivated` is false, so that the app can switch collection on at runtime when the customer agrees (D-053). Automatic screen reporting stays off; screens are logged by route name.
+State since P4-04 (D-048 to D-053): the app records the events below through one typed module, `src/analytics/`, and **only after the customer's consent**. Collection is opt-in and off by default. The customer turns it on with "Allow" on the consent request, shown right after a login (P7-03, D-129), or with the "Share app usage" switch on the Account tab (below). `firebase.json` keeps collection off at install (`analytics_auto_collection_enabled` false, `analytics_default_allow_analytics_storage` false). `analytics_collection_deactivated` is false, so that the app can switch collection on at runtime when the customer agrees (D-053). Automatic screen reporting stays off; screens are logged by route name.
 
 **Permanent for all of version 1 (D-009 as amended by D-049, D-045):** these stay off:
 - the `AD_ID`, `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` permissions (blocked)
@@ -19,15 +19,17 @@ State since P4-04 (D-048 to D-053): the app records the events below through one
 - **Granting:** the choice is saved first, then collection is switched on.
 - **Withdrawing:** sending stops at once. Collection is switched off, the analytics data on the phone is reset (`resetAnalyticsData`, which also starts a new app instance ID), then `denied` is saved.
 - **Android backup is off** (D-052), so a restored phone never starts with collection on and no consent record.
-- **Account switch wording (a draft, to be reviewed by the owner's adviser with the privacy policy, risk 21):** "Share app usage. Helps us improve the app. We record which screens you open, what you do in the app and the link you installed it from. We never record your name, email, phone number or address, and the app never asks for or records a child's name or date of birth. Turning this off stops it at once and clears the usage data on this phone."
-- **Consent request: a requirement, not yet built.** It is never shown at first launch. It says that usage is linked to the customer's account (D-050). The owner chooses its placement in Phase 7:
-  - (a) right after the first login or sign-up, which never measures customers who browse without logging in; or
-  - (b) at a natural pause before login, such as adding the first book to the cart, with the account-linking line shown after login.
+- **Account switch wording (a draft, to be reviewed by the owner's adviser with the privacy policy, risk 21):** "Share app usage. Helps us improve the app. We record which screens you open, what you do in the app and the link you installed it from. When you're logged in, it's linked to your account. We never record your name, email, phone number or address, and the app never asks for or records a child's name or date of birth. Turning this off stops it at once and clears the usage data on this phone."
+- **Consent request (P7-03, D-129, D-130).** Placement (a), the owner's choice: right after a login that succeeds on the Account tab, only while the choice is `not asked`, once per login. Never at a launch, for a login restored from storage, after a cancelled or failed login, or on any other screen. In Phase 9, a first login at checkout waits for the order to be confirmed; the request never interrupts checkout.
+  - **Wording (a draft, approved by the owner, for the adviser's review with the privacy policy, risk 21):** "Help us improve the app?" / "If you allow it, we record how you use the app, such as the screens you open and the books you look at, along with basic device information, and link it to your account. We never record the words you type in search or any payment details." / "You can change this at any time on the Account tab." / [Don't allow] [Allow].
+  - "Allow" grants (saved first, then collection on); "Don't allow" denies, as the switch does; "Close" or Android's Back stores nothing and leaves `not asked`, so it shows again after a later login. Nothing is sent before "Allow" has been saved.
+  - The two answers look the same and neither is chosen in advance; tapping outside does nothing.
+  - **Development builds only (D-131):** Home's "Reset analytics choice" puts the choice back to `not asked` for phone checks.
 - **Release gate:** no build goes to an outside tester without a working consent request (`TESTING.md`, "Release gate: analytics consent").
 
 ## Analytics user ID (D-050)
 
-- **None in P4-04.** The Firebase wrapper has no user ID function.
+- **None in P4-04 or P7-03.** The Firebase wrapper has no user ID function. The Phase 10 backend issues it (D-132); the release gate "analytics consent" requires it before any outside tester, because the consent wording says usage is linked to the account.
 - **Phase 7:** after login, and only for customers who granted consent, set a stable per-customer ID. It is random or a salted one-way value, never an email, a phone number or the raw Shopify customer ID. How it is issued is designed in Phase 7.
 - Logging out or withdrawing consent clears it.
 
@@ -47,6 +49,7 @@ Event data is kept for 14 months in each Google Analytics property, with "Reset 
 - **Screens** are named by their file route with groups removed: `index`, `browse`, `cart`, `my-books`, `account`, `dev-checkout`, `dev-catalogue`, `collection/[handle]`, `book/[handle]` (P6-05). Never the address or its parameters.
 - `app_open` fires with `source` `cold_start` or `foreground`. The phases that build the other screens wire their events.
 - **Catalogue events (P6-09):** `view_collection`, `view_book`, `filter_applied` and `search` are wired (below, "Catalogue events").
+- **Login events (P7-03, D-130):** `login` and `logout` are wired, with no parameters; `sign_up` is not sent.
 - Nothing is sent under Jest, or before or without consent.
 
 ## What Firebase sends by itself once consent is granted
@@ -143,9 +146,9 @@ With the phone check's list (`["David Walliams", "Rick Riordan", "Tintin", "Harr
 | Event | Fires when | Parameters |
 | --- | --- | --- |
 | app_open | App comes to the foreground | source |
-| sign_up | First successful login for a new customer | none |
-| login | Login succeeds | none |
-| logout | Customer logs out | none |
+| sign_up | First successful login for a new customer. **Not sent:** the app cannot tell a new customer from a returning one (D-130) | none |
+| login | A login on the Account tab succeeds: at once when consent is granted; when the consent request was shown, right after "Allow" has been saved; never after "Don't allow" or "Close" (D-130) | none |
+| logout | The customer taps "Log out", before the session ends; not when Shopify ends the login (D-130) | none |
 | search | One term's results stayed on screen for 2 seconds, or at once after the search key or when a book is opened from them; once per term per visit (D-108) | term_length, result_count, match_type (including `wanted`, D-118), match_id (not with `other`) |
 | filter_applied | The customer changes a filter, "Available now" or the sort, or taps "Clear", on Browse or the collection screen (D-107) | filter_type, value |
 | view_collection | The collection screen shows its collection; an age group or series is chosen on Browse (D-107) | collection_id |

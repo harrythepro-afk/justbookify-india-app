@@ -136,10 +136,11 @@ Unit tests cover:
 ### Release gate: analytics consent (P4-04, D-048)
 
 No build goes to any tester other than the owner until:
-1. **The consent request works.** It is built in Phase 7 at the placement the owner chose. It is never shown at first launch, says that usage is linked to the customer's account, and stores Allow as `granted` and Don't allow as `denied`; closing it stores nothing.
+1. **The consent request works.** Built in P7-03 at the placement the owner chose, right after a login (D-129). It is never shown at first launch, says that usage is linked to the customer's account, and stores Allow as `granted` and Don't allow as `denied`; closing it stores nothing. Checked on the phone in P7-03 (below, "Consent request (P7-03)").
 2. **The Account switch withdraws consent at once.** Events stop in DebugView and stay stopped after a cold start.
 3. **No consent, no events.** A fresh install that has not said yes sends nothing to DebugView.
 4. **The privacy policy's app section is published** (risk 21).
+5. **The analytics user ID exists and works** (D-050, D-132; the Phase 10 backend issues it): set after login only for consenting customers, cleared at logout and at withdrawal. The consent wording says usage is linked to the account, so this must be true before any outside tester.
 
 Record the result in `CURRENT_STATUS.md`.
 
@@ -548,6 +549,28 @@ Unit tests (Shopify, the browser, `expo-crypto` and `expo-secure-store` are stan
 4. "Log out": "Log in" with no message; a cold start keeps it logged out. Observation (architect's change D): the owner taps "Log in" and says whether Shopify asked for the email and code again or signed straight in from Chrome's own session; then closes the page. A straight sign-in is a finding with a proposed fix, not built without the owner's yes.
 5. The standing background step: more than 5 minutes, no false offline notice, still logged out.
 6. The app's own log, filtered to its process: no crash, no JavaScript error; counts only of `eyJ`, `shc…_`, `code=` and `@`, which must all be 0.
+
+### Consent request (P7-03)
+
+Unit and screen tests (storage, Firebase's native calls and the login are stand-ins where named):
+
+- `__tests__/app/accountConsentRequest.test.tsx`: the real consent store, event layer and guard on the Account tab, with the login's outcome and the phone's storage replaced. The request shows **only after a successful login while the choice is `not asked`**; never at a launch (signed out, or signed in from storage), after a cancelled, failed or ignored login, or when the choice is `granted` or `denied`. "Allow" saves `granted`, then switches collection on, then sends `login` once; "Don't allow" saves `denied` and sends nothing; "Close" and Android's Back store and send nothing and leave `not asked`; a re-render does not reopen it, and it shows again after logging out and in. Nothing is sent or stored while it is open. A failed save keeps it open with the message and sends nothing; a second "Allow" that saves closes it and sends `login` once. While a choice is being saved, all three controls are disabled and a second answer or Back does nothing. Both answers have the same role and style and neither is selected; the title is a header. `login` is sent at once when the choice is already `granted`; `logout` only under consent, before the session ends.
+- `__tests__/customerAccount/session.test.ts`: how a login ended: `signedIn`, `cancelled` (cancel, dismiss), `failed` (a refused state, a failed exchange, a failed save, a failed discovery) and `ignored` (signed in, a second tap, not set up).
+- `__tests__/analytics/consent.test.ts`: the development-only reset (D-131): sending stops at once, then collection off, data reset and delete; a failed delete is reported; nothing on staging or production.
+- `__tests__/app/home.test.tsx`: Home's "Reset analytics choice" (development builds only), disabled while a change is applied.
+- Existing: `__tests__/app/account.test.tsx` gains mocks of the new imports (`loginConsent`, `trackLogout`, `getCustomerSessionState`); `__tests__/customerAccountApi/privacy.test.tsx` replaces the login-consent module, which those screens never call. No expectation was removed or loosened.
+
+**Phone check** (USB, standing permission D-095; no native change, so build 5f5c789a with JavaScript from Metro; DebugView read by the owner). With the owner's yes for this check only: `adb shell am force-stop com.justbookify.india.dev` for cold starts, and `adb shell setprop debug.firebase.analytics.app com.justbookify.india.dev` at the start and `.none.` at the end. While Shopify's login page is open in Chrome, no input and no screenshot; the owner types the email and code. The owner allowed screenshots of the Account tab while signed in for this check; the email is never written down.
+
+0. Before: "Share app usage" off on the Account tab, then Home's "Reset analytics choice"; Home shows "Analytics: off (consent: not asked)".
+1. A cold start, signed out: no request.
+2. Log in: the request shows. "Close": Home shows `not asked`; nothing in DebugView.
+3. A cold start while signed in: no request.
+4. Log out and in: the request shows again. "Don't allow": Home shows `denied`; nothing in DebugView.
+5. Log out, reset, log in, "Allow": `login`, the screen view and a few screens appear in DebugView.
+6. "Log out": `logout` appears in DebugView.
+7. The standing background step: more than 5 minutes, no false offline notice.
+8. The app's own log, filtered to its process: no crash, no JavaScript error, no token or email.
 
 ### Profile and orders (P7-02)
 
