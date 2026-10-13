@@ -1,3 +1,4 @@
+import { CustomerAccountApiError } from '@/customerAccountApi/errors';
 import { StorefrontError } from '@/shopify/errors';
 
 /**
@@ -6,9 +7,12 @@ import { StorefrontError } from '@/shopify/errors';
  */
 export type CatalogueViewState = 'ready' | 'loading' | 'offline' | 'error';
 
-/** True for a failure that means the phone could not reach Shopify at all. */
+/** True for a failure that means the phone could not reach Shopify at all (either API). */
 function isNoNetwork(error: unknown): boolean {
-  return error instanceof StorefrontError && error.kind === 'no-network';
+  return (
+    (error instanceof StorefrontError || error instanceof CustomerAccountApiError) &&
+    error.kind === 'no-network'
+  );
 }
 
 /**

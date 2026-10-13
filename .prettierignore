@@ -8,3 +8,4 @@ assets
 docs
 CLAUDE.md
 src/shopify/generated
+src/customerAccountApi/generated

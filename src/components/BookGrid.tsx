@@ -1,21 +1,17 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 
 import { BookCard } from '@/components/BookCard';
 import { openBook } from '@/components/openBook';
 import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
-import {
-  ERROR_MESSAGE,
-  NoDataState,
-  OfflineNotice,
-  ScreenMessage,
-} from '@/components/ScreenMessage';
+import { LoadMore } from '@/components/LoadMore';
+import { NoDataState, OfflineNotice, ScreenMessage } from '@/components/ScreenMessage';
 import {
   recheckNetwork,
   useIsOffline,
   type BookCard as BookCardData,
 } from '@/shopify/hooks/catalogue';
-import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
+import { colors, spacing } from '@/theme/tokens';
 
 /**
  * A list of books in two columns with "Load more" (P6-03, D-080), shared by Browse and the
@@ -140,65 +136,10 @@ function bookRenderer(onOpen: (book: BookCardData) => void) {
 
 const renderBook = bookRenderer(openBook);
 
-/** "Load more" while there is a next page. After a failed page it stays, as the retry. */
-function LoadMore({
-  hasNextPage,
-  isFetchingNextPage,
-  failed,
-  onPress,
-}: {
-  readonly hasNextPage: boolean;
-  readonly isFetchingNextPage: boolean;
-  readonly failed: boolean;
-  readonly onPress: () => void;
-}) {
-  if (!hasNextPage) return null;
-  return (
-    <>
-      {failed && !isFetchingNextPage && (
-        <Text accessibilityLiveRegion="polite" style={styles.footerMessage}>
-          {ERROR_MESSAGE}
-        </Text>
-      )}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: isFetchingNextPage }}
-        disabled={isFetchingNextPage}
-        onPress={onPress}
-        style={[styles.loadMore, isFetchingNextPage && styles.disabled]}
-      >
-        <Text style={styles.loadMoreText}>{isFetchingNextPage ? 'Loading…' : 'Load more'}</Text>
-      </Pressable>
-    </>
-  );
-}
-
 const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.sm },
   row: { alignItems: 'flex-start' },
   cell: { width: '50%', padding: spacing.sm },
-  footerMessage: {
-    marginTop: spacing.lg,
-    fontFamily: fonts.body,
-    fontSize: fontSize.body,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  loadMore: {
-    minHeight: minTouchTarget,
-    marginTop: spacing.lg,
-    marginHorizontal: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.primaryButton,
-  },
-  disabled: { opacity: 0.5 },
   emptyLoading: { paddingVertical: spacing.xl },
-  loadMoreText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: fontSize.body,
-    color: colors.onPrimaryButton,
-  },
 });

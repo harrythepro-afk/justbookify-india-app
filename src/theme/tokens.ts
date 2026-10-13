@@ -175,3 +175,6 @@ export const disabledOpacity = 0.5;
  * sample cover is 1280 by 1280 pixels, so the frame is square (measured 7 October 2026, D-077).
  */
 export const coverAspectRatio = 1;
+
+/** The width of a book's small cover in an order on My Books (P7-02). */
+export const orderCoverWidth = 56;

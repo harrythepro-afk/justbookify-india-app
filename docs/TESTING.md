@@ -549,6 +549,36 @@ Unit tests (Shopify, the browser, `expo-crypto` and `expo-secure-store` are stan
 5. The standing background step: more than 5 minutes, no false offline notice, still logged out.
 6. The app's own log, filtered to its process: no crash, no JavaScript error; counts only of `eyJ`, `shc…_`, `code=` and `@`, which must all be 0.
 
+### Profile and orders (P7-02)
+
+Unit tests (Shopify, the session and the reporters are stand-ins where named):
+
+- `__tests__/customerAccountApi/client.test.ts`: the discovered endpoint, `Authorization` with the token as it is (no `Bearer`), the caller's variables; no token or no endpoint means no request (`signed-out` when signed out, `unavailable` while still signed in); **a 401 refreshes once and tries once more with the new token; a second 401 is `unauthorized`; a refused or signed-out refresh ends in `signed-out` with no second request; an unavailable refresh is `unauthorized` and does not sign out**; a 403 does not refresh; server errors retried twice; `Retry-After` on a 429 and `THROTTLED` with 200 both retried; Shopify's codes kept, its text never; 15 seconds per attempt, 30 per call.
+- `__tests__/customerAccountApi/errors.test.ts`: what is retryable; what is reported and what is not; a configuration fault once per session per kind and status; the query cache's one reporting branch.
+- `__tests__/customerAccount/apiEndpoint.test.ts`: both URL forms keep their prefix and get the pinned version; another shop's ID, http, a query string, a fragment or a missing URL refused; one read per launch, shared; failures not kept; reported by code, never offline or after a timeout.
+- `__tests__/graphql/transport.test.ts`: the caller's error type; a deadline shared by two calls. The Storefront client's tests prove the rest of the transport, unchanged since the move (D-126).
+- `__tests__/customerAccountApi/orders.test.ts` and `profile.test.ts`: **every row of the status table (D-128)**, the latest fulfilment by date, gift cards left out, "more books", the next cursor, the date on the phone's own calendar; names joined, "Not added" values undefined, empty address lines dropped.
+- `__tests__/customerAccountApi/hooks.test.tsx`: nothing read unless signed in; the `['customer', …]` keys; the `account` preset; 20 orders, then the next page with the cursor; `clearAllCaches()` empties every customer query.
+- `__tests__/app/myBooks.test.tsx` and `__tests__/components/AccountProfile.test.tsx`: every state of both screens word for word; **no "At home" or "Returns"**; "Log in" opens the Account tab; each status label; "Load more" and its retry; "Try again" re-reads the network first; offline notices over saved data.
+- `__tests__/customerAccountApi/privacy.test.tsx`: the real transport, client, mapping, cache, hooks and both screens, with marker values for the name, email, phone, address, order number and ID, a book title and the tokens; success, Shopify errors holding every marker, server errors, each 401 outcome and logout during a read: no marker in any `console` method, any Sentry entry point or analytics, no analytics event, and nothing under `['customer']` after logout.
+- `__tests__/customerAccountApi/operations.test.ts`: the saved schema's SHA-256 (D-125); both operations valid against it, named and read only; only the fields the screens show.
+- `__tests__/customerAccountApi/lintGuards.test.ts`: the transport, client, operation and screen boundaries (D-126).
+- Existing: `__tests__/app/account.test.tsx` gains a mock of the new hooks; `catalogueViewState.test.ts` and `freshness.test.ts` gain a case each.
+
+`npm run check:dev-store` also checks that the Customer Account API document's GraphQL URL has a shape the app accepts for the configured shop, and prints only its form.
+
+**Early check 3 and the phone check** (USB, standing permission D-095; no native change, so build 5f5c789a with JavaScript from Metro):
+
+0. Before the check, Claude asks the owner to place one guest order on the development store's website: logged out, with the test customer's email, cash on delivery. The test customer has a made-up name, phone and address. Claude never places or touches an order.
+1. Signed out, My Books shows "Log in to see your orders." and "Log in"; the tap opens the Account tab with "Log in".
+2. "Log in": Shopify's page opens in Chrome; no input and no screenshot while it is open; the owner types the email and code.
+3. Account shows "Your details": name, email, phone, default address. **The owner allowed screenshots of the Account tab while signed in for this check** (13 October 2026); the email is never written down. The owner confirms the values.
+4. My Books shows the guest order: number, date, "Order placed", the book's cover and title. **Early check 3 passes when it appears.**
+5. A cold start (`am force-stop`, the owner's yes for this check only) keeps both.
+6. The standing background step on My Books, signed in: more than 5 minutes, no false offline notice, the orders still there.
+7. "Log out" on the Account tab: My Books asks to log in again; Account shows "Log in" and no details.
+8. The app's own log, filtered to its process: no crash, no JavaScript error; no email-shaped string except Sentry's DSN line; no `eyJ`, `shc…_`, `gid://shopify/Customer` or `gid://shopify/Order`, the order number or the made-up name.
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).
@@ -601,7 +631,7 @@ The checks in `SHOPIFY_INTEGRATION.md` each run before anything is built on thei
 | --- | --- |
 | 1a (redirect to Razorpay and back) and 1b (hand-off to a real UPI app) | Both at the owner-approved launch rehearsal in Phase 19, on the live store, with one small real order (D-033). Razorpay cannot be installed on the development store, whose business entity is in Bahrain, and UPI Intent works only in Razorpay live mode |
 | 2 (cash on delivery and checkout rules) | Passed on Android in Phase 3 (P3-02). iPhone side in Phase 9 (D-036) |
-| 3 (guest order after login) | Phase 7, login and account (D-034, D-035) |
+| 3 (guest order after login) | **Passed on 13 October 2026** (P7-02 phone check, development store; `SHOPIFY_INTEGRATION.md`) |
 | 4 (return through the Admin API) | Phase 10, backend foundation (D-034, D-035) |
 | 5 (links open the app) | Phase 12, notifications and deep links (D-034, D-035, risk 17) |
 | 6 (Judge.me reviews) | Phase 13, reviews (D-034, D-035) |

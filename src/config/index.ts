@@ -58,7 +58,11 @@ export {
   type SearchSort,
   type SearchSortOption,
 } from './search';
-export { STOREFRONT_API_VERSION, storefrontEndpoint } from './shopifyApi';
+export {
+  CUSTOMER_ACCOUNT_API_VERSION,
+  STOREFRONT_API_VERSION,
+  storefrontEndpoint,
+} from './shopifyApi';
 export {
   getStoreConfig,
   getStoreConfigStatus,

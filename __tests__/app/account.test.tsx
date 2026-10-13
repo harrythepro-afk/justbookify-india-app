@@ -31,6 +31,18 @@ jest.mock('@/customerAccount/session', () => ({
   logout: () => mockLogout(),
 }));
 
+// The details section (P7-02) has its own tests (accountProfile.test.tsx); here it only loads.
+jest.mock('@/customerAccountApi/hooks/customer', () => ({
+  useCustomerProfile: () => ({
+    data: undefined,
+    error: null,
+    isFetching: true,
+    refetch: () => undefined,
+  }),
+  useIsOffline: () => false,
+  recheckNetwork: () => Promise.resolve(),
+}));
+
 let mockAppEnv = 'development';
 jest.mock('expo-constants', () => ({
   __esModule: true,

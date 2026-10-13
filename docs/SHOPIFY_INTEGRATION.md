@@ -21,6 +21,13 @@ Rules:
 
 Storefront API `2026-10`, pinned on 3 October 2026 in `src/config/shopifyApi.ts` (D-025). Source: the API versions page on shopify.dev, which that day listed `2026-10` as latest stable (released 1 October 2026, accessible until 16 October 2027) and `2027-01` as a release candidate. Next quarterly review: January 2027, when `2027-01` becomes stable.
 
+Customer Account API **`2026-04`**, pinned on 13 October 2026 in `src/config/shopifyApi.ts` (`CUSTOMER_ACCOUNT_API_VERSION`, D-124). Not `2026-10`: the only schema the app can generate types from is the `2026-04` one in `@shopify/hydrogen-react` 2026.4.4 (D-125). Source: shopify.dev's API versioning page, read 13 October 2026, which lists the Customer Account API among the versioned APIs and gives `2026-04` as stable (released 1 April 2026), **accessible until 16 April 2027 15:00 UTC**; `2026-10` latest stable; `2027-01` a release candidate.
+
+**Quarterly API review (each January, April, July, October):**
+
+- Storefront API: move to the next stable version (D-055).
+- **Customer Account API (follow-up from P7-02, D-125):** check whether `@shopify/hydrogen-react` has published a release built for `2026-10` or later (its `codegen.ts` names `CA_API_VERSION`); if so, move to it with `npm run schema:update:customer` (change `HYDROGEN_REACT_VERSION` in the script and `CUSTOMER_ACCOUNT_API_VERSION`), review the diff and re-test. **Whatever happens, move before 16 April 2027**, when `2026-04` stops being accessible.
+
 ## Code generation and the saved schema (P5-01)
 
 - **Generator** (D-054), development dependencies only: `@shopify/api-codegen-preset` 3.0.0, `@graphql-codegen/cli` 6.3.1 and `graphql` 16.14.2, checked on 6 October 2026. The preset takes the API version as a free string and reads the Storefront schema from `https://shopify.dev/storefront-graphql-direct-proxy/<version>`. That address served `2026-10` (429 types, with `@inContext`) and refused an unknown version (HTTP 400).
@@ -28,6 +35,7 @@ Storefront API `2026-10`, pinned on 3 October 2026 in `src/config/shopifyApi.ts`
 - **Commands:** `npm run codegen` after changing an operation; `npm run codegen:check` (also a CI step) fails when an operation does not validate or the committed types are out of date.
 - **Changing the API version:** change `STOREFRONT_API_VERSION` in `src/config/shopifyApi.ts`, run `npm run schema:update`, review the schema and type diff, fix any operation that no longer validates, and commit it all in one pull request with the version change. A failed update puts the old schema back. The generator is never run on any input other than this repository's own (D-060).
 - **Audit:** the generator brings two high advisories that are allowlisted for development tooling only, until 2026-11-15 (D-060).
+- **Customer Account API (P7-02, D-125):** the same preset, `ApiType.Customer`, generates `src/customerAccountApi/generated/customer.types.d.ts` and `customer.generated.d.ts` from the saved `customer-2026-04.schema.json`. The preset's own schema address refused the development store's Headless client ID (13 October 2026), and shopify.dev names no public one, so the saved file is `package/customer-account.schema.json` from `@shopify/hydrogen-react` 2026.4.4 (SHA-256 `4d0e9a179058d23d8fe18356f26b9af86dc190781195f87618e3c30e6c8a74ec`), extracted alone after checking the archive against npm's integrity value; the package is never installed or run. `npm run schema:update:customer` repeats that step for one exact version. `npm run codegen` and `codegen:check` cover both APIs.
 
 ## Buyer context (P5-01)
 
@@ -105,8 +113,25 @@ Sources: shopify.dev "Getting started with the Customer Account API" (`/docs/sto
 | Logout (mobile) | "For mobile clients, the logout uri can be called as an API endpoint that returns a `200 OK`"; `id_token_hint` is required | A GET with `id_token_hint`, after the phone has logged out (D-122) |
 | **Website logout** | **The docs say nothing** about whether a logout on the online store ends a mobile client's session or refresh token | The app never asks; only `invalid_grant` logs it out (answer 3, D-122). **Phone check, 13 October 2026:** after "Sign out" on the development store's customer account in another browser, the app stayed logged in after a cold start and a refresh succeeded. "Sign out of all devices" (also offered on that page) was not tried |
 | Browser | Shopify's Swift sample and its React Native Checkout Kit sample open login in an embedded web view; the docs never require one; the authorization page "can't be loaded in an iframe" | System browser only (our rule): a Custom Tab on Android, `ASWebAuthenticationSession` on iOS (D-119) |
-| API version | Customer Account API `2026-10` is latest stable (until 16 October 2027); `2027-01` is a release candidate; GraphQL at `https://<shop domain>/customer/api/2026-10/graphql` | P7-01 makes no GraphQL call. P7-02 pins the version in `src/config/` rather than taking it from discovery |
+| API version | Customer Account API `2026-10` is latest stable (until 16 October 2027); `2027-01` is a release candidate; GraphQL at `https://<shop domain>/customer/api/2026-10/graphql` | P7-01 makes no GraphQL call. P7-02 pins `2026-04` in `src/config/` (D-124, D-125) rather than taking the version from discovery; see "GraphQL: profile and orders (P7-02)" |
 | Token prefixes | None named | The Sentry scrubber removes the tokens by value and by shape (D-121) |
+
+### GraphQL: profile and orders (P7-02)
+
+Read on 13 October 2026: the Customer Account API reference (`/docs/api/customer/2026-10` and `/2026-04`), the object pages for `Customer`, `CustomerAddress`, `Order`, `Fulfillment`, `LineItem` and their enums, and shopify.dev's API versioning page. No "last updated" date is shown on them.
+
+| Topic | What the docs say | In the app |
+| --- | --- | --- |
+| Endpoint | `https://{shop-domain}/customer/api/<version>/graphql`; `/.well-known/customer-account-api` names it with the latest version; the host "may be a custom vanity domain" | **The development store's document names `https://shopify.com/<shop ID>/account/customer/api/2026-10/graphql`, which differs from the reference** (owner told, 13 October 2026). The app keeps the discovered URL up to `/customer/api/` and swaps in its pinned version; a path with another shop's ID is refused (D-124). `check:dev-store` checks it |
+| Version | Versioned quarterly like the other GraphQL APIs | `2026-04` (D-124, D-125), accessible until 16 April 2027 15:00 UTC; quarterly review above |
+| Headers | `Content-Type: application/json`, `Authorization: {access_token}` with no `Bearer` | The same; the token only from `getValidAccessToken()` (D-121, D-126) |
+| Errors | A 401 is a plain HTTP status; GraphQL may answer 200 with `errors` | A 401 refreshes once, then follows D-121 (D-126); `errors` are a failure, codes kept, text never |
+| Rate limits | Cost-based, "7,500 cost points per app, per store and customer", 100 points a second; `THROTTLED` with 200 for the cost limit, HTTP 429 with `Retry-After` for the per-customer request limit | Both retried for queries (D-057, D-126). The orders query asks for 20 orders, 5 fulfilments and 20 books each |
+| Profile | `Customer`: `firstName`, `lastName` (nullable), `emailAddress { emailAddress }`, `phoneNumber { phoneNumber }`, `defaultAddress { formatted }` | Read only on the Account tab (D-128) |
+| Orders | `customer.orders(first, after, sortKey: PROCESSED_AT, reverse: true)`, at most 250 a page; `Order`: `name`, `processedAt`, `cancelledAt`, `financialStatus` (nullable), `fulfillmentStatus` (`OrderFulfillmentStatus`, never null), `fulfillments { latestShipmentStatus }`, `lineItems { name image giftCard }`; no field marks a test order; draft orders are a separate connection | 20 a page, newest first; the plain status table in D-128 |
+| Guest orders | The Help Center: a customer profile is keyed by the order's email, and the customer signs in with that email to see their orders | **Early check 3 passed** (below) |
+
+**Early check 3, 13 October 2026: passed.** The owner created a customer in the development store's admin (10:34 IST) with made-up details, then placed guest order **#1003** on the development store's website in a private window: logged out, that customer's email typed at checkout, one book ("Danny the Champion of the World"), the "Cash on Delivery" rate and payment, ₹174. The admin's timeline shows the order joined the existing customer. In the app (P7-02 phone check), after logging in with that same email, My Books showed **Order #1003, 13 Oct 2026, "Order placed"**, with the book's cover and title, and kept it after a cold start and a return from the background. Not tried: a guest order whose email has no customer profile yet. Claude never placed or opened an order. An earlier checkout attempt the same day had a signed-in account and the "Prepaid" rate, which the development store cannot take (no prepaid payment method, D-033); it was abandoned and is not an order.
 
 ### Setting up a store (owner, in that store's admin)
 
@@ -226,7 +251,7 @@ Each check runs before anything is built on its result. Check 2 ran in Phase 3. 
 | 1a | Razorpay inside Checkout Kit: redirect to Razorpay and return to the app, on a real iPhone and a real Android phone | Yes | Phase 19, launch rehearsal, live store, one small real order (D-033). Cannot run on the development store (see "Development store") |
 | 1b | Razorpay UPI Intent: hand-off to a real UPI app and back | Yes | Phase 19, launch rehearsal, live store, same order or session as 1a (D-033). Razorpay supports it only in live mode |
 | 2 | Cash on delivery and the checkout rules inside Checkout Kit | No. A development build on an emulator or simulator is enough | **Passed on Android, 3 October 2026 (P3-02, below).** iPhone side in Phase 9, on the development store, once Apple access exists (D-036) |
-| 3 | A guest order from the website appears after login with the same email | No | Phase 7, login and account (Customer Account API), on the development store |
+| 3 | A guest order from the website appears after login with the same email | No | **Passed on 13 October 2026 (P7-02, below)**, on the development store |
 | 4 | A return filed through the Admin API appears for staff to approve, on the Basic plan | No | Phase 10, backend foundation (needs store addition 3, the custom app), on the development store, which has Basic-plan features (see above) |
 | 5 | Links from justbookify.in open the app (verification files on a Shopify-hosted domain) | Yes. A signed build on a device | Phase 12, notifications and deep links (risk 17). The verification files go on the live domain, so this check needs the owner's go-ahead |
 | 6 | Judge.me allows reading and submitting reviews on the store's plan | No | Phase 13, reviews |

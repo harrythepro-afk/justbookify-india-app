@@ -31,7 +31,8 @@
 // configuration (EXPO_PUBLIC_CUSTOMER_ACCOUNT_CLIENT_ID, EXPO_PUBLIC_SHOP_ID): the OpenID
 // configuration must pass the app's own check (https endpoints, the issuer naming the configured
 // shop), and the Customer Account API document must name its GraphQL URL. Pass or fail only; no
-// URL, ID or value is printed.
+// URL, ID or value is printed. For the profile and orders (P7-02, D-124) that URL must have the
+// shape https://<host>/customer/api/<version>/graphql, so the app can pin its own version.
 //
 // Run with `npm run check:dev-store`. Read-only: named queries, no mutations. Never prints the
 // token or the domain. Not run in CI, which has no .env.local. Point it at a development store
@@ -41,13 +42,18 @@
 
 import { register } from 'node:module';
 
-import { STOREFRONT_API_VERSION, storefrontEndpoint } from '../src/config/shopifyApi.ts';
+import {
+  CUSTOMER_ACCOUNT_API_VERSION,
+  STOREFRONT_API_VERSION,
+  storefrontEndpoint,
+} from '../src/config/shopifyApi.ts';
 import { getStoreConfig, StoreConfigError } from '../src/config/store.ts';
 import {
   CustomerAccountConfigError,
   getCustomerAccountConfig,
 } from '../src/config/customerAccount.ts';
 import {
+  customerAccountGraphqlEndpoint,
   hasCustomerAccountGraphqlApi,
   parseOpenIdConfiguration,
 } from '../src/customerAccount/discoveryDocument.ts';
@@ -1344,15 +1350,33 @@ async function checkCustomerAccountDiscovery(config) {
         : 'the OpenID configuration lacks an https endpoint the app needs.',
     );
   }
-  if (
-    !hasCustomerAccountGraphqlApi(
-      await discoveryRequest(config, '/.well-known/customer-account-api'),
-    )
-  ) {
+  const apiDocument = await discoveryRequest(config, '/.well-known/customer-account-api');
+  if (!hasCustomerAccountGraphqlApi(apiDocument)) {
     fail('the Customer Account API document names no https GraphQL URL.');
   }
   console.log(
     'Login discovery (P7-01): both .well-known documents served; endpoints https; issuer matches the shop ID.',
+  );
+  // P7-02 (D-124): the app keeps the discovered URL up to /customer/api/ and pins the version,
+  // so the document's URL must have the shape the app expects, with no other shop's ID in its
+  // path. Only the form is printed (the store's domain or shopify.com/<shop ID>), never the URL.
+  const endpoint = customerAccountGraphqlEndpoint(
+    apiDocument,
+    CUSTOMER_ACCOUNT_API_VERSION,
+    login.shopId,
+  );
+  if (endpoint === undefined) {
+    fail(
+      'the Customer Account API GraphQL URL is not https://<host>[/<path>]/customer/api/<version>/graphql for this shop.',
+    );
+  }
+  const form = endpoint.startsWith(`https://${config.storeDomain}/customer/api/`)
+    ? 'the store domain'
+    : endpoint.startsWith(`https://shopify.com/${login.shopId}/account/customer/api/`)
+      ? 'shopify.com/<shop ID>/account'
+      : 'another host or path';
+  console.log(
+    `Customer Account API (P7-02): GraphQL URL has the expected shape for this shop; pinned version ${CUSTOMER_ACCOUNT_API_VERSION}; form: ${form}.`,
   );
 }
 

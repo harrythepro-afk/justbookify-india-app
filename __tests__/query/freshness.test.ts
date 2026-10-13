@@ -26,3 +26,10 @@ describe('freshness presets', () => {
     expect(freshness.checkout).toEqual({ staleTime: 0, gcTime: 0, refetchOnMount: 'always' });
   });
 });
+
+// P7-02 (D-127): the customer's own profile and orders.
+describe('the account preset', () => {
+  it('keeps customer data fresh for a minute and for 30 minutes in all', () => {
+    expect(freshness.account).toEqual({ staleTime: 1 * MINUTE, gcTime: 30 * MINUTE });
+  });
+});
