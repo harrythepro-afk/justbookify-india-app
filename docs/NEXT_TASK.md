@@ -1,6 +1,6 @@
 # Next task (proposal): P7-02, the customer's profile and orders
 
-Status: proposal. P7-01 (login and logout with the Customer Account API; D-119 to D-123) is on branch `p7-01-login`, PR #25, CI green, phone check passed on 13 October 2026; see `CURRENT_STATUS.md`. P7-02 starts when the owner starts it, after PR #25 is merged. **Its first commit records P7-01 as merged** (in this file and `CURRENT_STATUS.md`). P6-11 is merged (`7c37841`, PR #24); Phase 6 is done.
+Status: in progress on branch `p7-02-profile-orders` (plan accepted by the owner on 13 October 2026). P7-01 (login and logout with the Customer Account API; D-119 to D-123) is merged (`9be8a6d`, PR #25). P6-11 is merged (`7c37841`, PR #24); Phase 6 is done.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -30,8 +30,8 @@ Status: proposal. P7-01 (login and logout with the Customer Account API; D-119 t
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P7-01 (branch `p7-01-login`, PR #25) | Login and logout with the Customer Account API on the development store: the system browser, PKCE, the app's own state and a nonce; tokens crash-safe in secure storage; refresh, logged out only on `invalid_grant`; logout on the phone and Shopify's mobile logout; the Account tab; phone check passed (a website sign-out keeps the app logged in; access token about 60 minutes) | D-119 to D-123 |
-| P7-02 (proposed) | The customer's profile and orders, read only, through the Customer Account API's GraphQL; early check 3 | |
+| P7-01 (done, 9be8a6d) | Login and logout with the Customer Account API on the development store: the system browser, PKCE, the app's own state and a nonce; tokens crash-safe in secure storage; refresh, logged out only on `invalid_grant`; logout on the phone and Shopify's mobile logout; the Account tab; phone check passed (a website sign-out keeps the app logged in; access token about 60 minutes) | D-119 to D-123 |
+| P7-02 (in progress, branch `p7-02-profile-orders`) | The customer's profile and orders, read only, through the Customer Account API's GraphQL; early check 3 | |
 | P7-03 (later) | The analytics consent request at the owner's chosen placement (D-048), and the analytics user ID after login (D-050); a release gate | |
 
 ## Goal of P7-02
@@ -64,7 +64,7 @@ A logged-in customer sees their own profile and their orders in the app, read fr
 ## Follow-ups (recorded, not part of P7-02)
 
 - **"Sign out of all devices" (P7-01 phone check, owner to decide):** the development store's customer account page offers it next to "Sign out". P7-01 tested only "Sign out" (the app stayed logged in, as answer 3 intends). Whether "Sign out of all devices" ends the app's refresh token was not tried; if it does, the app shows "You've been logged out. Please log in again." at its next refresh, which D-121 and D-122 allow. A short check in a later phone check if the owner wants it.
-- **The P7-01 log copy (owner):** `app-log.txt` (the app's own log from the phone check, filtered to its process) is still in Claude's scratchpad, outside the repository, because its deletion was blocked by a safety check on how the command was written; the owner deletes it or approves its deletion.
+- **The P7-01 log copy (resolved):** `app-log.txt` (the app's own log from P7-01's phone check, filtered to its process, in Claude's P7-01 scratchpad outside the repository) was not deleted in P7-01, because the deletion was blocked by a safety check. Claude deleted that one file by its full path on the owner's instruction on 13 October 2026, at the start of P7-02, and showed that it was gone.
 - **The login library's Android gap (P7-01, risk 23):** watch for a lost login in later phone checks and beta feedback.
 - **Search key in the same moment as the last keystroke (P6-11 phone check, owner to decide):** `onSubmitEditing` in `src/app/search.tsx` (P6-06) reads the field's text from the last render, so a search key sent in the same adb command as the typing searched "zzqx" for "zzqxv" (and the event said 4). A person would need to press the key within milliseconds of the last keystroke. Proposed fix: read the submitted text from the key event (`nativeEvent.text`), with a test; a small task of its own or part of a later search change.
 - **Wireless phone checks (P6-11):** the owner chose wireless again; the link dropped during the background step and a new port was needed, and the app's process ended in the background, so the return was a cold start. USB stays the reliable choice for a check with a background step.
