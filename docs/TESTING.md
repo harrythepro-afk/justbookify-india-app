@@ -520,6 +520,10 @@ Unit tests; Remote Config, the Storefront reads and Firebase's send are mocked:
 5. Standing step (D-082, D-111): more than 5 minutes in the background, then back: no false offline notice.
 6. The app's own log: no crash, no JavaScript error, no test word.
 
+**Passed on 13 October 2026** (09:29 to 09:47 IST, **over wireless debugging**, the owner's choice on the day; details and every adb command in `CURRENT_STATUS.md`). Cold start 1: 0 names (in-app default), fetch `success`; cold start 2: **4 names (Remote Config)**. **The owner confirmed every DebugView value**: walliams 8, 0, wanted, `david_walliams`; riordan 7, 0, wanted, `rick_riordan`; tintin 6, 0, series, 528439279891; harry 5, 7, series, 528438755603; zzqxv 5, 0, other; walliams with "Available now" on 8, 0, **other**. In step 4 the zzqxv sent with the search key in the same command was searched as "zzqx" (4, 0, other): the search key arrived before the last letter's render (P6-06 behaviour, a follow-up). Standing step: 10 min 16 s; the app's process had ended in the background, so the return was a cold start: Home with its books, no offline notice, "Query cache: online". The app's log: no crash, no JavaScript error, no test word.
+
+**Lessons for later phone checks:** send the search key as its own command after the text (`input text`, then `input keyevent KEYCODE_ENTER`, each behind the focus check), so the screen has rendered the last letter; the search key closes the keyboard, so a screenshot after it is safe; wireless debugging dropped again during the background step (a new port was needed).
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).
