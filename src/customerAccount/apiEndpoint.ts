@@ -1,12 +1,13 @@
-import { CUSTOMER_ACCOUNT_API_VERSION, getStoreConfig } from '@/config';
+import { CUSTOMER_ACCOUNT_API_VERSION, getCustomerAccountConfig, getStoreConfig } from '@/config';
 import { reportCustomerAccountProblem } from '@/crashReporting/sentry';
 
 import { customerAccountGraphqlEndpoint } from './discoveryDocument';
 import { getJson } from './oauthHttp';
 
 /**
- * The Customer Account API's GraphQL endpoint (P7-02, D-124): the host from the store's
- * `/.well-known/customer-account-api`, the version pinned in `src/config/shopifyApi.ts`. Read
+ * The Customer Account API's GraphQL endpoint (P7-02, D-124): the URL from the store's
+ * `/.well-known/customer-account-api` up to `/customer/api/`, the version pinned in
+ * `src/config/shopifyApi.ts`. Read
  * once per launch and kept in memory; callers during the read share it. A failed read is not
  * kept, so the next call tries again. Reported by code only, never offline or after a timeout.
  */
@@ -28,8 +29,10 @@ export function getCustomerAccountApiEndpoint(): Promise<EndpointResult> {
 
 async function loadEndpoint(): Promise<EndpointResult> {
   let storeDomain: string;
+  let shopId: string;
   try {
     storeDomain = getStoreConfig().storeDomain;
+    shopId = getCustomerAccountConfig().shopId;
   } catch {
     return { ok: false, reason: 'unavailable' };
   }
@@ -40,7 +43,7 @@ async function loadEndpoint(): Promise<EndpointResult> {
     reportCustomerAccountProblem(`api_discovery_${result.code}`);
     return { ok: false, reason: 'unavailable' };
   }
-  const found = customerAccountGraphqlEndpoint(result.body, CUSTOMER_ACCOUNT_API_VERSION);
+  const found = customerAccountGraphqlEndpoint(result.body, CUSTOMER_ACCOUNT_API_VERSION, shopId);
   if (found === undefined) {
     reportCustomerAccountProblem('api_discovery_invalid');
     return { ok: false, reason: 'unavailable' };

@@ -14,7 +14,7 @@ export type CustomerOrdersQuery = { customer: { orders: { pageInfo: Pick<Custome
         Pick<CustomerTypes.Order, 'id' | 'name' | 'processedAt' | 'cancelledAt' | 'financialStatus' | 'fulfillmentStatus'>
         & { fulfillments: { nodes: Array<Pick<CustomerTypes.Fulfillment, 'createdAt' | 'latestShipmentStatus'>> }, lineItems: { pageInfo: Pick<CustomerTypes.PageInfo, 'hasNextPage'>, nodes: Array<(
             Pick<CustomerTypes.LineItem, 'id' | 'name' | 'giftCard'>
-            & { image?: CustomerTypes.Maybe<Pick<CustomerTypes.Image, 'url' | 'altText'>> }
+            & { image?: CustomerTypes.Maybe<Pick<CustomerTypes.Image, 'url' | 'width' | 'height' | 'altText'>> }
           )> } }
       )> } } };
 
@@ -27,7 +27,7 @@ export type CustomerProfileQuery = { customer: (
   ) };
 
 interface GeneratedQueryTypes {
-  "#graphql\nquery CustomerOrders($first: Int!, $after: String, $lineItems: Int!) {\n  customer {\n    orders(first: $first, after: $after, sortKey: PROCESSED_AT, reverse: true) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      nodes {\n        id\n        name\n        processedAt\n        cancelledAt\n        financialStatus\n        fulfillmentStatus\n        fulfillments(first: 5) {\n          nodes {\n            createdAt\n            latestShipmentStatus\n          }\n        }\n        lineItems(first: $lineItems) {\n          pageInfo {\n            hasNextPage\n          }\n          nodes {\n            id\n            name\n            giftCard\n            image {\n              url(transform: { maxWidth: 240 })\n              altText\n            }\n          }\n        }\n      }\n    }\n  }\n}\n": {return: CustomerOrdersQuery, variables: CustomerOrdersQueryVariables},
+  "#graphql\nquery CustomerOrders($first: Int!, $after: String, $lineItems: Int!) {\n  customer {\n    orders(first: $first, after: $after, sortKey: PROCESSED_AT, reverse: true) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      nodes {\n        id\n        name\n        processedAt\n        cancelledAt\n        financialStatus\n        fulfillmentStatus\n        fulfillments(first: 5) {\n          nodes {\n            createdAt\n            latestShipmentStatus\n          }\n        }\n        lineItems(first: $lineItems) {\n          pageInfo {\n            hasNextPage\n          }\n          nodes {\n            id\n            name\n            giftCard\n            image {\n              url(transform: { maxWidth: 240 })\n              width\n              height\n              altText\n            }\n          }\n        }\n      }\n    }\n  }\n}\n": {return: CustomerOrdersQuery, variables: CustomerOrdersQueryVariables},
   "#graphql\nquery CustomerProfile {\n  customer {\n    firstName\n    lastName\n    emailAddress {\n      emailAddress\n    }\n    phoneNumber {\n      phoneNumber\n    }\n    defaultAddress {\n      formatted\n    }\n  }\n}\n": {return: CustomerProfileQuery, variables: CustomerProfileQueryVariables},
 }
 

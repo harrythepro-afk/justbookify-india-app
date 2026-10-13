@@ -44,6 +44,8 @@ query CustomerOrders($first: Int!, $after: String, $lineItems: Int!) {
             giftCard
             image {
               url(transform: { maxWidth: 240 })
+              width
+              height
               altText
             }
           }
@@ -72,7 +74,13 @@ export type OrderStatus =
 export type OrderBook = {
   readonly id: string;
   readonly title: string;
-  readonly cover: { readonly url: string; readonly altText: string | null } | null;
+  /** The same shape as a catalogue cover, so the book cover component draws it (D-077). */
+  readonly cover: {
+    readonly url: string;
+    readonly width: number | null;
+    readonly height: number | null;
+    readonly altText: string | null;
+  } | null;
 };
 
 export type OrderSummary = {
@@ -142,7 +150,12 @@ export function toOrderSummary(order: OrderNode): OrderSummary {
         cover:
           item.image === null || item.image === undefined
             ? null
-            : { url: item.image.url, altText: item.image.altText ?? null },
+            : {
+                url: item.image.url,
+                width: item.image.width ?? null,
+                height: item.image.height ?? null,
+                altText: item.image.altText ?? null,
+              },
       })),
     moreBooks: order.lineItems.pageInfo.hasNextPage,
   };

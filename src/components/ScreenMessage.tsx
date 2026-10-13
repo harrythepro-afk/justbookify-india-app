@@ -88,11 +88,11 @@ export function NoDataState({
   );
 }
 
-/** The thin notice above saved books while the phone is offline. */
-export function OfflineNotice() {
+/** The thin notice above saved data while the phone is offline: books unless told otherwise. */
+export function OfflineNotice({ message = OFFLINE_NOTICE }: { readonly message?: string } = {}) {
   return (
     <View accessibilityLiveRegion="polite" style={styles.notice} testID="offline-notice">
-      <Text style={styles.noticeText}>{OFFLINE_NOTICE}</Text>
+      <Text style={styles.noticeText}>{message}</Text>
     </View>
   );
 }

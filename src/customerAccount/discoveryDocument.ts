@@ -69,20 +69,31 @@ export function hasCustomerAccountGraphqlApi(body: unknown): boolean {
   );
 }
 
-// `https://<host>/customer/api/<version>/graphql`: the shape Shopify's reference gives
-// (read 13 October 2026). The host may be the store's own accounts domain.
+// `https://<host>[/<path>]/customer/api/<version>/graphql`. Shopify's reference shows the store's
+// domain and no path; the development store's document names
+// `https://shopify.com/<shop ID>/account/customer/api/<version>/graphql` (P7-02, 13 October 2026).
 const GRAPHQL_API =
-  /^(https:\/\/[A-Za-z0-9.-]+(?::\d{1,5})?)\/customer\/api\/[A-Za-z0-9-]+\/graphql$/;
+  /^(https:\/\/[A-Za-z0-9.-]+(?::\d{1,5})?)((?:\/[A-Za-z0-9_-]+)*?)\/customer\/api\/[A-Za-z0-9-]+\/graphql$/;
 
 /**
  * The Customer Account API's GraphQL endpoint at the app's pinned version (P7-02, D-124): the
- * discovered `graphql_api` keeps its host, and its version is replaced by `version`, so a new
- * Shopify release never changes what the app reads. Undefined when the document has no https URL
- * of that shape.
+ * discovered `graphql_api` is kept as it is up to `/customer/api/`, and its version is replaced by
+ * `version`, so a new Shopify release never changes what the app reads. Undefined unless the URL
+ * is https and has that shape, and unless every all-digit path segment (a shop ID) is the
+ * configured shop's, as for the issuer (D-120).
  */
-export function customerAccountGraphqlEndpoint(body: unknown, version: string): string | undefined {
+export function customerAccountGraphqlEndpoint(
+  body: unknown,
+  version: string,
+  shopId: string,
+): string | undefined {
   if (typeof body !== 'object' || body === null) return undefined;
   const url = httpsUrl((body as Record<string, unknown>).graphql_api);
-  const origin = url === undefined ? undefined : GRAPHQL_API.exec(url)?.[1];
-  return origin === undefined ? undefined : `${origin}/customer/api/${version}/graphql`;
+  const match = url === undefined ? null : GRAPHQL_API.exec(url);
+  if (match === null) return undefined;
+  const origin = match[1] ?? '';
+  // The lazy group can match nothing at all; then the path is empty.
+  const path = match[2] ?? '';
+  const otherShop = path.split('/').some((segment) => /^\d+$/.test(segment) && segment !== shopId);
+  return otherShop ? undefined : `${origin}${path}/customer/api/${version}/graphql`;
 }
