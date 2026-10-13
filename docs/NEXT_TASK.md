@@ -1,6 +1,6 @@
-# Next task: P7-01, login with the Customer Account API
+# Next task (proposal): P7-02, the customer's profile and orders
 
-Status: **in progress** on branch `p7-01-login` (plan accepted by the owner on 13 October 2026). P6-11 (the wanted list, the last Phase 6 task; D-115 to D-118) is merged (`7c37841`, PR #24), so **Phase 6 is done** (`ROADMAP.md`). P6-10 is merged (`ad12f44`, PR #23).
+Status: proposal. P7-01 (login and logout with the Customer Account API; D-119 to D-123) is on branch `p7-01-login`, PR #25, CI green, phone check passed on 13 October 2026; see `CURRENT_STATUS.md`. P7-02 starts when the owner starts it, after PR #25 is merged. **Its first commit records P7-01 as merged** (in this file and `CURRENT_STATUS.md`). P6-11 is merged (`7c37841`, PR #24); Phase 6 is done.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -30,56 +30,42 @@ Status: **in progress** on branch `p7-01-login` (plan accepted by the owner on 1
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P7-01 (in progress, branch `p7-01-login`) | Login and logout through the Customer Account API on the development store: OAuth 2.0 with PKCE, state and nonce, in the system browser; tokens in Keystore-backed storage only; refresh; logout clears every cache; the Account tab shows signed in or out | |
-| P7-02 (later) | The customer's profile and orders (read only), early check 3 (a guest order from the website appears after login with the same email) | |
+| P7-01 (branch `p7-01-login`, PR #25) | Login and logout with the Customer Account API on the development store: the system browser, PKCE, the app's own state and a nonce; tokens crash-safe in secure storage; refresh, logged out only on `invalid_grant`; logout on the phone and Shopify's mobile logout; the Account tab; phone check passed (a website sign-out keeps the app logged in; access token about 60 minutes) | D-119 to D-123 |
+| P7-02 (proposed) | The customer's profile and orders, read only, through the Customer Account API's GraphQL; early check 3 | |
 | P7-03 (later) | The analytics consent request at the owner's chosen placement (D-048), and the analytics user ID after login (D-050); a release gate | |
 
-## Goal of P7-01
+## Goal of P7-02
 
-A customer can log in with the store's own customer account (emailed code, D-005) and log out, on the development store. Nothing else changes yet: browsing, search and the book page stay open to everyone, and checkout (Phase 9) is where login becomes required.
+A logged-in customer sees their own profile and their orders in the app, read from Shopify's Customer Account API (D-005), on the development store. Nothing is edited yet. Early check 3 is run: a guest order placed on the development store's website appears in the app after login with the same email (`SHOPIFY_INTEGRATION.md`, "Early checks").
 
 ## Proposed scope
 
-1. **The login flow** (`SHOPIFY_INTEGRATION.md`, "Customer Account API"): authorization code with PKCE, `state` and `nonce`, scopes `openid email customer-account-api:full`, the `shop.{shop_id}.app://callback` scheme Shopify requires for mobile apps, the system browser session (never an embedded web view). Endpoints discovered from the store's `.well-known` documents, not typed by hand. Store-specific values (shop ID, client ID) in `src/config/` from `EXPO_PUBLIC_` variables; the client ID is public, and no secret exists for a public client.
-2. **Tokens:** the access, refresh and ID tokens only in `expo-secure-store` (Android Keystore, iOS Keychain); never logged, never in analytics or Sentry (the scrubber gains the token patterns); refreshed before expiry; a failed refresh logs out cleanly.
-3. **Logout:** Shopify's logout endpoint with the ID token, the tokens deleted, and `clearAllCaches()` (D-061).
-4. **The Account tab:** "Log in" when signed out; when signed in, the customer's email only (from the ID token, never cached elsewhere) and "Log out". "Share app usage" stays as it is.
-5. **Version-sensitive checks** (`CLAUDE.md` rule 10): Shopify's current Customer Account API docs for mobile clients, the API version, and the library's Expo SDK 57 support, each recorded with its date.
-6. **Tests** (the flow with Shopify mocked: PKCE values, state and nonce checks, a wrong state refused, token storage and refresh, logout clearing caches, no token in any log or report) and a **phone check**: the owner types their own email and the emailed code on the phone (Claude never types personal data); Claude drives everything else.
-7. **Docs:** `DECISIONS.md` (the library and the token rules), `SECURITY.md`, `SHOPIFY_INTEGRATION.md`, `ARCHITECTURE.md`, `TESTING.md`.
+1. **A typed Customer Account API client** in its own folder, like the Storefront client (D-054 to D-057): named operations through code generation from a saved `2026-10` schema (the version pinned in `src/config/`, not taken from discovery; `SHOPIFY_INTEGRATION.md`), the access token from `getValidAccessToken()` (D-121) as the `Authorization` header, typed errors, retries for queries only, the same time limits. Whether `@shopify/api-codegen-preset` 3.0.0 generates Customer Account API types, and from which schema address, is checked and recorded with the date (`CLAUDE.md` rule 10).
+2. **Its own query key root** (`['customer', …]`), in memory only, cleared by `clearAllCaches()` at logout and on a refused refresh (D-061, D-121); a 401 from the API refreshes once and then follows D-121.
+3. **Personal data rules:** profile and order fields only on screen; never logged, never in analytics or Sentry (the scrubber already removes emails, phone numbers, customer and order GIDs); a privacy test like P7-01's.
+4. **Screens:** the profile on the Account tab and the orders list where the owner chooses (questions below), with loading, offline, error and empty states in the project's wording style.
+5. **Early check 3** on the development store, with a guest order the owner places on its website (a test order on the development store only, never the live store).
+6. **Tests, docs and a USB phone check** under the standing permission.
 
-## What P7-01 needs from the owner
+## Questions for the owner and the architect
 
-1. **On the development store** (Shopify admin, Headless channel, Customer Account API settings; the live store is not touched): the **client ID** of a public client for a mobile app, the **shop ID**, and the callback URI `shop.<shop_id>.app://callback` added, with a logout URI if Shopify asks for one. Claude gives the exact screens from Shopify's docs when the task starts. The client ID and shop ID go into `.env.local` (public values only).
-2. **A test customer** on the development store whose email inbox the owner can read, for the emailed code.
-3. **A decision on the login library:** `expo-auth-session` with `expo-web-browser` (Expo's own, follows the SDK) or `react-native-app-auth` (AppAuth). Claude proposes one with the reasons in the plan; it needs a `DECISIONS.md` entry (`CLAUDE.md` rule 6) and, being native, a new development build on EAS.
-4. **The consent placement** (D-048: (a) right after the first login, or (b) at a natural pause before login) can wait for P7-03, but deciding it now lets P7-01 leave the right place for it.
-
-## The architect's answers (13 October 2026)
-
-1. Login only from the Account tab in Phase 7; login at checkout comes in Phase 9.
-2. After login, back to the Account tab.
-3. Logging out on the website must not log the customer out of the app (owner, 13 October 2026). The app logs out only when the customer taps "Log out", or when Shopify itself refuses the login (for example a refresh that fails because the login expired). Then: tokens deleted, `clearAllCaches()`, and the Account tab shows "Log in" with one line, "You've been logged out. Please log in again." No pop-up.
-4. Phone check over USB only.
-
-The owner accepted the plan on 13 October 2026. **The architect's review of the plan** (13 October 2026):
-
-- Decisions: `expo-auth-session` 57.0.15 with `expo-web-browser` 57.0.3 and `expo-crypto` 57.0.4 (D-119); `adb shell am force-stop com.justbookify.india.dev` for the cold starts, in this check only; **no screenshot of the Account tab while signed in** (the owner confirms that screen); the wording drafts approved; no `login` or `logout` events until P7-03.
-- **Change A:** "refused" is only the OAuth error `invalid_grant` from the token endpoint, whatever the HTTP status; any other 400 or 401 (`invalid_client`, `invalid_request`) is unavailable: the customer stays signed in, reported by code only (D-121).
-- **Change B:** token saving is crash-safe: an interrupted save leaves the previous valid set usable, tested with a failure after each single write (D-121).
-- **Change C:** the secure-store size limit checked for SDK 57; the phone check records each token's length in characters only; values split safely, with a test (D-121).
-- **Change D:** if "Log in" after "Log out" signs straight back in without the emailed code, it is recorded as a finding with a proposed fix; nothing is built without the owner's yes.
-
-The two values (`EXPO_PUBLIC_CUSTOMER_ACCOUNT_CLIENT_ID`, `EXPO_PUBLIC_SHOP_ID`) come from the development store's Headless channel; the owner sets them in `.env.local`, and `EXPO_PUBLIC_SHOP_ID` also as an EAS development variable, because the callback scheme is compiled into the build.
+1. **Profile:** which fields (proposed: name, email, phone, the default address), read only?
+2. **Orders:** where (proposed: My Books, which `PRODUCT_REQUIREMENTS.md` says holds orders and asks for login when signed out), which fields (proposed: order number, date, status, the books), and how many (proposed: the latest 20, then "Load more")?
+3. **Early check 3:** the owner places the guest order on the development store's website with the test customer's email before the phone check; Claude never places an order. Agreed?
+4. **Code generation:** if the preset cannot generate Customer Account API types, is a hand-written, tested type layer acceptable, or a different generator (a `DECISIONS.md` entry either way)?
+5. **Phone check over USB** again (proposed)?
 
 ## Out of scope
 
-- Profile, addresses and order history (P7-02); the consent request and the analytics user ID (P7-03).
+- Editing the profile or addresses, returns and rentals (later phases); the consent request and the analytics user ID (P7-03).
 - Cart and checkout (Phases 8 and 9).
 - Anything on the live store, including its Customer Account API settings.
 
-## Follow-ups (recorded, not part of P7-01)
+## Follow-ups (recorded, not part of P7-02)
 
+- **"Sign out of all devices" (P7-01 phone check, owner to decide):** the development store's customer account page offers it next to "Sign out". P7-01 tested only "Sign out" (the app stayed logged in, as answer 3 intends). Whether "Sign out of all devices" ends the app's refresh token was not tried; if it does, the app shows "You've been logged out. Please log in again." at its next refresh, which D-121 and D-122 allow. A short check in a later phone check if the owner wants it.
+- **The P7-01 log copy (owner):** `app-log.txt` (the app's own log from the phone check, filtered to its process) is still in Claude's scratchpad, outside the repository, because its deletion was blocked by a safety check on how the command was written; the owner deletes it or approves its deletion.
+- **The login library's Android gap (P7-01, risk 23):** watch for a lost login in later phone checks and beta feedback.
 - **Search key in the same moment as the last keystroke (P6-11 phone check, owner to decide):** `onSubmitEditing` in `src/app/search.tsx` (P6-06) reads the field's text from the last render, so a search key sent in the same adb command as the typing searched "zzqx" for "zzqxv" (and the event said 4). A person would need to press the key within milliseconds of the last keystroke. Proposed fix: read the submitted text from the key event (`nativeEvent.text`), with a test; a small task of its own or part of a later search change.
 - **Wireless phone checks (P6-11):** the owner chose wireless again; the link dropped during the background step and a new port was needed, and the app's process ended in the background, so the return was a cold start. USB stays the reliable choice for a check with a background step.
 - **The wanted list (P6-11, owner):** the list in the production Firebase project (when it exists) is the owner's to keep; it is readable by anyone with the app's public Firebase settings (`SECURITY.md`), so it must never hold anything private. The phone check's test list stays in the development project only.
