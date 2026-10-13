@@ -83,6 +83,7 @@ The owner keeps a list of authors, series or titles they are thinking of stockin
   - the events and data Firebase sends by itself once consent is granted (`ANALYTICS.md`);
   - the app's own events, including the catalogue events since P6-09 (`view_collection`, `view_book`, `filter_applied`, `search`; `ANALYTICS.md`, "Events" and "Catalogue events");
   - that, under consent, the app records which catalogue item a search matched, by its ID or code, never the search term itself (P6-09, D-108, D-109);
+  - that, under consent, the app records which name on the store's wanted list a search matched, by that name's code, never the term (P6-11, D-117, D-118);
   - crash reports (Sentry);
   - Firebase.
 - **Analytics retention (owner, D-051):** set event data retention to 14 months, with "Reset user data on new activity" off, in the development Google Analytics property now, and in the staging and production properties when they are created.

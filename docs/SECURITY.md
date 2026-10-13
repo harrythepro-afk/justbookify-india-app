@@ -36,6 +36,7 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 
 ### App integrity
 - [ ] Apple App Attest and Google Play Integrity verified by the backend on sensitive writes; log first, then block
+- [x] **Remote Config values are untrusted input, and not secret** (P6-11, D-116): every value is parsed against a fixed shape (a flag's allowed values; the wanted list's JSON list of names with its limits), never shown on screen as written, never logged, and reported to Sentry by parameter name and reason codes only. Remote Config is readable by anyone who has the app's public Firebase settings, which ship inside every build, so **nothing private may be put in it**: the wanted list (the names the owner is thinking of stocking) can be read by a determined outsider
 - [ ] Phase 14: restrict the Android API key in each environment's `google-services.json` to the app's package and signing certificate, keeping the Firebase Installations and Remote Config APIs allowed (D-044). Afterwards every build must be shown to fetch a changed flag again (`TESTING.md`, "Release gate: feature flags")
 
 ### Data
