@@ -1,6 +1,6 @@
 # Next task (proposal): P8-02, the delivery fee hint and the pincode check
 
-Status: proposal. P8-01 (the cart: "Add to Cart", the Cart tab, the order cap, the cart events; D-133 to D-139) is on branch `p8-01-cart`; see `CURRENT_STATUS.md`. P8-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P8-01 as merged** (in this file and `CURRENT_STATUS.md`). P7-03 is merged (`b5ce914`, PR #27); Phase 7 is done.
+Status: proposal. P8-01 (the cart: "Add to Cart", the Cart tab, the order cap, the cart events; D-133 to D-139) is on branch `p8-01-cart`, PR #28, CI green, phone check passed on 14 October 2026; see `CURRENT_STATUS.md`. P8-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P8-01 as merged** (in this file and `CURRENT_STATUS.md`). P7-03 is merged (`b5ce914`, PR #27); Phase 7 is done.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -78,6 +78,7 @@ Before checkout (Phase 9), the cart shows what delivery is likely to cost (R4) a
 
 - **The cart in Phase 9 (P8-01, D-133 to D-137):** checkout must not be offered while a rented-out book is in the cart or the counted subtotal is at or over the cap; attach the customer's identity to the guest cart at checkout; clear the cart after a completed order (`ARCHITECTURE.md`, "Checkout", step 5).
 - **A book rented out while in the cart (P8-01):** tested only, on the owner's decision (no stock change in the development store's admin). A later phone check may cover it if the owner restocks and sells out a book.
+- **The cap alert's empty title (P8-01 phone check, owner to decide):** Android's alert leaves an empty title space above "Each order can have books worth less than ₹500. Remove a book to add this one." because the app passes no title. A short title, or the message as the title, would remove it; wording is the owner's.
 - **Intermittent act warning (P8-01 full run):** `search.test.tsx` logged one "not wrapped in act" warning from VirtualizedList's render timer after an 80-second test, as `browse.test.tsx` did in P7-03. Not caused by the cart; watch CI.
 
 - **Release gate: analytics consent (P7-03, D-132):** the consent request is built and was checked on the phone (`CURRENT_STATUS.md`). Still open before any outside tester: the privacy policy's app section (risk 21) and **the analytics user ID**, issued by the Phase 10 backend, because the consent wording says usage is linked to the account (`TESTING.md`, item 5).
