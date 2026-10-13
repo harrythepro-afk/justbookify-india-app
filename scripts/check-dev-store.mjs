@@ -38,7 +38,7 @@ import { register } from 'node:module';
 
 import { STOREFRONT_API_VERSION, storefrontEndpoint } from '../src/config/shopifyApi.ts';
 import { getStoreConfig, StoreConfigError } from '../src/config/store.ts';
-import { toGenreOptions } from '../src/shopify/genres.ts';
+import { genreCode, toGenreOptions } from '../src/shopify/genres.ts';
 import { parseDescriptionHtml } from '../src/shopify/richText.ts';
 import {
   ALL_BOOKS_HANDLE,
@@ -52,6 +52,7 @@ import {
   GENRE_FILTER,
   GENRES,
   GROUP_GENRES,
+  HOME_AUTHORS,
   METAFIELDS,
   PRICE_COMBINED,
   PRICE_FILTER,
@@ -81,6 +82,7 @@ register(
 const { matchSearchTerm } = await import('../src/analytics/searchMatch.ts');
 const { BROWSE_CONTENT } = await import('../src/config/browse.ts');
 const { SEARCH_CONTENT } = await import('../src/config/search.ts');
+const { HOME_CONTENT } = await import('../src/config/home.ts');
 
 const QUERY = `query DevStoreCheck($country: CountryCode, $language: LanguageCode)
 @inContext(country: $country, language: $language) {
@@ -185,6 +187,9 @@ const BOOK_PAGE_QUERY = `query DevStoreBookPage(
           ... on Metaobject {
             type
             label: field(key: "label") {
+              value
+            }
+            taxonomyReference: field(key: "taxonomy_reference") {
               value
             }
           }
@@ -1062,6 +1067,80 @@ async function checkSearchMatches(config, problems) {
   );
 }
 
+/**
+ * Home's "Popular authors" (D-114): which of the configured authors the store has, in order; and
+ * the book page's genre chips (D-113): each genre of the example book with its taxonomy value,
+ * and whether the Genre list of all books with "Available now" on offers it (a tappable chip).
+ */
+async function checkAuthorsAndGenreChips(config, problems) {
+  const handles = new Set();
+  let after = null;
+  do {
+    const data = await storefrontRequest(config, COLLECTION_IDS_QUERY, { after });
+    for (const node of data.collections.nodes) handles.add(node.handle);
+    after = data.collections.pageInfo.hasNextPage ? data.collections.pageInfo.endCursor : null;
+  } while (after);
+  const shown = HOME_CONTENT.popularAuthors.filter((link) => handles.has(link.handle));
+  sameHandles(
+    'Popular authors',
+    new Set(shown.map((link) => link.handle)),
+    new Set(HOME_AUTHORS),
+    problems,
+  );
+  if (shown.map((link) => link.handle).join() !== HOME_AUTHORS.join()) {
+    problems.push(`Popular authors: not in the expected order.`);
+  }
+  console.log(
+    `Popular authors (P6-10): ${shown.length} of ${HOME_CONTENT.popularAuthors.length} shown: ` +
+      `${shown.map((link) => link.label).join(', ')}.`,
+  );
+
+  const entries = [];
+  after = null;
+  do {
+    const data = await storefrontRequest(config, GENRE_ENTRIES_QUERY, {
+      type: GENRE_FILTER.entryType,
+      after,
+    });
+    for (const node of data.metaobjects.nodes) {
+      entries.push({
+        label: node.label?.value ?? null,
+        taxonomyReference: node.taxonomyReference?.value ?? null,
+      });
+    }
+    after = data.metaobjects.pageInfo.hasNextPage ? data.metaobjects.pageInfo.endCursor : null;
+  } while (after);
+  const filters = await storefrontRequest(config, COLLECTION_FILTERS_QUERY, {
+    handle: ALL_BOOKS_HANDLE,
+    filters: [{ available: true }],
+  });
+  const locale = `${config.language.toLowerCase()}-${config.country}`;
+  const { options } = toGenreOptions(genreFilterOf(filters)?.values ?? [], entries, locale);
+  const offered = new Set(options.map((option) => genreCode(option.filter.value)));
+
+  const handle = EXAMPLES.allMetafields;
+  const data = await storefrontRequest(config, BOOK_PAGE_QUERY, { handle });
+  const chips = (data?.product?.genre?.references?.nodes ?? [])
+    .filter((node) => node?.type === 'shopify--genre' && node.label?.value?.trim())
+    .map((node) => {
+      const code = genreCode(node.taxonomyReference?.value?.trim() ?? '');
+      return { name: node.label.value.trim(), code, tappable: code !== null && offered.has(code) };
+    });
+  for (const chip of chips) {
+    if (chip.code === null) problems.push(`genre chips: ${handle}'s ${chip.name} has no value.`);
+  }
+  if (!chips.some((chip) => chip.tappable)) {
+    problems.push(`genre chips: no chip on ${handle} would be tappable.`);
+  }
+  console.log(
+    `Genre chips (P6-10): ${handle}: ` +
+      chips
+        .map((chip) => `${chip.name} ${chip.code ?? '-'} ${chip.tappable ? 'tappable' : 'plain'}`)
+        .join(', ') +
+      `; all books with "Available now" offer ${offered.size} genres.`,
+  );
+}
+
 async function checkCatalogue(config) {
   const problems = [];
   const products = await fetchAllProducts(config);
@@ -1198,6 +1277,9 @@ async function checkCatalogue(config) {
 
   // The search usage event's catalogue match (P6-09).
   await checkSearchMatches(config, problems);
+
+  // Home's authors row and the book page's genre chips (P6-10).
+  await checkAuthorsAndGenreChips(config, problems);
 
   if (problems.length > 0) {
     fail(`the sample catalogue differs:\n- ${problems.join('\n- ')}`);

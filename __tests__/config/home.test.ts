@@ -51,8 +51,29 @@ describe('Home content (D-075)', () => {
     });
   });
 
+  it('lists the 12 popular authors in the website order, with its names (P6-10, D-114)', () => {
+    expect(HOME_CONTENT.popularAuthors).toEqual([
+      { handle: 'julia-donaldson', label: 'Julia Donaldson' },
+      { handle: 'enid-blyton', label: 'Enid Blyton' },
+      { handle: 'sudha-murthy', label: 'Sudha Murty' },
+      { handle: 'roald-dahl', label: 'Roald Dahl' },
+      { handle: 'r-l-stine', label: 'R. L. Stine' },
+      { handle: 'david-williams-collection', label: 'David Walliams' },
+      { handle: 'rick-riordan', label: 'Rick Riordan' },
+      { handle: 'r-k-narayan', label: 'R. K. Narayan' },
+      { handle: 'ruskin-bond', label: 'Ruskin Bond' },
+      { handle: 'mary-pope-osborne', label: 'Mary Pope Osborne' },
+      { handle: 'jeff-kinney', label: 'Jeff Kinney' },
+      { handle: 'j-k-rowling', label: 'J. K. Rowling' },
+    ]);
+  });
+
   it('has unique handles and a label for every link', () => {
-    const links = [...HOME_CONTENT.popularSeries, ...HOME_CONTENT.ageGroups];
+    const links = [
+      ...HOME_CONTENT.popularSeries,
+      ...HOME_CONTENT.popularAuthors,
+      ...HOME_CONTENT.ageGroups,
+    ];
     const handles = [...links.map((link) => link.handle), HOME_CONTENT.newArrivals.handle];
     expect(new Set(handles).size).toBe(handles.length);
     for (const link of links) {

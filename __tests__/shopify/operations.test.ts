@@ -175,6 +175,23 @@ it('reads only the genre metafield on the book page, and no rating', () => {
   expect(metafields).toEqual([{ namespace: 'shopify', key: 'genre' }]);
 });
 
+// A genre chip opens that genre's books by its taxonomy value (P6-10, D-113): the book page reads
+// each genre entry's label and taxonomy reference, and no other field of it.
+it("reads each genre entry's label and taxonomy reference on the book page, nothing else", () => {
+  const page = realOperations.find(
+    ({ document }) => definitions(document)[0]?.name?.value === 'BookPage',
+  );
+  const keys: string[] = [];
+  visit(parse(page?.document ?? ''), {
+    Field: (node) => {
+      if (node.name.value !== 'field') return;
+      const key = node.arguments?.find((arg) => arg.name.value === 'key')?.value;
+      keys.push(key?.kind === Kind.STRING ? key.value : '?');
+    },
+  });
+  expect(keys).toEqual(['label', 'taxonomy_reference']);
+});
+
 // Home's series tiles are text only (owner, P6-03; D-076): the listing reads handles, no image;
 // and each collection's ID, which analytics sends for a chosen or matched collection (D-107).
 it('reads only handles and IDs in the collection listing', () => {

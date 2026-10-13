@@ -3,7 +3,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { ScrollView, StyleSheet } from 'react-native';
 
 import BookScreen, { priceSummary, RENTED_OUT_SENTENCE } from '@/app/book/[handle]';
+import { resetOpenGuardForTests } from '@/navigation/openGuard';
 import { toBookPage, type BookPage } from '@/shopify/bookPage';
+import type { CollectionGenres } from '@/shopify/catalogue';
+import type { GenreEntry } from '@/shopify/genres';
 import { StorefrontError } from '@/shopify/errors';
 import { colors, fonts } from '@/theme/tokens';
 
@@ -17,6 +20,8 @@ void ScrollView;
 
 let mockParams: { handle?: string | string[] } = { handle: 'the-gruffalo' };
 let mockHeader: { title?: string; headerShown?: boolean } | undefined;
+// A genre chip opens the collection screen through the router, via the guard (P6-10, D-113).
+const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
   Stack: {
@@ -27,6 +32,7 @@ jest.mock('expo-router', () => ({
   },
   useLocalSearchParams: () => mockParams,
   useFocusEffect: () => undefined,
+  router: { push: (href: unknown) => mockPush(href) },
 }));
 
 jest.mock('@/crashReporting/sentry', () => ({
@@ -43,6 +49,9 @@ jest.mock('@/query/online', () => ({
 }));
 
 const mockFetchBook = jest.fn<Promise<BookPage | null>, [{ handle: string }]>();
+type GenresOptions = { handle: string; available: boolean };
+const mockFetchGenres = jest.fn<Promise<CollectionGenres>, [GenresOptions]>();
+const mockFetchEntries = jest.fn<Promise<readonly GenreEntry[]>, []>();
 
 // Usage events (P6-09): the real typed functions and guard run; only Firebase's send is recorded.
 const mockSendEvent = jest.fn((_name: string, _params: unknown) => Promise.resolve());
@@ -57,7 +66,32 @@ jest.mock('@/analytics/consent', () => ({ isAnalyticsConsentGranted: () => mockC
 jest.mock('@/shopify/catalogue', () => ({
   ...jest.requireActual('@/shopify/catalogue'),
   fetchBook: (options: { handle: string }) => mockFetchBook(options),
+  fetchCollectionGenres: (options: GenresOptions) => mockFetchGenres(options),
+  fetchGenreEntries: () => mockFetchEntries(),
 }));
+
+// The Genre list for all books with "Available now" on, on the development store (P6-10): Fantasy
+// and Manga have books; Picture book has none available, so the list leaves it out.
+const gid = (id: number) => `gid://shopify/TaxonomyValue/${id}`;
+const genreValue = (id: number, count: number) => ({
+  count,
+  input: JSON.stringify({
+    taxonomyMetafield: { namespace: 'shopify', key: 'genre', value: gid(id) },
+  }),
+});
+const FANTASY = 20853;
+const MANGA = 15730;
+const PICTURE_BOOK = 15727;
+const ALL_BOOKS_GENRES: CollectionGenres = {
+  kind: 'found',
+  locale: 'en-IN',
+  values: [genreValue(FANTASY, 9), genreValue(MANGA, 3), genreValue(PICTURE_BOOK, 0)],
+};
+const ENTRIES: readonly GenreEntry[] = [
+  { label: 'Fantasy', taxonomyReference: gid(FANTASY) },
+  { label: 'Manga', taxonomyReference: gid(MANGA) },
+  { label: 'Picture book', taxonomyReference: gid(PICTURE_BOOK) },
+];
 
 const CONFIG = { currencyCode: 'INR', language: 'EN', country: 'IN' };
 
@@ -138,6 +172,10 @@ beforeEach(() => {
   mockParams = { handle: 'the-gruffalo' };
   mockHeader = undefined;
   mockFetchBook.mockReset();
+  mockFetchGenres.mockReset().mockResolvedValue(ALL_BOOKS_GENRES);
+  mockFetchEntries.mockReset().mockResolvedValue(ENTRIES);
+  mockPush.mockClear();
+  resetOpenGuardForTests();
   mockRecheckNetwork.mockClear();
 });
 
@@ -242,7 +280,7 @@ it('leaves out the description when there is none', async () => {
   expect(screen.queryByTestId('book-description')).not.toBeOnTheScreen();
 });
 
-it('shows the genres as chips under "Genre", none of them tappable (answer 1)', async () => {
+it('shows the genres as chips under "Genre"; one with no taxonomy value is plain text', async () => {
   await renderBook(BOOKS.inStock());
 
   expect(screen.getByText('Genre')).toBeOnTheScreen();
@@ -250,6 +288,131 @@ it('shows the genres as chips under "Genre", none of them tappable (answer 1)', 
   expect(screen.getByText('Realistic Fiction')).toBeOnTheScreen();
   expect(screen.queryByRole('button')).not.toBeOnTheScreen();
   expect(screen.queryByRole('link')).not.toBeOnTheScreen();
+});
+
+describe('genre chips (owner and architect, P6-10, D-113)', () => {
+  const book = () =>
+    page({
+      genres: [genre('Fantasy', FANTASY), genre('Picture book', PICTURE_BOOK), genre('Mystery')],
+    });
+
+  /** Waits until the Genre list has landed and the chip it offers is a link. */
+  async function renderWithList() {
+    await renderBook(book());
+    await screen.findByRole('link', { name: 'Show Fantasy books' });
+  }
+
+  it('reads the Genre list of all books with "Available now" on', async () => {
+    await renderWithList();
+
+    expect(mockFetchGenres).toHaveBeenCalledTimes(1);
+    expect(mockFetchGenres.mock.calls[0]?.[0]).toMatchObject({
+      handle: 'all-books',
+      available: true,
+    });
+  });
+
+  it('makes only a genre the list offers tappable, named "Show Fantasy books"', async () => {
+    await renderWithList();
+
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+    // Picture book has no available book, and Mystery has no taxonomy value: plain text.
+    expect(screen.getByText('Picture book')).toBeOnTheScreen();
+    expect(screen.getByText('Mystery')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Show Picture book books')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Show Mystery books')).not.toBeOnTheScreen();
+  });
+
+  it('opens the all-books collection screen with the code, pushed on top of the book', async () => {
+    await renderWithList();
+
+    await fireEvent.press(screen.getByRole('link', { name: 'Show Fantasy books' }));
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/collection/[handle]',
+      params: { handle: 'all-books', genre: String(FANTASY) },
+    });
+    // The link carries the number only, never the name.
+    expect(JSON.stringify(mockPush.mock.calls)).not.toMatch(/fantasy/i);
+  });
+
+  it('sends no event of its own: the collection screen sends filter_applied', async () => {
+    await renderWithList();
+    mockSendEvent.mockClear();
+
+    await fireEvent.press(screen.getByRole('link', { name: 'Show Fantasy books' }));
+
+    expect(mockSendEvent).not.toHaveBeenCalled();
+  });
+
+  it('opens once on a double tap (D-099)', async () => {
+    await renderWithList();
+    const chip = screen.getByRole('link', { name: 'Show Fantasy books' });
+
+    await fireEvent.press(chip);
+    await fireEvent.press(chip);
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+  });
+
+  it('looks the same as a plain chip, with a touch area of 44 points or more', async () => {
+    await renderWithList();
+    const link = screen.getByRole('link', { name: 'Show Fantasy books' });
+    // The nearest view around the plain chip's text that has a border: the chip itself.
+    type Host = { props: { style?: object }; parent: Host | null };
+    let plain = (screen.getByText('Picture book') as unknown as Host).parent;
+    while (
+      plain !== null &&
+      (StyleSheet.flatten(plain.props.style) as { borderWidth?: number } | undefined)
+        ?.borderWidth === undefined
+    ) {
+      plain = plain.parent;
+    }
+
+    expect(plain).not.toBeNull();
+    expect(StyleSheet.flatten(link.props.style)).toEqual(StyleSheet.flatten(plain?.props.style));
+    const { top, bottom } = link.props.hitSlop as { top: number; bottom: number };
+    // Padding 4 + 4, border 1 + 1 and a line of 14-point text (at least 19 points).
+    expect(4 + 4 + 1 + 1 + 19 + top + bottom).toBeGreaterThanOrEqual(44);
+  });
+
+  it('keeps every chip plain while the list loads', async () => {
+    mockFetchGenres.mockReturnValue(new Promise(() => undefined));
+    await renderBook(book());
+
+    expect(screen.getByText('Fantasy')).toBeOnTheScreen();
+    expect(screen.queryByRole('link')).not.toBeOnTheScreen();
+  });
+
+  it('keeps every chip plain when the list cannot be read', async () => {
+    mockFetchGenres.mockRejectedValue(HTTP_ERROR);
+    await renderBook(book());
+    await waitFor(() => expect(mockFetchGenres).toHaveBeenCalled());
+    await act(async () => undefined);
+
+    expect(screen.getByText('Fantasy')).toBeOnTheScreen();
+    expect(screen.queryByRole('link')).not.toBeOnTheScreen();
+  });
+
+  it('keeps every chip plain when the store has no all-books collection', async () => {
+    mockFetchGenres.mockResolvedValue({ kind: 'not-found' });
+    await renderBook(book());
+    await waitFor(() => expect(mockFetchGenres).toHaveBeenCalled());
+    await act(async () => undefined);
+
+    expect(screen.queryByRole('link')).not.toBeOnTheScreen();
+  });
+
+  it('keeps a chip plain when the store has no name for its value', async () => {
+    mockFetchEntries.mockResolvedValue([{ label: 'Manga', taxonomyReference: gid(MANGA) }]);
+    await renderBook(book());
+    await waitFor(() => expect(mockFetchEntries).toHaveBeenCalled());
+    await act(async () => undefined);
+
+    expect(screen.getByText('Fantasy')).toBeOnTheScreen();
+    expect(screen.queryByRole('link')).not.toBeOnTheScreen();
+  });
 });
 
 it('leaves out "Genre" when the book has none', async () => {

@@ -633,7 +633,7 @@ describe('fetchBook (P6-05)', () => {
       product: bookPageProduct({
         handle: 'the-gruffalo',
         availableForSale: false,
-        genres: [genre('Picture Book')],
+        genres: [genre('Picture Book', 15727)],
       }),
     });
     const signal = new AbortController().signal;
@@ -647,7 +647,7 @@ describe('fetchBook (P6-05)', () => {
     expect(page).toMatchObject({
       handle: 'the-gruffalo',
       orderable: false,
-      genres: ['Picture Book'],
+      genres: [{ name: 'Picture Book', taxonomyValue: 'gid://shopify/TaxonomyValue/15727' }],
     });
   });
 

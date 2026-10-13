@@ -3,7 +3,12 @@
  * tests feed it the live store's shape, every kept tag, and hostile or broken markup.
  */
 
-import { decodeEntities, parseDescriptionHtml, type RichTextBlock } from '@/shopify/richText';
+import {
+  CELL_SEPARATOR,
+  decodeEntities,
+  parseDescriptionHtml,
+  type RichTextBlock,
+} from '@/shopify/richText';
 
 // Special characters are built from code points, so the source holds no escapes.
 const NL = String.fromCharCode(10);
@@ -152,6 +157,108 @@ describe('tags that only end a paragraph (owner, P6-05)', () => {
     const blocks = parseDescriptionHtml('<h2>Title</h2><p>Body</p>');
 
     expect(blocks.map((block) => block.spans[0]?.bold)).toEqual([true, false]);
+  });
+});
+
+describe('tables (owner, P6-10, D-112)', () => {
+  const DOT = String.fromCharCode(0xb7);
+  const SEP = ` ${DOT} `;
+
+  it('puts each row on its own line, its cells joined by a space, a middle dot and a space', () => {
+    expect(
+      lines(
+        '<table><tr><td>Pages</td><td>320</td></tr><tr><td>Binding</td><td>Paperback</td></tr></table>',
+      ),
+    ).toEqual([`Pages${SEP}320`, `Binding${SEP}Paperback`]);
+    expect(CELL_SEPARATOR).toBe(SEP);
+  });
+
+  it('joins three cells and never runs two cells together', () => {
+    expect(lines('<table><tr><td>A</td><td>B</td><td>C</td></tr></table>')).toEqual([
+      `A${SEP}B${SEP}C`,
+    ]);
+  });
+
+  it('shows a row with one cell as that cell alone', () => {
+    expect(lines('<table><tr><td>Only</td></tr></table>')).toEqual(['Only']);
+  });
+
+  it.each([
+    ['at the start', '<td></td><td>B</td><td>C</td>', `B${SEP}C`],
+    ['in the middle', '<td>A</td><td> </td><td>C</td>', `A${SEP}C`],
+    ['at the end', '<td>A</td><td>B</td><td>&nbsp;</td>', `A${SEP}B`],
+    ['holding only an empty tag', '<td>A</td><td><span></span></td><td>C</td>', `A${SEP}C`],
+  ])('skips an empty cell %s', (_where, cells, expected) => {
+    expect(lines(`<table><tr>${cells}</tr></table>`)).toEqual([expected]);
+  });
+
+  it('drops a row whose cells are all empty', () => {
+    expect(lines('<table><tr><td></td><td> </td></tr><tr><td>A</td></tr></table>')).toEqual(['A']);
+  });
+
+  it('reads a header row like any other row', () => {
+    expect(
+      lines(
+        '<table><thead><tr><th>Detail</th><th>Value</th></tr></thead>' +
+          '<tbody><tr><td>Pages</td><td>320</td></tr></tbody></table>',
+      ),
+    ).toEqual([`Detail${SEP}Value`, `Pages${SEP}320`]);
+  });
+
+  it('keeps bold and italic inside cells, and the separator plain', () => {
+    const block = only(
+      parseDescriptionHtml(
+        '<table><tr><td><strong>Age</strong></td><td><em>9+</em></td></tr></table>',
+      ),
+    );
+
+    expect(block.spans).toEqual([
+      { text: 'Age', bold: true, italic: false },
+      { text: SEP, bold: false, italic: false },
+      { text: '9+', bold: false, italic: true },
+    ]);
+  });
+
+  it('collapses the spaces around a cell into the separator', () => {
+    expect(lines('<table><tr><td>  A  </td>\n  <td>\n B </td></tr></table>')).toEqual([`A${SEP}B`]);
+  });
+
+  it('keeps text before and after the table as their own paragraphs', () => {
+    expect(lines('<p>Before</p><table><tr><td>A</td><td>B</td></tr></table><p>After</p>')).toEqual([
+      'Before',
+      `A${SEP}B`,
+      'After',
+    ]);
+  });
+
+  it('puts a table inside a list item on the bullet line, and later rows under it', () => {
+    expect(
+      lines(
+        '<ul><li><table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr></table></li>' +
+          '<li>Next</li></ul>',
+      ),
+    ).toEqual([`•|0|A${SEP}B`, `|0|C${SEP}D`, '•|0|Next']);
+  });
+
+  it('separates cells without row tags, and never carries a separator into the next block', () => {
+    expect(lines('<td>A</td><td>B</td><p>C</p>')).toEqual([`A${SEP}B`, 'C']);
+    expect(lines('<table><tr><td>A</td></tr><tr><td>B</td></tr></table>')).toEqual(['A', 'B']);
+  });
+
+  it('starts a nested table on its own line', () => {
+    expect(
+      lines(
+        '<table><tr><td>A</td><td><table><tr><td>B</td><td>C</td></tr></table></td></tr></table>',
+      ),
+    ).toEqual(['A', `B${SEP}C`]);
+  });
+
+  it('reads a long table once without trouble', () => {
+    const row = '<tr><td>x</td><td></td><td>y</td></tr>';
+    const blocks = parseDescriptionHtml(`<table>${row.repeat(5000)}</table>`);
+
+    expect(blocks).toHaveLength(5000);
+    expect(blocks[4999]?.spans.map((span) => span.text).join('')).toBe(`x${SEP}y`);
   });
 });
 

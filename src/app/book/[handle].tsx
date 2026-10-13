@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { trackBookShown } from '@/analytics/catalogueEvents';
@@ -14,7 +14,18 @@ import {
   OfflineNotice,
   ScreenMessage,
 } from '@/components/ScreenMessage';
-import { recheckNetwork, useBook, useIsOffline, type BookPage } from '@/shopify/hooks/catalogue';
+import { BROWSE_CONTENT } from '@/config';
+import { openScreen } from '@/navigation/openGuard';
+import {
+  genreCode,
+  recheckNetwork,
+  useBook,
+  useGenreOptions,
+  useIsOffline,
+  type BookGenre,
+  type BookPage,
+  type GenreListState,
+} from '@/shopify/hooks/catalogue';
 import { colors, fonts, fontSize, iconSize, letterSpacing, radius, spacing } from '@/theme/tokens';
 
 /** The website's sentence for a rented-out book (architect, 8 October 2026; D-090). */
@@ -40,7 +51,8 @@ export function priceSummary(book: Pick<BookPage, 'price' | 'retailPrice' | 'ord
  * (D-081). Shopify is read again every time the page opens (`liveStock`, D-093). A stack screen
  * with no tab bar, so the page leaves room for Android's navigation bar itself (D-080).
  * `view_book` is sent once per opening, when the page first shows its book, with whether it can
- * be ordered then; a refetch never sends it again (P6-09, D-107).
+ * be ordered then; a refetch never sends it again (P6-09, D-107). A genre chip opens that genre's
+ * books when the Genre filter offers it (P6-10, D-113).
  */
 export default function BookScreen() {
   const params = useLocalSearchParams<{ handle?: string | string[] }>();
@@ -53,6 +65,9 @@ function Book({ handle }: { readonly handle: string }) {
   const isOffline = useIsOffline();
   const query = useBook(handle);
   const hasData = query.data !== undefined;
+  // The Genre list a chip opens: all books with "Available now" on (D-113). Shared with the
+  // collection screen's own read, so the genre is known there on arrival.
+  const offeredGenres = useGenreOptions(BROWSE_CONTENT.allBooksHandle, true);
 
   const viewed = useRef(false);
   const shown = query.data ?? null;
@@ -142,9 +157,11 @@ function Book({ handle }: { readonly handle: string }) {
             <Text style={styles.label}>Genre</Text>
             <View style={styles.chips}>
               {book.genres.map((genre) => (
-                <View key={genre} style={styles.chip}>
-                  <Text style={styles.chipText}>{genre}</Text>
-                </View>
+                <GenreChip
+                  code={offeredGenreCode(genre, offeredGenres)}
+                  key={genre.name}
+                  name={genre.name}
+                />
               ))}
             </View>
           </View>
@@ -153,6 +170,55 @@ function Book({ handle }: { readonly handle: string }) {
     </View>
   );
 }
+
+/**
+ * The code a genre chip opens, or null when the chip stays plain text: only a genre the Genre
+ * filter offers for all books with "Available now" on is tappable, and nothing is while that list
+ * loads or cannot be read (D-113).
+ */
+export function offeredGenreCode(genre: BookGenre, offered: GenreListState): string | null {
+  if (offered.kind !== 'ready' || genre.taxonomyValue === null) return null;
+  const code = genreCode(genre.taxonomyValue);
+  if (code === null) return null;
+  return offered.options.some((option) => genreCode(option.filter.value) === code) ? code : null;
+}
+
+/**
+ * One genre under "Genre". With a code it opens the collection screen for all books with that
+ * genre chosen, pushed on top of the book page, so Back returns to the book and Browse keeps its
+ * own choices (owner and architect, P6-10, D-113). The link carries the taxonomy value's number,
+ * never the name; the open goes through the guard (D-099). It looks the same either way; the
+ * touch area reaches 44 points above and below.
+ */
+function GenreChip({ name, code }: { readonly name: string; readonly code: string | null }) {
+  if (code === null) {
+    return (
+      <View style={styles.chip}>
+        <Text style={styles.chipText}>{name}</Text>
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      accessibilityLabel={`Show ${name} books`}
+      accessibilityRole="link"
+      hitSlop={CHIP_HIT_SLOP}
+      onPress={() =>
+        openScreen({
+          pathname: '/collection/[handle]',
+          params: { handle: BROWSE_CONTENT.allBooksHandle, genre: code },
+        })
+      }
+      style={styles.chip}
+    >
+      <Text style={styles.chipText}>{name}</Text>
+    </Pressable>
+  );
+}
+
+// A chip is about 29 points tall (padding, border and one line of small text); this brings its
+// touch area to 44 or more without changing how it looks.
+const CHIP_HIT_SLOP = { top: spacing.sm, bottom: spacing.sm };
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },

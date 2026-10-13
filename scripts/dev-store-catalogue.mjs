@@ -171,6 +171,20 @@ export const NO_COVER_HANDLES = [
   'harry-potter-and-the-chamber-of-secrets',
 ];
 
+// Home's "Popular authors" (P6-10, D-114): of the website's twelve (src/config/home.ts), the
+// author collections the development store has, in the website's order (TESTING.md, "Sample
+// catalogue": roald-dahl 3, ruskin-bond 3, enid-blyton 4, jeff-kinney 4, sudha-murthy 2,
+// j-k-rowling 7, julia-donaldson 3).
+export const HOME_AUTHORS = [
+  'julia-donaldson',
+  'enid-blyton',
+  'sudha-murthy',
+  'roald-dahl',
+  'ruskin-bond',
+  'jeff-kinney',
+  'j-k-rowling',
+];
+
 // One fixed book per case, so phone checks have a known book to open.
 export const EXAMPLES = {
   inStock: 'the-diary-of-a-wimpy-kid-no-brainer',

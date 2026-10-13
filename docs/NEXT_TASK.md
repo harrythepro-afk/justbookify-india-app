@@ -1,6 +1,6 @@
-# Next task (proposal): P6-10, the last Phase 6 task
+# Next task (proposal): P6-11, the wanted list
 
-Status: proposal. P6-09 (the catalogue usage events) is on branch `p6-09-catalogue-events`; see `CURRENT_STATUS.md`. P6-10 starts when the owner starts it, after P6-09's pull request is merged.
+Status: proposal. P6-10 (the last Phase 6 task; D-111 to D-114) is on branch `p6-10-close-phase-6`, PR #23, phone check passed; see `CURRENT_STATUS.md`. P6-11 starts when the owner starts it, after P6-10's pull request is merged. P6-09 is merged (`ac0a9fd`, PR #22).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -22,28 +22,30 @@ Status: proposal. P6-09 (the catalogue usage events) is on branch `p6-09-catalog
 | P6-06 (done, ede0acd) | Search: Storefront `search` (books only, partial last word), results as you type from 3 letters or the search key from 2, "Available now" off (`LAST`/`HIDE`), Relevance and the two price sorts, the count line and the website's no-results line, earlier results kept while a new term loads; the term never logged, sent to analytics or reported; the standing phone-check permission; one guard against double taps for every in-app open; a clear button | D-095 to D-099 |
 | P6-07 (done, eaa9702) | The Genre filter (the store's own genre names, one at a time, combined with the group, "Available now" and the sort; on Browse and the collection screen), Browse's all books from the `all-books` collection, the longer series list | D-100 to D-103 |
 | P6-08 (done, c757ff2) | The Price filter ("All prices", then up to ₹34, ₹49, ₹74; a maximum only; store configuration, labels in the store's currency format) on Browse and the collection screen, not on search; one filter row that scrolls sideways with "Clear" pinned at its right edge; the CI act warnings fixed in the test setup | D-104 to D-106 |
-| P6-09 (branch `p6-09-catalogue-events`) | The catalogue usage events under consent: `view_collection` (collection screen, a group chosen on Browse), `view_book`, `filter_applied` (codes only, the customer's own changes), `search` (2 seconds on screen, the search key or a book opened; length, count and the store's own catalogue item matched, never the term); the guard's dependent parameters | D-107 to D-110 |
-| P6-10 (proposed) | The last Phase 6 task: the offline question (D-087), the description-table fix, and the owner's decisions on tappable genre chips and browse by author | |
+| P6-09 (done, ac0a9fd) | The catalogue usage events under consent: `view_collection` (collection screen, a group chosen on Browse), `view_book`, `filter_applied` (codes only, the customer's own changes), `search` (2 seconds on screen, the search key or a book opened; length, count and the store's own catalogue item matched, never the term); the guard's dependent parameters | D-107 to D-110 |
+| P6-10 (branch `p6-10-close-phase-6`) | The last Phase 6 task: the offline question closed (queries keep pausing, D-082's safety net), description tables (cells joined by " · "), tappable genre chips (all books with that genre, pushed on the book page), "Popular authors" on Home | D-111 to D-114 |
+| P6-11 (proposed) | The wanted list (owner, 9 October 2026): a list in Remote Config; a search that finds nothing but matches a listed name records it as a code | |
 
-## Goal of P6-10
+## Goal of P6-11
 
-Close Phase 6: settle the items left to its last task, so Phase 7 (login) starts on a finished catalogue.
+The owner keeps a list of authors, series or titles they are thinking of stocking (the "wanted list"), in Firebase Remote Config. When a search finds nothing but matches a name on that list, the `search` event records which listed name it was, as a code, so the owner can see demand for books the store does not have yet. Nothing the customer typed is ever sent (owner, 9 October 2026).
 
 ## Proposed scope
 
-1. **The offline question (D-087, risk 22).** Queries pause while the phone looks offline, with D-082's safety net ("Try again" re-reads the network first, and a stale false "offline" recovers on return to the foreground). Evidence so far: one false "offline" in the P6-03 phone check (7 October 2026, risk 22) and none in the standing background step of P6-04 to P6-09. Propose keeping the current behaviour and closing the question, or a change, with that evidence.
-2. **The description-table fix** (architect's review of PR #18): cells of one table row run together with no space ("AB"). Separate them, with a test, in `src/shopify/richText.ts`.
-3. **Genre chips on the book page** (owner, P6-07): stay plain text, or open Browse with that genre chosen.
-4. **Browse by author** (owner, P6-07): build now, later, or not in version 1.
-5. Unit tests for each change; a phone check if anything on screen changes.
+1. **The list in Remote Config:** one parameter holding the wanted names, each with its own code and type (author, series or title), validated on the phone like the existing flags (D-046): a malformed list is ignored and reported to Sentry by parameter name only, never its value. It follows D-046's timing: a change reaches a phone from its second cold start.
+2. **Matching:** only when a search finds no books (`result_count` 0); the cleaned term matched against the listed names with the rules of D-109 (whole and case-insensitive; partial words, Shopify's syntax and common words never match). The store's own catalogue still comes first (D-109); the wanted list is checked only when nothing in the catalogue matched.
+3. **The event:** `search` gets a new `match_type` (proposed `wanted`), with `match_id` the listed code; the guard (D-110) and the typed unions learn the new pairing. Never the name or the term.
+4. **Tests**, `check:dev-store` unchanged (no Shopify read), and a phone check with DebugView: the owner publishes a short test list in the development Remote Config project.
+5. **Docs:** `ANALYTICS.md`, the privacy policy items (risk 21: the app records, under consent, which wanted name a search matched), `DECISIONS.md` from D-115.
 
 ## Questions for the owner and the architect
 
-1. **Offline:** keep queries pausing offline with D-082's safety net and close D-087, or change it?
-2. **Description tables:** cells separated by a space, or by " | " (a row read as one line), or each cell on its own line?
-3. **Genre chips:** keep them as plain text, or make each open Browse with that genre chosen (all books, "Available now" on)?
-4. **Browse by author:** in this task, a later phase, or not in version 1? If now: from the author on the book page, from search, or a Browse list?
-5. **Phone check:** only if something on screen changes (2 to 4), or always?
+1. **The list's shape:** one Remote Config parameter (proposed `search_wanted_list`, a JSON list of `{ "code", "type", "name" }`), or one per type? Who writes each code: the owner, by hand in Remote Config, or the app, from the name (as for authors, D-109)?
+2. **Codes:** the same rule as other codes (lowercase snake case, starting with a letter, at most 40 characters, no run of seven digits; D-110)? What happens to an entry whose code breaks it: dropped alone, or the whole list ignored?
+3. **When it counts:** only when the search finds no books at all, or also when every book found is rented out?
+4. **Several names in one term,** or a wanted name that is also in the store's catalogue: the catalogue wins (proposed), and among wanted names the first in the list?
+5. **Limits:** a maximum number of entries (proposed 200) and name length (proposed 100 characters, as the search field)?
+6. **Phone check:** with DebugView, as in P6-09 (the `setprop` commands need the owner's yes for that check). Over USB? Wireless dropped once in P6-10's check and six times in P6-09's.
 
 ## Out of scope
 
@@ -51,10 +53,12 @@ Close Phase 6: settle the items left to its last task, so Phase 7 (login) starts
 - The consent request itself (Phase 7, release gate).
 - Anything on the live store.
 
-## Follow-ups (recorded, not part of P6-10)
+## Follow-ups (recorded, not part of P6-11)
 
 - **Release gate: before the live store is connected (P6-07 and P6-08, owner):** five read-only checks on the live store with the app's public token, all of which must pass (`TESTING.md`, "Release gate: before the live store is connected"): the `all-books` collection exists, is published to the app's channel only and returns every book the app can see; the Genre filter is offered on it and on a group; the genre entries can be listed and every filter value joins to at least one store name; the eight custom genres show the store's names; the Price filter (`filter.v.price`) is offered on `all-books` and on a group (P6-08). Creating the collection on the live store is the owner's decision at that time (store addition 4, `SHOPIFY_INTEGRATION.md`). Nothing on the live store is touched before then.
 - **Wireless phone checks (P6-09):** wireless debugging connected but dropped six times in one check, apparently whenever the screen slept or the app went to the background; each reconnect needed a new port from the owner. Use USB for checks with a background step, or keep the screen awake. `adb connect` and `adb disconnect` are still outside the standing permission (D-095).
+- **Wireless phone checks (P6-10):** the owner chose wireless again; the link dropped once (about 07:58, around a phone call that also restarted the app), and a new port was needed. The background step itself (6 min 6 s) kept the link. USB stays the reliable choice; a call during a check stops it (Do Not Disturb does not end a call already in progress).
+- **Focus check over wireless adb (P6-10):** the check's `grep -q` ends `dumpsys` early, and `dumpsys` then prints "Broken pipe", which `exec-out` mixes into a screenshot; use `dumpsys window 2>/dev/null | grep -q ...`. The `TESTING.md` form (`adb shell`, no `exec-out`) is not affected.
 - **Catalogue usage events (P6-09, on the branch):** D-107 to D-110; `view_collection`, `view_book`, `filter_applied` and `search` are wired (`ANALYTICS.md`, "Catalogue events"). Search matches on the live store follow its own collections and genre entries; the release gate "before the live store is connected" already checks that the entries can be listed.
 - **Price filter (P6-08, done, `c757ff2`):** D-104; the ₹0 book and "Mr Big" at ₹79 are owner items for the live store (`SHOPIFY_AUDIT.md`, "Live website prices").
 - **Filter row while scrolled to its end (P6-08 phone check, observation):** when a label lengthens while the row is scrolled to its end, the buttons to its left move left on screen (the row keeps its end in view). "Clear" does not appear or disappear then, so D-105 holds; the architect may want it changed.
@@ -63,8 +67,8 @@ Close Phase 6: settle the items left to its last task, so Phase 7 (login) starts
 - **Development store search count (P6-07, resolved):** Shopify's matching of broad words changed on the development store from 8 October 2026; `npm run check:dev-store` now checks only the meaning of "Available now" for "the" and "kid" and keeps exact counts for harry, dahl and zzqxv (architect's review of PR #20; `SHOPIFY_INTEGRATION.md`).
 - **Act warnings on CI's Linux runner (P6-07, resolved in P6-08):** `jest.setup.ts` wraps TanStack Query's deliveries in React's `act` (D-106, test only); CI run 37873582381 (`5de6013`) logs no "not wrapped in act" line and no `console.error`, where `main`'s run 37865413339 logged four.
 - **Phone checks: notification banners (P6-07):** the 08:08 stop in P6-07's check came from a Do Not Disturb setting that let app notifications through; the owner is changing it. Before each check, Do Not Disturb must block app notifications, not only calls.
-- **Genre chips on the book page (owner, P6-07):** stay not tappable for now; decide in the last Phase 6 task.
-- **Browse by author (owner, P6-07):** not built yet; decide by the end of Phase 6.
+- **Genre chips on the book page (owner, P6-07):** done in P6-10 (D-113): a chip whose genre the Genre filter offers opens the all-books collection screen with that genre chosen, pushed on the book page.
+- **Browse by author (owner, P6-07):** done in P6-10 as "Popular authors" on Home (D-114). Search matching (D-109) does not add the configured author names.
 
 - **Release gate: analytics consent (from P4-04):** no build goes to any tester other than the owner until all of these hold (`TESTING.md`; D-048):
   - the consent request is built (Phase 7, at the placement the owner chooses between the two in D-048) and works;
@@ -94,8 +98,8 @@ Close Phase 6: settle the items left to its last task, so Phase 7 (login) starts
 - **Store variables for EAS (from P5-01):** add `EXPO_PUBLIC_STORE_COUNTRY` and `EXPO_PUBLIC_STORE_LANGUAGE` to the EAS environment when the staging build is set up (D-058).
 - **Storefront domain for staging and production (architect, P5-01):** when the staging and production configurations are set up, confirm from Shopify's documentation which store domain the Storefront API calls should use, so that requests are not redirected.
 - **Code generator audit entries (D-060):** reviewed by 2026-11-15 with the `braces` and `@grpc/grpc-js` entries; re-checked whenever the preset or the codegen CLI is upgraded; each removed in the commit that picks up a compatible fix.
-- **Offline question (architect, D-087):** no change now; queries keep pausing with D-082's safety net. Revisit in the last Phase 6 task, with the evidence from every phone check's standing step until then.
-- **Standing phone-check step (owner, D-082):** in every phone check, after more than 5 minutes in the background, no false offline notice (`TESTING.md`).
+- **Offline question (architect, D-087):** closed in P6-10 (D-111): queries keep pausing with D-082's safety net; risk 22 mitigated.
+- **Standing phone-check step (owner, D-082, D-111):** in every phone check, after more than 5 minutes in the background, no false offline notice (`TESTING.md`), **until the first release build, when it is reviewed**.
 - **Release gate: list performance (P6-03):** the collection list (and Browse) must scroll and load more smoothly on a release build before any outside tester (`TESTING.md`). Measured so far only with production-mode JavaScript: the 6 extra books of `junior-readers` on screen within 0.8 to 1.8 seconds. Browse reuses the collection screen's list settings (D-080, `34218d5`).
 - **Phase 9, Checkout Kit TLS errors (owner, P5-02 phone check):** the app's log showed two TLS handshake errors (`net_error -101`) inside Checkout Kit's web view while the development store's password page loaded. The page itself loaded. Re-check during Phase 9's checkout tests.
 - **Phase 7, logout (D-061):** call `clearAllCaches()`; customer data gets its own key root and is cached in memory only.
@@ -111,7 +115,7 @@ Close Phase 6: settle the items left to its last task, so Phase 7 (login) starts
   - **Website cards** show no author and no stars; the app's card keeps the author (D-073).
 - **Book card preview** (D-074, D-088): kept until Phase 8, when customer screens draw the card's buttons. Since P6-05 it also holds the book page links and the description sample (D-094).
 - **Double tap (P6-06 phone check, fixed in PR #19, D-099):** a book card and the search button opened their screen twice on a fast double tap. One guard for every in-app open now ignores a second open within 0.5 seconds.
-- **Description tables (architect's review of PR #18):** cells in one table row run together with no space ("AB"). Fix in the last Phase 6 task, with a test.
+- **Description tables (architect's review of PR #18):** fixed in P6-10 (D-112): each row its own line, cells joined by " · ", empty cells skipped.
 - **Development store descriptions (architect's review of PR #18):** all 42 are a single `<p>` with no `<br>` or `<strong>`, so their headings and bullets run together on the book page. No re-import now. Before the release-build check, the owner pastes full descriptions into a few books in the development admin.
 - **Analytics events for catalogue screens (P6-05):** done in P6-09 (D-107 to D-110).
 - **Book page in a release build:** the description and the full-width cover are checked on the development build only; include a long real description in the release-build list check (`TESTING.md`, "Release gate: list performance").

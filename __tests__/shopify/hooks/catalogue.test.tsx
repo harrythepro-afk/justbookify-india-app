@@ -548,7 +548,7 @@ describe('useBook (P6-05)', () => {
     expect(result.current.data).toMatchObject({
       availability: 'orderable-at-zero-stock',
       orderable: true,
-      genres: ['Fantasy'],
+      genres: [{ name: 'Fantasy', taxonomyValue: null }],
     });
     const query = client.getQueryCache().find({
       queryKey: storefrontKeys.catalogue.book('harry-potter-and-the-deathly-hallows-book-7'),

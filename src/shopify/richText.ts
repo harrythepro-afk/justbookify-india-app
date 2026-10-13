@@ -3,9 +3,10 @@
  * The HTML is untrusted input: it is read by this small tokenizer, never by a web view, and only
  * a safe set of tags keeps a meaning. `p`, `br`, `strong`, `b`, `em`, `i`, `ul`, `ol` and `li`
  * are kept; `div`, `h1` to `h6`, `blockquote`, `tr` and `table` only end a paragraph (headings
- * are bold); every other tag is dropped and its text kept, so a link is plain text. Attributes
- * are never read. `script`, `style` and the other elements in `DROPPED_WITH_CONTENT` lose their
- * content too. The tokenizer never throws, never recurses and reads the input once, so broken
+ * are bold), so each table row is its own block, and the cells of one row are joined by " · ",
+ * empty cells skipped (P6-10, D-112); every other tag is dropped and its text kept, so a link is
+ * plain text. Attributes are never read. `script`, `style` and the other elements in
+ * `DROPPED_WITH_CONTENT` lose their content too. The tokenizer never throws, never recurses and reads the input once, so broken
  * markup, deep nesting and very long text are safe.
  */
 
@@ -43,6 +44,12 @@ const DROPPED_WITH_CONTENT = new Set([
 const PARAGRAPH_BREAKS = new Set(['p', 'div', 'blockquote', 'tr', 'table']);
 
 const HEADINGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+
+/** Table cells: a header cell is read like any other (owner, P6-10). */
+const TABLE_CELLS = new Set(['td', 'th']);
+
+/** Between two cells of one table row: a space, a middle dot, a space (owner, P6-10, D-112). */
+export const CELL_SEPARATOR = ' · ';
 
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   amp: '&',
@@ -285,10 +292,23 @@ export function parseDescriptionHtml(html: string): RichTextBlock[] {
     block = freshBlock();
   };
 
+  // The block whose next visible text starts a new table cell. A row is one block (`tr` ends a
+  // paragraph), so a cell after one with text gets the separator before its own text; a cell
+  // with no text never adds one (owner, P6-10, D-112). A block replaced since is a new object.
+  let cellAwaitingSeparator: OpenBlock | null = null;
+
   const addText = (raw: string) => {
     const text = decodeEntities(raw).replace(CONTROL, '').replace(WHITESPACE, ' ');
     if (text === '') return;
+    if (cellAwaitingSeparator === block && text.trim() !== '') {
+      block.spans.push({ text: CELL_SEPARATOR, bold: false, italic: false });
+      cellAwaitingSeparator = null;
+    }
     block.spans.push({ text, bold: boldDepth > 0 || headingDepth > 0, italic: italicDepth > 0 });
+  };
+
+  const startCell = () => {
+    if (block.spans.some((span) => span.text.trim() !== '')) cellAwaitingSeparator = block;
   };
 
   const addLineBreak = () => {
@@ -301,6 +321,7 @@ export function parseDescriptionHtml(html: string): RichTextBlock[] {
       endBlock();
       headingDepth += 1;
     } else if (name === 'br') addLineBreak();
+    else if (TABLE_CELLS.has(name)) startCell();
     else if (name === 'strong' || name === 'b') boldDepth += 1;
     else if (name === 'em' || name === 'i') italicDepth += 1;
     else if (name === 'ul' || name === 'ol') {
