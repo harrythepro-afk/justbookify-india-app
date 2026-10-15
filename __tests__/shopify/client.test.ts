@@ -6,18 +6,24 @@ import {
   storefrontMutation,
   storefrontQuery,
 } from '@/shopify/client';
-import {
-  DEV_CHECKOUT_CART_CREATE_MUTATION,
-  DEV_CHECKOUT_PRODUCT_QUERY,
-} from '@/shopify/devCheckout';
+import { CART_CREATE_MUTATION, CART_READ_QUERY } from '@/shopify/cart';
 import { StorefrontError } from '@/shopify/errors';
 
 // Fake values only. The tests check that none of them reaches an error.
 const STORE_DOMAIN = 'example-dev-store.myshopify.com';
 const TOKEN = 'public-token-for-tests';
 const VARIANT_ID = 'gid://shopify/ProductVariant/private-777';
+const CART_ID = 'gid://shopify/Cart/test-cart?key=private-cart-key';
 const SHOPIFY_TEXT = `Access denied for ${STORE_DOMAIN}`;
-const SENSITIVE = [STORE_DOMAIN, TOKEN, VARIANT_ID, SHOPIFY_TEXT, 'private-777'];
+const SENSITIVE = [
+  STORE_DOMAIN,
+  TOKEN,
+  VARIANT_ID,
+  SHOPIFY_TEXT,
+  'private-777',
+  CART_ID,
+  'private-cart-key',
+];
 
 const mockConfig: StoreConfig = {
   storeDomain: STORE_DOMAIN,
@@ -40,6 +46,9 @@ jest.mock('@/config/store', () => ({
 
 const PRODUCTS = { data: { products: { nodes: [] } } };
 const LINES = [{ merchandiseId: VARIANT_ID, quantity: 1 }];
+// The query the tests send: CartRead, which needs the cart's ID (P9-01 removed the test checkout
+// screen's product query, which needed none).
+const READ = { variables: { cartId: CART_ID } } as const;
 
 function response(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return {
@@ -112,24 +121,24 @@ describe('requests', () => {
   it('posts the operation to the pinned endpoint with the public token', async () => {
     fetchMock.mockResolvedValueOnce(response(PRODUCTS));
 
-    await expect(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY)).resolves.toEqual(PRODUCTS.data);
+    await expect(storefrontQuery(CART_READ_QUERY, READ)).resolves.toEqual(PRODUCTS.data);
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(`https://${STORE_DOMAIN}/api/2026-10/graphql.json`);
     expect(init.method).toBe('POST');
     expect(init.headers['X-Shopify-Storefront-Access-Token']).toBe(TOKEN);
     expect(init.headers['Content-Type']).toBe('application/json');
-    expect(requestBody(0).query).toBe(DEV_CHECKOUT_PRODUCT_QUERY);
+    expect(requestBody(0).query).toBe(CART_READ_QUERY);
   });
 
   it('adds the buyer context from the store configuration to every operation', async () => {
     fetchMock.mockResolvedValueOnce(response(PRODUCTS));
     fetchMock.mockResolvedValueOnce(response({ data: { cartCreate: null } }));
 
-    await storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY);
-    await storefrontMutation(DEV_CHECKOUT_CART_CREATE_MUTATION, { variables: { lines: LINES } });
+    await storefrontQuery(CART_READ_QUERY, READ);
+    await storefrontMutation(CART_CREATE_MUTATION, { variables: { lines: LINES } });
 
-    expect(requestBody(0).variables).toEqual({ country: 'IN', language: 'EN' });
+    expect(requestBody(0).variables).toEqual({ cartId: CART_ID, country: 'IN', language: 'EN' });
     expect(requestBody(1).variables).toEqual({ lines: LINES, country: 'IN', language: 'EN' });
   });
 
@@ -137,22 +146,21 @@ describe('requests', () => {
     fetchMock.mockResolvedValueOnce(response({ data: { cartCreate: null } }));
     const variables = { lines: LINES, country: 'BH', language: 'AR' } as never;
 
-    await storefrontMutation(DEV_CHECKOUT_CART_CREATE_MUTATION, { variables });
+    await storefrontMutation(CART_CREATE_MUTATION, { variables });
 
     expect(requestBody(0).variables).toMatchObject({ country: 'IN', language: 'EN' });
   });
 
   it("reads each operation's own name", () => {
-    expect(operationNameOf(DEV_CHECKOUT_PRODUCT_QUERY)).toBe('DevCheckoutProduct');
-    expect(operationNameOf(DEV_CHECKOUT_CART_CREATE_MUTATION)).toBe('DevCheckoutCartCreate');
+    expect(operationNameOf(CART_READ_QUERY)).toBe('CartRead');
+    expect(operationNameOf(CART_CREATE_MUTATION)).toBe('CartCreate');
     expect(operationNameOf('{ shop { name } }')).toBe('UnnamedOperation');
   });
 });
 
 describe('error mapping', () => {
   // Mutations are used where a query's retries would only repeat the same outcome.
-  const mutate = () =>
-    storefrontMutation(DEV_CHECKOUT_CART_CREATE_MUTATION, { variables: { lines: LINES } });
+  const mutate = () => storefrontMutation(CART_CREATE_MUTATION, { variables: { lines: LINES } });
 
   it('maps a failed fetch to no-network, without the underlying text', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError(`Network request to ${STORE_DOMAIN} failed`));
@@ -160,7 +168,7 @@ describe('error mapping', () => {
     const { error } = await settle(mutate());
 
     const storefrontError = expectSafeError(error, 'no-network');
-    expect(storefrontError.operationName).toBe('DevCheckoutCartCreate');
+    expect(storefrontError.operationName).toBe('CartCreate');
     expect(storefrontError.retryable).toBe(true);
   });
 
@@ -180,7 +188,7 @@ describe('error mapping', () => {
     const controller = new AbortController();
 
     const outcome = settle(
-      storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY, { signal: controller.signal }),
+      storefrontQuery(CART_READ_QUERY, { ...READ, signal: controller.signal }),
     );
     await jest.advanceTimersByTimeAsync(100);
     controller.abort();
@@ -194,7 +202,7 @@ describe('error mapping', () => {
     controller.abort();
 
     const { error } = await settle(
-      storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY, { signal: controller.signal }),
+      storefrontQuery(CART_READ_QUERY, { ...READ, signal: controller.signal }),
     );
 
     expectSafeError(error, 'cancelled');
@@ -263,7 +271,7 @@ describe('retries', () => {
       .mockResolvedValueOnce(response(SHOPIFY_TEXT, 503))
       .mockResolvedValueOnce(response(PRODUCTS));
 
-    const outcome = settle(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY));
+    const outcome = settle(storefrontQuery(CART_READ_QUERY, READ));
     await jest.advanceTimersByTimeAsync(0);
 
     expect((await outcome).value).toEqual(PRODUCTS.data);
@@ -273,7 +281,7 @@ describe('retries', () => {
   it('tries a query at most three times', async () => {
     fetchMock.mockRejectedValue(new TypeError('Network request failed'));
 
-    const outcome = settle(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY));
+    const outcome = settle(storefrontQuery(CART_READ_QUERY, READ));
     await jest.advanceTimersByTimeAsync(100);
 
     expectSafeError((await outcome).error, 'no-network');
@@ -288,7 +296,7 @@ describe('retries', () => {
   ])('retries a query after %s', async (_name, answer) => {
     fetchMock.mockResolvedValueOnce(answer()).mockResolvedValueOnce(response(PRODUCTS));
 
-    const outcome = settle(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY));
+    const outcome = settle(storefrontQuery(CART_READ_QUERY, READ));
     await jest.advanceTimersByTimeAsync(0);
 
     expect((await outcome).value).toEqual(PRODUCTS.data);
@@ -302,7 +310,7 @@ describe('retries', () => {
   ])('does not retry a query after %s', async (_name, answer) => {
     fetchMock.mockResolvedValue(answer());
 
-    await settle(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY));
+    await settle(storefrontQuery(CART_READ_QUERY, READ));
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -315,7 +323,7 @@ describe('retries', () => {
     fetchMock.mockImplementation(answer);
 
     const outcome = settle(
-      storefrontMutation(DEV_CHECKOUT_CART_CREATE_MUTATION, { variables: { lines: LINES } }),
+      storefrontMutation(CART_CREATE_MUTATION, { variables: { lines: LINES } }),
     );
     await jest.advanceTimersByTimeAsync(CALL_TIME_LIMIT_MS);
 
@@ -327,7 +335,7 @@ describe('retries', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.999);
     fetchMock.mockRejectedValue(new TypeError('Network request failed'));
 
-    const outcome = settle(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY));
+    const outcome = settle(storefrontQuery(CART_READ_QUERY, READ));
     await jest.advanceTimersByTimeAsync(0);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
@@ -349,7 +357,7 @@ describe('retries', () => {
       .mockResolvedValueOnce(response('', 503, { 'Retry-After': '3' }))
       .mockResolvedValueOnce(response(PRODUCTS));
 
-    const outcome = settle(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY));
+    const outcome = settle(storefrontQuery(CART_READ_QUERY, READ));
     await jest.advanceTimersByTimeAsync(2_999);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     await jest.advanceTimersByTimeAsync(1);
@@ -362,7 +370,7 @@ describe('retries', () => {
     fetchMock.mockResolvedValue(response('', 429, { 'Retry-After': '11' }));
 
     const error = expectSafeError(
-      (await settle(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY))).error,
+      (await settle(storefrontQuery(CART_READ_QUERY, READ))).error,
       'throttled',
     );
     expect(error.status).toBe(429);
@@ -375,7 +383,7 @@ describe('retries', () => {
     const controller = new AbortController();
 
     const outcome = settle(
-      storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY, { signal: controller.signal }),
+      storefrontQuery(CART_READ_QUERY, { ...READ, signal: controller.signal }),
     );
     await jest.advanceTimersByTimeAsync(100);
     controller.abort();
@@ -389,7 +397,7 @@ describe('the 30-second limit on one call', () => {
   it('ends a query whose attempts keep timing out by 30 seconds', async () => {
     fetchMock.mockImplementation(hangingFetch);
 
-    const outcome = settle(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY));
+    const outcome = settle(storefrontQuery(CART_READ_QUERY, READ));
     await jest.advanceTimersByTimeAsync(CALL_TIME_LIMIT_MS - 1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     let settled = false;
@@ -410,7 +418,7 @@ describe('the 30-second limit on one call', () => {
       .mockImplementationOnce(hangingFetch)
       .mockImplementationOnce(hangingFetch);
 
-    const outcome = settle(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY));
+    const outcome = settle(storefrontQuery(CART_READ_QUERY, READ));
     await jest.advanceTimersByTimeAsync(25_010);
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const lastSignal = fetchMock.mock.calls[2][1].signal as AbortSignal;
@@ -429,7 +437,7 @@ describe('the 30-second limit on one call', () => {
       .mockImplementationOnce(hangingFetch)
       .mockImplementationOnce(delayedFetch(12_000, response('', 503, { 'Retry-After': '2' })));
 
-    const outcome = settle(storefrontQuery(DEV_CHECKOUT_PRODUCT_QUERY));
+    const outcome = settle(storefrontQuery(CART_READ_QUERY, READ));
     await jest.advanceTimersByTimeAsync(15_010);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     await jest.advanceTimersByTimeAsync(12_000);

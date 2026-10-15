@@ -16,7 +16,7 @@ import {
   recheckNetwork,
 } from '@/query/online';
 import { storefrontMutation } from '@/shopify/client';
-import { DEV_CHECKOUT_CART_CREATE_MUTATION } from '@/shopify/devCheckout';
+import { CART_CREATE_MUTATION } from '@/shopify/cart';
 import { StorefrontError } from '@/shopify/errors';
 
 import { createTestQueryClient } from '../helpers/queryClient';
@@ -413,7 +413,7 @@ describe('mutations offline (D-065)', () => {
 
     const observer = new MutationObserver(client, {
       mutationFn: () =>
-        storefrontMutation(DEV_CHECKOUT_CART_CREATE_MUTATION, {
+        storefrontMutation(CART_CREATE_MUTATION, {
           variables: { lines: [{ merchandiseId: 'gid://shopify/ProductVariant/1', quantity: 1 }] },
         }),
     });

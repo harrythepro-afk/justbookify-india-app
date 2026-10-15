@@ -75,6 +75,7 @@ jest.mock('@/analytics/consent', () => ({
 
 jest.mock('@/featureFlags/session', () => ({
   useFeatureFlags: () => mockFlagState,
+  useCheckoutPresentationRead: () => undefined,
 }));
 
 // A link's target is put in its accessibility hint, so tests can read where it leads.
@@ -517,12 +518,15 @@ describe('HomeScreen states (D-078)', () => {
 });
 
 describe('HomeScreen development tools', () => {
-  it('links to the test checkout screen on a development build', async () => {
+  // The test checkout screen (P3-01) was removed in P9-01, when the Cart tab's checkout replaced
+  // it (D-154): the development tools stay, without its link, and show checkout's status.
+  it('shows the development tools without the removed test checkout link', async () => {
     await renderHome();
 
-    const link = screen.getByText('Open the test checkout screen');
-    expect(link).toBeOnTheScreen();
-    expect(link.props.accessibilityHint).toBe('/dev-checkout');
+    expect(screen.getByText('Development tools')).toBeOnTheScreen();
+    expect(screen.queryByText('Open the test checkout screen')).not.toBeOnTheScreen();
+    expect(screen.getByText('checkout_presentation at checkout: not read yet')).toBeOnTheScreen();
+    expect(screen.getByText('Last checkout: none')).toBeOnTheScreen();
   });
 
   it.each(['staging', 'production'])(

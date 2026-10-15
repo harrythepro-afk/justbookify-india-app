@@ -50,7 +50,7 @@ const COMPONENT = 'src/components/Example.tsx';
 
 const FAILING: Case[] = [
   ["import { storefrontQuery } from '@/shopify/client';", SCREEN],
-  ["import { listDevCheckoutVariants } from '@/shopify/devCheckout';", SCREEN],
+  ["import { readCart } from '@/shopify/cart';", SCREEN],
   ["import { clearStorefrontCache } from '@/shopify/cache';", SCREEN],
   ["import { storefrontKeys } from '@/shopify/queryKeys';", COMPONENT],
   ["import { appQueryClient } from '@/query/queryClient';", SCREEN],
@@ -59,15 +59,16 @@ const FAILING: Case[] = [
   ["import { QueryClient } from '@tanstack/query-core';", COMPONENT],
   ["import { storefrontQuery } from '../shopify/client';", 'src/analytics/example.ts'],
   ["import { useQuery } from '@tanstack/react-query';", 'src/analytics/example.ts'],
-  ["import { useQuery } from '@tanstack/react-query';", 'src/shopify/devCheckout.ts'],
+  ["import { useQuery } from '@tanstack/react-query';", 'src/shopify/cart.ts'],
 ];
 
 const PASSING: Case[] = [
-  ["import { useDevCheckoutVariants } from '@/shopify/hooks/devCheckout';", SCREEN],
+  ["import { useCart } from '@/shopify/hooks/cart';", SCREEN],
   ["import { StorefrontError } from '@/shopify/errors';", SCREEN],
   ["import { AppQueryProvider } from '@/query/QueryProvider';", SCREEN],
-  ["import type { DevCheckoutCart } from '@/shopify/devCheckout';", COMPONENT],
+  ["import type { Cart } from '@/shopify/cart';", COMPONENT],
   ["import type { UseQueryResult } from '@tanstack/react-query';", SCREEN],
+  // This boundary's rule only; Checkout Kit's own rule (P9-01, D-151) is in the login guards' test.
   ["import { ShopifyCheckoutSheetProvider } from '@shopify/checkout-sheet-kit';", SCREEN],
   ["import { useQuery } from '@tanstack/react-query';", 'src/query/example.ts'],
   ["import { useQuery } from '@tanstack/react-query';", 'src/shopify/hooks/example.ts'],

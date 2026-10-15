@@ -1,7 +1,7 @@
 import { CancelledError } from '@tanstack/react-query';
 
 import { reportQueryError } from '@/query/errorReporting';
-import { DevCheckoutError } from '@/shopify/devCheckout';
+import { CartDataError } from '@/shopify/cart';
 import { StorefrontError, type StorefrontErrorKind } from '@/shopify/errors';
 
 const mockStorefrontProblem = jest.fn<void, [string, string]>();
@@ -14,7 +14,7 @@ jest.mock('@/crashReporting/sentry', () => ({
 }));
 
 function storefrontError(kind: StorefrontErrorKind, codes?: string[]): StorefrontError {
-  return new StorefrontError(kind, { operationName: 'DevCheckoutProduct', codes });
+  return new StorefrontError(kind, { operationName: 'CartRead', codes });
 }
 
 function reported(): string[] {
@@ -35,9 +35,7 @@ describe('reportQueryError', () => {
     reportQueryError(storefrontError('no-network'));
     reportQueryError(storefrontError('timeout'));
 
-    expect(mockStorefrontProblem.mock.calls).toEqual([
-      ['storefront/graphql-error', 'DevCheckoutProduct'],
-    ]);
+    expect(mockStorefrontProblem.mock.calls).toEqual([['storefront/graphql-error', 'CartRead']]);
     expect(mockUnexpected).not.toHaveBeenCalled();
   });
 
@@ -46,7 +44,7 @@ describe('reportQueryError', () => {
     expect(reported()).toEqual([]);
 
     reportQueryError(storefrontError('user-errors', ['INVALID', 'OTHER']), ['INVALID']);
-    expect(reported()).toEqual(['storefront/user-errors DevCheckoutProduct']);
+    expect(reported()).toEqual(['storefront/user-errors CartRead']);
   });
 
   it.each([
@@ -60,15 +58,11 @@ describe('reportQueryError', () => {
   });
 
   it('reports any other error as unexpected, by its code only', () => {
-    reportQueryError(new DevCheckoutError('no-available-variant'));
+    reportQueryError(new CartDataError('cart-rejected'));
     reportQueryError(new TypeError('https://example-dev-store.myshopify.com/api failed'));
     reportQueryError('a thrown string');
 
-    expect(mockUnexpected.mock.calls).toEqual([
-      ['devCheckout/no-available-variant'],
-      ['TypeError'],
-      ['unknown'],
-    ]);
+    expect(mockUnexpected.mock.calls).toEqual([['cart/cart-rejected'], ['TypeError'], ['unknown']]);
     expect(reported().join(' ')).not.toContain('myshopify');
   });
 });

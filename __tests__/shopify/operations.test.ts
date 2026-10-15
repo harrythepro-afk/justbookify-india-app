@@ -92,8 +92,8 @@ function personalFieldsIn(document: string): string[] {
 it('finds the operations in src/shopify/', () => {
   expect(realOperations.map(({ document }) => definitions(document)[0]?.name?.value)).toEqual(
     expect.arrayContaining([
-      'DevCheckoutProduct',
-      'DevCheckoutCartCreate',
+      'CartRead',
+      'CartCheckoutPrepare',
       'CollectionBooks',
       'BookCardByHandle',
       'CollectionHandles',
@@ -118,9 +118,10 @@ it('reads no rating in the catalogue operations', () => {
   }
 });
 
-// Every customer list is a collection, all books included (D-100, replaces D-083): no catalogue
-// operation reads the root `products` query. Only the development-only test checkout does.
-it('reads no root products query outside the development checkout', () => {
+// Every customer list is a collection, all books included (D-100, replaces D-083): no operation
+// reads the root `products` query. The development-only test checkout, the only one that did, was
+// removed in P9-01 (D-154).
+it('reads no root products query', () => {
   const rootProducts = realOperations.filter(({ document }) =>
     definitions(document).some((definition) =>
       definition.selectionSet.selections.some(
@@ -128,9 +129,7 @@ it('reads no root products query outside the development checkout', () => {
       ),
     ),
   );
-  expect(rootProducts.map(({ file }) => file.replace(/\\/g, '/'))).toEqual([
-    'src/shopify/devCheckout.ts',
-  ]);
+  expect(rootProducts.map(({ file }) => file.replace(/\\/g, '/'))).toEqual([]);
 });
 
 // The Genre list shows the store's names only (D-102): Shopify's own filter value labels, its

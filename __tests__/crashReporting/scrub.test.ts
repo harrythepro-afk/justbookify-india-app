@@ -242,6 +242,12 @@ describe('scrubString', () => {
       'line gid://shopify/CartLine/line-1?cart=test-cart',
       `line gid://shopify/CartLine/${FILTERED}`,
     ],
+    // P9-01: a checkout URL carries the cart's token and secret key, and the store's host.
+    [
+      'a checkout URL',
+      'open https://other-shop.myshopify.com/cart/c/test-cart-0001?key=test-key failed',
+      `open https://${STORE}/cart/c/test-cart-0001 failed`,
+    ],
     ['a myshopify host', 'other-shop.myshopify.com down', `${STORE} down`],
     ['a URL query string', 'https://example.com/a/b?x=1#frag end', 'https://example.com/a/b end'],
     ['an app path query string', 'opened /account?tab=orders', 'opened /account'],
