@@ -51,6 +51,7 @@ Event data is kept for 14 months in each Google Analytics property, with "Reset 
 - **Catalogue events (P6-09):** `view_collection`, `view_book`, `filter_applied` and `search` are wired (below, "Catalogue events").
 - **Login events (P7-03, D-130):** `login` and `logout` are wired, with no parameters; `sign_up` is not sent.
 - **Cart events (P8-01, D-138):** `select_book`, `remove_book`, `view_cart`, `order_cap_reached` and `book_unavailable_shown` are wired (below, "Cart events").
+- **The pincode check (P8-02, D-143):** `delivery_area_checked` is wired (below, "Cart events"), with the result only, never the pincode.
 - Nothing is sent under Jest, or before or without consent.
 
 ## What Firebase sends by itself once consent is granted
@@ -85,7 +86,7 @@ Besides the app's own events, Firebase Analytics sends events and data of its ow
 
 Google Analytics also derives device model, operating system version, language and an approximate location (country and city, from the network address) for its reports. Firebase keeps an app instance ID, which a withdrawal resets.
 
-**The privacy policy's app section (risk 21) must cover these automatic events and data as well as the app's own events,** including the catalogue events (`view_collection`, `view_book`, `filter_applied`, `search`), the cart events (`select_book`, `remove_book`, `view_cart`, `order_cap_reached`, `book_unavailable_shown`; P8-01, D-138) and the fact that, under consent, the app records which catalogue item a search matched (P6-09, D-109). If a later phase adds an SDK that brings more automatic events (for example, push notifications in Phase 12), this list and the privacy policy are updated together.
+**The privacy policy's app section (risk 21) must cover these automatic events and data as well as the app's own events,** including the catalogue events (`view_collection`, `view_book`, `filter_applied`, `search`), the cart events (`select_book`, `remove_book`, `view_cart`, `order_cap_reached`, `book_unavailable_shown`; P8-01, D-138), the pincode check's result (`delivery_area_checked`, never the pincode; P8-02, D-143) and the fact that, under consent, the app records which catalogue item a search matched (P6-09, D-109). If a later phase adds an SDK that brings more automatic events (for example, push notifications in Phase 12), this list and the privacy policy are updated together.
 
 ## Catalogue events (P6-09, D-107 to D-110)
 
@@ -144,13 +145,17 @@ Wired in `src/analytics/cartEvents.ts`, called by the cart's button (`src/compon
 | `view_cart` | Once per opening of the Cart tab, when a cart is on screen; an empty cart too, with 0 and ₹0 (plan review, answer (c)); not again for a newer read in the same visit | `book_count` (every book shown, rented-out ones included); `cart_value`, the counted subtotal (D-134) |
 | `order_cap_reached` | An add refused by the order cap (R2): before Shopify is asked, or after Shopify's subtotal reached the cap and the add was undone (D-134) | `cart_value`, the counted subtotal then |
 | `book_unavailable_shown` | A rented-out book shown in the cart, once per book per opening (`stage` `cart`); a book found rented out as it was added (`stage` `add_to_cart`, approved at plan review) (D-137) | `product_id`, `stage` |
+| `delivery_area_checked` | The Cart tab's pincode check (R3) showed a result for a six-digit pincode, after "Check" or the keyboard's key (P8-02, D-143). Not for "Enter a 6-digit pincode.", and not again for the same unchanged pincode | `result`: `in_area` or `outside_area`. **Never the pincode** |
 
 `cart_value` is in rupees, rounded to paise. Nothing is sent for a tap ignored while another change runs, for a book already in the cart, for a change a logout overtook, or for a change that failed (the customer sees the offline or error message). A rented-out book on a card or a book page sends nothing: `book_unavailable_shown` is for a book the customer had selected.
+
+**The pincode is personal data (P8-02, D-142, D-143).** It is kept in the app's memory for the session only and is never stored, sent to analytics, logged or reported to Sentry; `delivery_area_checked` carries only the result code (tested: no pincode in any event, log line, crash report or Shopify request). The delivery fee hint sends nothing.
 
 ## Rules
 
 - Snake case event names. IDs, never titles or free text.
 - No names, emails, phone numbers or addresses. The app never asks for or records a child's name or date of birth. Age-group filters and the books viewed are recorded as IDs and codes.
+- **A pincode is never sent, logged or reported** (P8-02, D-143): the pincode check records only `in_area` or `outside_area`.
 - **The search term itself is never sent, logged or reported.** The `search` event records its length and, only when it matches the store's own catalogue, that item's ID or code (D-108, amending this rule's earlier wording "Search terms are measured by length, not content", owner's decision of 9 October 2026), or, for a search that finds nothing, the code of the name it matched on the store's wanted list (D-117, D-118).
 - The analytics user ID is random or a salted one-way value, never the email, a phone number or the raw Shopify customer ID (D-050).
 - Analytics starts only after the customer's consent (opt-in, D-048).
@@ -174,6 +179,7 @@ Wired in `src/analytics/cartEvents.ts`, called by the cart's button (`src/compon
 | notify_me_requested | Customer asks for a back-in-stock alert | product_id |
 | view_cart | Cart is opened, once per opening, an empty cart included (D-138) | book_count, cart_value |
 | order_cap_reached | An add is refused by the order cap (D-134, D-138) | cart_value |
+| delivery_area_checked | The Cart tab's pincode check showed whether the store delivers there (P8-02, D-143) | result (`in_area`, `outside_area`); never the pincode |
 | begin_checkout | Checkout is presented | book_count, cart_value |
 | rental_order_success | Checkout completes | order_id, book_count, payment_type |
 | checkout_failed | Checkout errors or is abandoned | stage, error_code |

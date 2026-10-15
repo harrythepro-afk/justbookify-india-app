@@ -73,7 +73,10 @@ export const colors = {
   sheet: palette.offWhite,
 
   // A switch's state shows by the thumb's side as well as the track's colour.
-  /** The search field (P6-06): white, outlined like a chip, so it reads as a place to type. */
+  /**
+   * The search field (P6-06) and the Cart tab's pincode field (P8-02): white, outlined like a chip,
+   * so it reads as a place to type.
+   */
   searchField: palette.white,
   searchFieldBorder: palette.darkMaroon,
   onSearchField: palette.maroon,

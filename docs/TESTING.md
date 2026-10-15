@@ -632,6 +632,29 @@ Unit and screen tests (Shopify is a stand-in that answers each operation like th
 8. The standing background step: more than 5 minutes, no false offline notice.
 9. The app's own log, filtered to its process: no crash, no JavaScript error, no `gid://shopify/Cart`, no `key=`.
 
+### Delivery hints and the pincode check (P8-02)
+
+Unit and screen tests (no network: both read the store configuration only):
+
+- `__tests__/shopify/deliveryFee.test.ts`: **the fee boundaries at ₹199, ₹199.99, ₹200 and ₹200.01** (prepaid ₹75 then free, cash on delivery ₹125 then ₹50), decided in hundredths; the shortfall (₹1 at ₹199); a discount larger than a fee gives free, never a negative amount; no hint when the discount would not make delivery free; **the free-delivery hint hidden when the books it suggests would reach the cap** (threshold at or over the cap), shown just under it.
+- `__tests__/shopify/pincode.test.ts`: **in the area** 560001 and the edges 500000, 539999, 560000, 699999; **outside** 400001 and 540000, 559999, 700000, 049999; **six digits asked for** 12345, empty, seven digits, letters or spaces; the configured ranges, not fixed ones; digits only; the pincode kept in memory across a new mount, a result given once until the field changes, and forgotten.
+- `__tests__/app/cart.test.tsx`: the fee lines word for word at ₹199 and ₹200; a rented-out book not counted; the hint hidden when it would pass the cap; every figure from the store configuration; the hints and the field under the offline notice; neither on an empty cart; **each pincode case word for word**, its live region and screen-reader label and hint, the keyboard's key, digits only, an edit clearing the result, "Clear pincode", the pincode kept when the tab is left and opened again; **`delivery_area_checked` with `in_area` and `outside_area` only, nothing for an invalid pincode, a repeated check or without consent**; **the pincode in no event, console line, Sentry call or Shopify request**.
+- `__tests__/customerAccount/session.test.ts`: **"Log out" and a refused refresh forget the pincode**; a refresh Shopify cannot answer keeps it.
+- `__tests__/analytics/events.test.ts`: `delivery_area_checked` takes only its two results; a pincode is dropped by the guard and its type is refused. `__tests__/config/store.test.ts`: `EXPO_PUBLIC_SHIPPING_DISCOUNT` parsed, and listed when missing or invalid. `__tests__/components/AddToCartButton.test.tsx`: the cap alert's title "Order limit reached" (D-140), and no title on the other alerts.
+
+**The phone check** (USB, standing permission D-095 and every rule in `CLAUDE.md`; Do Not Disturb blocking calls and all notifications; `am force-stop` for cold starts, the owner's yes for this check only; no native change, so build 5f5c789a with JavaScript from Metro; `EXPO_PUBLIC_SHIPPING_DISCOUNT=75` in `.env.local`). **Never checkout, never an order.** **The only text typed is the test pincodes 560001, 400001 and 12345.**
+
+1. Fee lines under ₹200: "Delivery: ₹75", "Cash on delivery: ₹125, or ₹50 from ₹200", "Final delivery charges are shown at checkout.", and "Add books worth ₹X more for free delivery." with the right X.
+2. Fee lines from ₹200 (and under ₹500): "Delivery: Free", "Cash on delivery: ₹50", no hint; a removal back under ₹200 brings the hint back.
+3. The three pincodes, each typed, then "Check", then "Clear pincode": 560001 "We deliver to 560001."; 400001 "Sorry, we don't deliver to this pincode yet."; 12345 "Enter a 6-digit pincode.".
+4. A cold start forgets the pincode (the cart stays, D-136).
+5. The standing background step: more than 5 minutes, no false offline notice.
+6. The app's own log, filtered to its process: no crash, no JavaScript error, and none of the three pincodes.
+
+### Phase 9 check: cash on delivery over ₹500 (P8-02, answer 5)
+
+ACOD offers cash on delivery only up to a cart total of ₹500 (D-031), the cap keeps the books' subtotal under ₹500 (D-134), but the total with delivery can pass ₹500 (for example ₹460 + ₹50). In Phase 9, on the **development store's** checkout only and without completing an order: with a subtotal between ₹451 and ₹499, choose cash on delivery and record whether ACOD still offers it (its limit counts the books only) or refuses it (its limit counts delivery). The answer decides whether the cart says anything about cash on delivery over ₹500 (D-141).
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).

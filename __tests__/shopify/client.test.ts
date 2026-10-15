@@ -28,6 +28,7 @@ const mockConfig: StoreConfig = {
   shippingFeePrepaid: 75,
   shippingFeeCod: 125,
   freeDeliveryThreshold: 200,
+  shippingDiscount: 75,
   orderCap: 500,
   deliveryPincodeRanges: [{ from: 10, to: 13 }],
 };

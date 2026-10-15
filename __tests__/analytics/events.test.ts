@@ -2,6 +2,7 @@ import {
   ANALYTICS_EVENTS,
   trackAppOpen,
   trackCheckoutFailed,
+  trackDeliveryAreaChecked,
   trackLogin,
   trackRentalOrderSuccess,
   trackScreenView,
@@ -47,7 +48,7 @@ describe('analytics events', () => {
   });
 
   it('covers every event in docs/ANALYTICS.md', () => {
-    expect(Object.keys(ANALYTICS_EVENTS)).toHaveLength(25);
+    expect(Object.keys(ANALYTICS_EVENTS)).toHaveLength(26);
   });
 
   it.each(Object.keys(ANALYTICS_EVENTS))('names %s in snake case within 40 characters', (name) => {
@@ -103,6 +104,24 @@ describe('analytics events', () => {
     expect(JSON.stringify(mockReportProblem.mock.calls)).not.toContain('@');
   });
 
+  it('sends delivery_area_checked with in_area or outside_area only (D-143)', () => {
+    mockGranted = true;
+
+    trackDeliveryAreaChecked({ result: 'in_area' });
+    trackDeliveryAreaChecked({ result: 'outside_area' });
+    // A cast gets past the types; the guard still stops a pincode.
+    trackDeliveryAreaChecked({ result: '560001' as 'in_area' });
+
+    expect(mockSendEvent.mock.calls).toEqual([
+      ['delivery_area_checked', { result: 'in_area' }],
+      ['delivery_area_checked', { result: 'outside_area' }],
+    ]);
+    expect(mockReportProblem).toHaveBeenCalledWith(
+      'dropped delivery_area_checked (result failed the guard)',
+    );
+    expect(JSON.stringify(mockReportProblem.mock.calls)).not.toContain('560001');
+  });
+
   it('drops a screen name that carries a parameter value', () => {
     mockGranted = true;
 
@@ -144,6 +163,8 @@ describe('analytics events', () => {
     });
     // @ts-expect-error: no event takes an email.
     trackLogin({ email: 'parent@example.com' });
+    // @ts-expect-error: delivery_area_checked takes only its two results, never a pincode.
+    trackDeliveryAreaChecked({ result: '560001' });
     // @ts-expect-error: app_open takes only the listed sources.
     trackAppOpen({ source: 'parent@example.com' });
 

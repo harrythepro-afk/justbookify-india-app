@@ -85,6 +85,8 @@ export const ANALYTICS_EVENTS = {
   notify_me_requested: { product_id: 'productId' },
   view_cart: { book_count: 'count', cart_value: 'money' },
   order_cap_reached: { cart_value: 'money' },
+  // The pincode check's result only, never the pincode (P8-02, D-143).
+  delivery_area_checked: { result: ['in_area', 'outside_area'] },
   begin_checkout: { book_count: 'count', cart_value: 'money' },
   rental_order_success: { order_id: 'orderId', book_count: 'count', payment_type: 'token' },
   checkout_failed: { stage: 'token', error_code: 'token' },
@@ -220,6 +222,8 @@ export const trackNotifyMeRequested = (p: Params<'notify_me_requested'>) =>
 export const trackViewCart = (p: Params<'view_cart'>) => track('view_cart', p);
 export const trackOrderCapReached = (p: Params<'order_cap_reached'>) =>
   track('order_cap_reached', p);
+export const trackDeliveryAreaChecked = (p: Params<'delivery_area_checked'>) =>
+  track('delivery_area_checked', p);
 export const trackBeginCheckout = (p: Params<'begin_checkout'>) => track('begin_checkout', p);
 export const trackRentalOrderSuccess = (p: Params<'rental_order_success'>) =>
   track('rental_order_success', p);

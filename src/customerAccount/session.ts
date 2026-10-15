@@ -7,6 +7,7 @@ import { getCustomerAccountConfig, getStoreConfig, type CustomerAccountConfig } 
 import { reportCustomerAccountProblem, setCustomerTokenSource } from '@/crashReporting/sentry';
 import { clearAllCaches } from '@/query/queryClient';
 import { forgetCart } from '@/shopify/cartId';
+import { forgetPincode } from '@/shopify/pincode';
 
 import { parseOpenIdConfiguration, type CustomerAccountDiscovery } from './discoveryDocument';
 import { checkIdToken, decodeIdTokenClaims } from './idToken';
@@ -127,9 +128,9 @@ function randomUrlSafe(): string {
 }
 
 /**
- * Signs out on this phone: the session leaves memory, the stored tokens are deleted, the cart is
- * forgotten (P8-01, answer 4: a shared phone never inherits another person's cart) and every
- * cache is emptied (D-061). `notice` is what the Account tab says.
+ * Signs out on this phone: the session leaves memory, the stored tokens are deleted, the cart and
+ * the pincode are forgotten (P8-01 answer 4, P8-02: a shared phone never inherits another person's
+ * cart or pincode) and every cache is emptied (D-061). `notice` is what the Account tab says.
  */
 async function endSession(notice: LoginNotice): Promise<void> {
   session = undefined;
@@ -143,6 +144,8 @@ async function endSession(notice: LoginNotice): Promise<void> {
   }
   // Before the caches empty, so no read starts again with the old cart. Never throws.
   await forgetCart();
+  // The pincode too (P8-02, owner at plan time): a shared phone never shows another person's.
+  forgetPincode();
   clearAllCaches();
 }
 

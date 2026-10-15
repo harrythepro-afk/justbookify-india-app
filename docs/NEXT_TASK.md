@@ -1,6 +1,6 @@
-# Next task (proposal): P8-02, the delivery fee hint and the pincode check
+# Next task: P8-02, the delivery fee hint and the pincode check
 
-Status: proposal. P8-01 (the cart: "Add to Cart", the Cart tab, the order cap, the cart events; D-133 to D-139) is on branch `p8-01-cart`, PR #28, CI green, phone check passed on 14 October 2026; see `CURRENT_STATUS.md`. P8-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P8-01 as merged** (in this file and `CURRENT_STATUS.md`). P7-03 is merged (`b5ce914`, PR #27); Phase 7 is done.
+Status: **in progress** on branch `p8-02-delivery-hints`; plan accepted by the owner and the architect on 14 October 2026 (answers in `CURRENT_STATUS.md`). P8-01 (the cart: "Add to Cart", the Cart tab, the order cap, the cart events; D-133 to D-139) is merged (`a275ff4`, PR #28). P7-03 is merged (`b5ce914`, PR #27); Phase 7 is done.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -38,8 +38,8 @@ Status: proposal. P8-01 (the cart: "Add to Cart", the Cart tab, the order cap, t
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P8-01 (branch `p8-01-cart`) | The cart on Shopify: "Add to Cart" ("In cart") on the book card and the book page, one copy per book, the Cart tab with its count, the order cap (R2: under the cap, checked against Shopify's subtotal), a guest cart forgotten at logout, rented-out books in the cart, the cart events; the development preview removed | D-133 to D-139 |
-| P8-02 (proposed) | The delivery fee hint (R4) and the pincode check (R3) in the cart, before checkout | |
+| P8-01 (done, a275ff4) | The cart on Shopify: "Add to Cart" ("In cart") on the book card and the book page, one copy per book, the Cart tab with its count, the order cap (R2: under the cap, checked against Shopify's subtotal), a guest cart forgotten at logout, rented-out books in the cart, the cart events; the development preview removed | D-133 to D-139 |
+| P8-02 (branch `p8-02-delivery-hints`) | The delivery fee hint (R4) and the pincode check (R3) in the cart, before checkout | |
 
 ## Goal of P8-02
 
@@ -78,7 +78,7 @@ Before checkout (Phase 9), the cart shows what delivery is likely to cost (R4) a
 
 - **The cart in Phase 9 (P8-01, D-133 to D-137):** checkout must not be offered while a rented-out book is in the cart or the counted subtotal is at or over the cap; attach the customer's identity to the guest cart at checkout; clear the cart after a completed order (`ARCHITECTURE.md`, "Checkout", step 5).
 - **A book rented out while in the cart (P8-01):** tested only, on the owner's decision (no stock change in the development store's admin). A later phone check may cover it if the owner restocks and sells out a book.
-- **The cap alert's empty title (P8-01 phone check, owner to decide):** Android's alert leaves an empty title space above "Each order can have books worth less than ₹500. Remove a book to add this one." because the app passes no title. A short title, or the message as the title, would remove it; wording is the owner's.
+- **The cap alert's empty title (P8-01 phone check, resolved):** the owner chose the title "Order limit reached" (14 October 2026, message unchanged); done in P8-02's first commit.
 - **Intermittent act warning (P8-01 full run):** `search.test.tsx` logged one "not wrapped in act" warning from VirtualizedList's render timer after an 80-second test, as `browse.test.tsx` did in P7-03. Not caused by the cart; watch CI.
 
 - **Release gate: analytics consent (P7-03, D-132):** the consent request is built and was checked on the phone (`CURRENT_STATUS.md`). Still open before any outside tester: the privacy policy's app section (risk 21) and **the analytics user ID**, issued by the Phase 10 backend, because the consent wording says usage is linked to the account (`TESTING.md`, item 5).
@@ -136,7 +136,7 @@ Before checkout (Phase 9), the cart shows what delivery is likely to cost (R4) a
 - `npm run audit:gate` exception for `@grpc/grpc-js` (D-047) is reviewed by 2026-11-15, with the `braces` entry; it never applies to the Phase 10 backend.
 - Phase 9: the checkout flag must take effect without waiting for two restarts (D-046).
 - Phase 14: restrict the Android API key in each `google-services.json`, then repeat the flag fetch check on every build (D-044).
-- **Store variables for EAS (from P5-01):** add `EXPO_PUBLIC_STORE_COUNTRY` and `EXPO_PUBLIC_STORE_LANGUAGE` to the EAS environment when the staging build is set up (D-058).
+- **Store variables for EAS (from P5-01 and P8-02):** add `EXPO_PUBLIC_STORE_COUNTRY` and `EXPO_PUBLIC_STORE_LANGUAGE` (D-058) and `EXPO_PUBLIC_SHIPPING_DISCOUNT` (75 for the India store, D-141; owner, 14 October 2026) to the staging and production EAS environments when those builds are set up. A build without `EXPO_PUBLIC_SHIPPING_DISCOUNT` reports its store as not configured.
 - **Storefront domain for staging and production (architect, P5-01):** when the staging and production configurations are set up, confirm from Shopify's documentation which store domain the Storefront API calls should use, so that requests are not redirected.
 - **Code generator audit entries (D-060):** reviewed by 2026-11-15 with the `braces` and `@grpc/grpc-js` entries; re-checked whenever the preset or the codegen CLI is upgraded; each removed in the commit that picks up a compatible fix.
 - **Offline question (architect, D-087):** closed in P6-10 (D-111): queries keep pausing with D-082's safety net; risk 22 mitigated.

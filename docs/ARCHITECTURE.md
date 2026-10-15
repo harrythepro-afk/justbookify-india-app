@@ -67,7 +67,7 @@ Follow Shopify for each book: if Shopify marks it available for sale, it can be 
 
 1. Build the cart with the Storefront API; keep the cart ID on the device.
 2. After login, attach the customer's token as buyer identity.
-3. Check the order cap and pincode in the app before opening checkout. The cap is checked at every add since P8-01 (D-134); the pincode comes in P8-02.
+3. Check the order cap and pincode in the app before opening checkout. The cap is checked at every add since P8-01 (D-134). Since P8-02 the Cart tab has an optional pincode check against the configured ranges, the pincode in memory only (D-142); whether checkout requires a pincode that passes is decided in Phase 9.
 4. Present the cart's checkout URL with Checkout Kit.
 5. On the completed event, show confirmation and clear the cart.
 6. The Shopify order is the source of truth for everything afterwards.
