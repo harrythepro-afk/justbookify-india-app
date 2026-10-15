@@ -92,6 +92,8 @@ The customer goes from the Cart tab to the store's own Shopify checkout inside t
 
 ## Follow-ups (recorded, not part of P9-01 unless listed in its scope)
 
+- **Expo SDK 57 patch releases (P9-01, owner, D-156):** a small task of its own: `expo` 57.0.27 → ~57.0.30, `expo-auth-session` 57.0.15 → ~57.0.16, `expo-constants` 57.0.21 → ~57.0.22, `expo-dev-client` 57.0.19 → ~57.0.20, `expo-linking` 57.0.12 → ~57.0.13, `expo-router` 57.0.25 → ~57.0.28, `jest-expo` 57.0.5 → ~57.0.6, with `npx expo install --check`, the changelogs, the five gates, `expo-doctor` 21 of 21, a new development build and the APK permission check if a native package changes, and a short phone check.
+
 - **Phase 9 check: cash on delivery over ₹500 (P8-02, answer 5, D-141):** on the development store's checkout, whether ACOD's ₹500 limit counts delivery (`TESTING.md`). The answer decides whether the Cart tab says anything about cash on delivery over ₹500.
 - **The pincode at checkout (P8-02, answer 4, D-142):** whether checkout requires a pincode that passes is Phase 9's decision (question 1 above).
 - **Clear pincode keeps the keyboard open (P8-02 phone check, observation):** "Clear pincode" empties the field and keeps its focus, as search's clear button does (D-099), so the keyboard opens again. Intended; the architect may prefer it closed.

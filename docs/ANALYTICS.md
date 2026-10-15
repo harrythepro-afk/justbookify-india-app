@@ -46,12 +46,13 @@ Event data is kept for 14 months in each Google Analytics property, with "Reset 
 - **Fixed codes** (filter types, stages, error codes, channels) come from `analyticsToken()`: lowercase snake case, starting with a letter. Free text does not type-check.
 - **The guard** (`src/analytics/guard.ts`) checks every event again and drops the whole event if any parameter fails. Sentry is told which event and parameter, never the value.
 - **A parameter whose kind depends on a code** (D-110): `filter_applied`'s `value` follows its `filter_type`, and `search`'s `match_id` follows its `match_type` (and is not sent for `other`). The guard checks the pairing, and the TypeScript types rule out a wrong one.
-- **Screens** are named by their file route with groups removed: `index`, `browse`, `cart`, `my-books`, `account`, `dev-checkout`, `collection/[handle]`, `book/[handle]` (P6-05). `dev-catalogue` went with the development preview in P8-01 (D-139). Never the address or its parameters.
+- **Screens** are named by their file route with groups removed: `index`, `browse`, `cart`, `my-books`, `account`, `collection/[handle]`, `book/[handle]` (P6-05). `dev-catalogue` went with the development preview in P8-01 (D-139), and `dev-checkout` with the test checkout screen in P9-01 (D-154). Never the address or its parameters.
 - `app_open` fires with `source` `cold_start` or `foreground`. The phases that build the other screens wire their events.
 - **Catalogue events (P6-09):** `view_collection`, `view_book`, `filter_applied` and `search` are wired (below, "Catalogue events").
 - **Login events (P7-03, D-130):** `login` and `logout` are wired, with no parameters; `sign_up` is not sent.
 - **Cart events (P8-01, D-138):** `select_book`, `remove_book`, `view_cart`, `order_cap_reached` and `book_unavailable_shown` are wired (below, "Cart events").
 - **The pincode check (P8-02, D-143):** `delivery_area_checked` is wired (below, "Cart events"), with the result only, never the pincode.
+- **Checkout events (P9-01, D-153):** `begin_checkout`, `rental_order_success` and `checkout_failed` are wired (below, "Checkout events").
 - Nothing is sent under Jest, or before or without consent.
 
 ## What Firebase sends by itself once consent is granted
@@ -151,6 +152,18 @@ Wired in `src/analytics/cartEvents.ts`, called by the cart's button (`src/compon
 
 **The pincode is personal data (P8-02, D-142, D-143).** It is kept in the app's memory for the session only and is never stored, sent to analytics, logged or reported to Sentry; `delivery_area_checked` carries only the result code (tested: no pincode in any event, log line, crash report or Shopify request). The delivery fee hint sends nothing.
 
+## Checkout events (P9-01, D-153)
+
+Wired in `src/analytics/checkoutEvents.ts` (fixed codes in `src/checkout/codes.ts`), called by the checkout hook (`src/shopify/hooks/checkout.ts`). Counts, amounts, an order's number and fixed codes only. **Never** the cart's ID, the checkout URL (both carry the cart's secret key), the customer's token, a title, or anything from Checkout Kit's `completed` payload other than the order ID's number and the payment method's `type` code: its email, phone, addresses and payment details are never read into an event, a log, a report or the cache (owner, plan approval; tested).
+
+| Event | When | Parameters |
+| --- | --- | --- |
+| `begin_checkout` | Checkout is presented (the sheet or the browser) | `book_count` and `cart_value`, from the cart Shopify returned for checkout |
+| `rental_order_success` | An order: Checkout Kit's `completed`, or the cart gone with a new order found on return (the browser, or a lost event) | `order_id` (the number in the order's ID), `book_count`, `payment_type`: `cash_on_delivery`, `prepaid` or `unknown` (mapped from the payment method's `type`; always `unknown` from the browser) |
+| `checkout_failed` | Checkout did not open (`stage` `prepare`) or ended without an order (`stage` `checkout`) | `stage`; `error_code`: for `prepare`, `no_network`, `signed_out`, `token_unavailable`, `cart_gone`, `rented_out`, `over_cap` or `shopify_error`; for `checkout`, `closed` (the customer closed it) or Checkout Kit's own code, anything else `unknown` |
+
+A checkout right after a first login on the Cart tab sends nothing until the customer allows analytics: the consent request waits for the order (D-129, D-148).
+
 ## Rules
 
 - Snake case event names. IDs, never titles or free text.
@@ -180,9 +193,9 @@ Wired in `src/analytics/cartEvents.ts`, called by the cart's button (`src/compon
 | view_cart | Cart is opened, once per opening, an empty cart included (D-138) | book_count, cart_value |
 | order_cap_reached | An add is refused by the order cap (D-134, D-138) | cart_value |
 | delivery_area_checked | The Cart tab's pincode check showed whether the store delivers there (P8-02, D-143) | result (`in_area`, `outside_area`); never the pincode |
-| begin_checkout | Checkout is presented | book_count, cart_value |
-| rental_order_success | Checkout completes | order_id, book_count, payment_type |
-| checkout_failed | Checkout errors or is abandoned | stage, error_code |
+| begin_checkout | Checkout is presented (D-153) | book_count, cart_value |
+| rental_order_success | An order is placed (D-153) | order_id, book_count, payment_type |
+| checkout_failed | Checkout does not open, errors or is closed without an order (D-153) | stage, error_code |
 | return_initiated | Return request sent | book_count |
 | return_completed | Staff mark the return received | book_count |
 | repeat_rental | Second or later order completes | rental_number |

@@ -45,6 +45,8 @@ Every operation declares `$country: CountryCode` and `$language: LanguageCode` w
 
 `@shopify/checkout-sheet-kit` 3.9.1, pinned on 3 October 2026 (D-030). 4.0.x, named in D-017, was not published that day. Sources: npm registry, the package's GitHub releases and README, and shopify.dev's Checkout Kit page for React Native. Recheck when 4.0.0 is published, and at each quarterly API review.
 
+**Re-checked 15 October 2026 (P9-01, D-147):** npm's `latest` is still 3.9.1 (30 September 2026), with no 4.x; the only 4.0 builds are `@shopify/checkout-kit-react-native` 4.0.0-alpha.1 to alpha.5 (alpha, banned by D-017). The GitHub releases: 3.9.0 (26 August 2026) adds New Architecture support in interop mode; 3.8.2 needs `compileSdkVersion` 35 or later. 3.9.1 stays; `CLAUDE.md`'s stack row now says so.
+
 ## Credentials
 
 Values are never written in this repository. Names and locations only.
@@ -236,7 +238,7 @@ Each `shopify--*` metaobject has the fields `label` and `taxonomy_reference`. Th
 
 ## The cart (P8-01)
 
-D-133 to D-137. Storefront Cart API at `2026-10`, through the app's client: `CartRead`, `CartCreate` (`buyerIdentity: { countryCode }` only; the customer's identity is attached at checkout in Phase 9), `CartLinesAdd`, `CartLinesRemove`, one copy per line. Read on 13 October 2026 in Shopify's documentation:
+D-133 to D-137. Storefront Cart API at `2026-10`, through the app's client: `CartRead`, `CartCreate` (`buyerIdentity: { countryCode }` only; the customer's identity is attached at checkout, P9-01, below), `CartLinesAdd`, `CartLinesRemove`, one copy per line. Read on 13 October 2026 in Shopify's documentation:
 
 - "Create and update a cart with the Storefront API": the cart ID is `<token>?key=<secret>`; the key protects the buyer's private data; treat it like a password; a mutation without the key fails as if the cart did not exist. The app keeps it in secure storage only (`SECURITY.md`).
 - "Migrate to the Storefront Cart API": a completed cart is deleted when its order is created; no webhooks for cart changes. The app reads a missing cart as `null` and starts again quietly.
@@ -245,6 +247,22 @@ D-133 to D-137. Storefront Cart API at `2026-10`, through the app's client: `Car
 - Shopify's docs give no fixed lifetime for an idle cart; the app does not assume one.
 
 Not checked against the live store; nothing on the live store is touched.
+
+## Checkout (P9-01)
+
+D-148 to D-155. Android, development store only.
+
+**The customer's identity on the cart (D-149).** Read on 15 October 2026:
+
+- "Authenticate checkouts" (Checkout Kit; the page's Swift example uses Storefront API `2026-01`): pass the Customer Account API `access_token` from the token response as the `customerAccessToken` in the cart's `buyerIdentity`, then hand the cart's `checkoutUrl` to Checkout Kit, which "opens with the buyer's shipping address and payment methods prefilled".
+- "Authenticate buyers in checkout" (Customer Account API): set `customerAccessToken` with `cartBuyerIdentityUpdate` (or at cart creation); "Authenticated checkout URLs expire, and an expired URL starts an unauthenticated checkout session"; "When you refresh the token, you must also call `cartBuyerIdentityUpdate` again". The alternative, `sso=silent`, needs a browser session on Shopify's accounts domain and is not used.
+- The saved Storefront `2026-10` schema has `CartBuyerIdentityInput.customerAccessToken` and `CartErrorCode.MISSING_CUSTOMER_ACCESS_TOKEN`.
+
+So the app runs `CartCheckoutPrepare` (`cartBuyerIdentityUpdate` with the token from `getValidAccessToken()`, D-121) at every "Checkout" tap, at the Storefront version in use (`2026-10`), and presents the returned URL at once. The token is a variable only: never in a log, report, event, cache key, the mutation's variables or its data.
+
+**Checkout Kit (D-151).** 3.9.1's `completed` event carries the order's ID, the customer's email and phone, the billing and delivery addresses, the payment methods and the cart; the app reads only the order ID's number and form and the payment method's `type`. Its `error` codes: `storefront_password_required`, `cart_expired`, `cart_completed`, `invalid_cart`, `client_error`, `http_error`, `error_sending_message`, `error_receiving_message`, `render_process_gone`, `unknown`. By default it asks for Android's location permission when checkout asks for the location; the app turns that off and answers no. When an event callback throws, 3.9.1 logs the event's raw data with `console.error`, so the app's callbacks never throw.
+
+**The development store's checkout:** the storefront password page shows first in the sheet (P3-01); the owner types the password, and checkout is presented again.
 
 ## Checkout behaviour to respect
 
@@ -293,6 +311,8 @@ What to record, for each of iPhone and Android:
 Mitigation to build with the checkout screens (Phase 9): how checkout is presented is switchable by a remote feature flag (Firebase Remote Config, D-012): the in-app Checkout Kit sheet, or the system browser with a return link to the app. If 1a or 1b fails at the rehearsal, the flag moves checkout to the browser with no rebuild. The flag's plumbing is part of the Phase 4 mobile foundation; its use is part of the checkout screens in Phase 9.
 
 ### P3-01: Checkout Kit opens the development store's checkout
+
+The test screen described here was removed in P9-01, when the Cart tab's checkout replaced it (D-154).
 
 Scope: Checkout Kit opens the development store's checkout from the Android development build, and a test order completes with cash on delivery. This is not early check 1 or 2. Neither Razorpay nor the ACOD or SMART Checkout Rules apps are involved.
 

@@ -66,11 +66,28 @@ Follow Shopify for each book: if Shopify marks it available for sale, it can be 
 ## Checkout
 
 1. Build the cart with the Storefront API; keep the cart ID on the device.
-2. After login, attach the customer's token as buyer identity.
-3. Check the order cap and pincode in the app before opening checkout. The cap is checked at every add since P8-01 (D-134). Since P8-02 the Cart tab has an optional pincode check against the configured ranges, the pincode in memory only (D-142); whether checkout requires a pincode that passes is decided in Phase 9.
-4. Present the cart's checkout URL with Checkout Kit.
-5. On the completed event, show confirmation and clear the cart.
+2. After login, attach the customer's token as buyer identity: at every "Checkout" tap, `CartCheckoutPrepare` (`cartBuyerIdentityUpdate` with the Customer Account API access token, D-149).
+3. Check the order cap in the app before opening checkout: at every add since P8-01 (D-134), and again on the cart Shopify returns for checkout, with no rented-out book (D-137, D-148). The pincode check on the Cart tab stays optional and is never sent to Shopify; Shopify's own rule refuses an address outside the area (P9-01, answer 1).
+4. Present the cart's checkout URL with Checkout Kit, or in the browser, as `checkout_presentation` says when checkout opens (D-150 to D-152).
+5. On the completed event, show confirmation and clear the cart (D-151).
 6. The Shopify order is the source of truth for everything afterwards.
+
+Built in P9-01 (Android, development store):
+
+```
+Cart tab (src/app/(tabs)/cart.tsx) → CartCheckout (src/components/CartCheckout.tsx)
+   signed out: "Log in to check out" → login() on the Cart tab (D-148; consent request held, D-129)
+   signed in: "Checkout" → useCheckout() (src/shopify/hooks/checkout.ts), one cart change app-wide
+        ├─ loadCheckoutPresentation(): activate fetched flags, read checkout_presentation (≤ 1 s, D-150)
+        ├─ getValidAccessToken() (D-121)
+        ├─ CartCheckoutPrepare (src/shopify/checkout.ts): token → buyer identity; cart + checkoutUrl
+        ├─ gates again on Shopify's cart: rented out, cap (D-134, D-137); a logout meanwhile: nothing
+        ├─ the customer's order IDs read (usePlacedOrderSearch, src/customerAccountApi/hooks/customer.ts)
+        └─ sheet (src/checkout/sheet.ts, Checkout Kit) or browser (src/checkout/browser.ts)
+   completed → cart forgotten (cartId.ts), confirmation (src/checkout/state.ts), orders read for the number,
+               rental_order_success
+   closed / error / back from the browser → cart read again: kept; gone + new order = an order
+```
 
 The app never handles card, UPI or bank details.
 
@@ -107,7 +124,7 @@ Consumers: await loadFeatureFlags(), or useFeatureFlags() ("not ready" until fro
 - `src/featureFlags/remoteConfig.ts` is the only file that imports Firebase; `src/featureFlags/session.ts` holds the snapshot. `ensureInitialized()` is never called: on Android it also fetches and activates, blocking.
 - Minimum fetch interval: production 1 hour, staging 15 minutes, development 0. A change reaches a production phone at its second cold start after the change, the first of them at least an hour after its previous fetch: typically within a day. An app left running does not switch until it restarts.
 - Only a valid Remote Config value overrides a default; a malformed one gives the default and a Sentry warning naming the flag.
-- **Phase 9 design item:** the checkout flag must take effect without waiting for two restarts, for example by activating fetched values when checkout is opened (D-046).
+- **Checkout reads the flag afresh (P9-01, D-150):** each time checkout opens, the values fetched since launch are activated (at most 1 second) and `checkout_presentation` is read from them; the rest of the app keeps its frozen snapshot. Values are also fetched on each return to the foreground. A change therefore applies at the first checkout after any fetch that saw it, with no restart.
 
 ## Data layer: Storefront API (P5-01)
 
@@ -236,7 +253,7 @@ Book card / book page: AddToCartButton            Cart tab (src/app/(tabs)/cart.
 
 - The cart ID holds Shopify's secret key for the cart: never in a log, a report, analytics, a cache key or on screen (`SECURITY.md`).
 - Events under consent: `select_book`, `remove_book`, `view_cart`, `order_cap_reached`, `book_unavailable_shown` (`ANALYTICS.md`, "Cart events").
-- Checkout (step 2 to 5 of "Checkout" above) is Phase 9.
+- Checkout (steps 2 to 5 of "Checkout" above) is built in P9-01 (D-148 to D-153).
 
 ## Built for a second country
 

@@ -81,7 +81,7 @@ Standard `adb` from Google's SDK Platform-Tools only; no third-party MCP server,
 | App | React Native with Expo development builds, TypeScript strict, New Architecture, Expo Router |
 | Catalogue, search, cart | Shopify Storefront API (GraphQL) |
 | Login, profile, orders | Shopify Customer Account API, OAuth 2.0 with PKCE, public mobile client |
-| Checkout | Shopify Checkout Kit, package `@shopify/checkout-sheet-kit` 4.0.x |
+| Checkout | Shopify Checkout Kit, package `@shopify/checkout-sheet-kit` 3.9.1 (D-030, D-147; 4.x once stable) |
 | Backend | Firebase Cloud Functions, Firestore, Cloud Tasks, region `asia-south1` |
 | Push | Firebase Cloud Messaging and APNs |
 | Feature switches | Firebase Remote Config |
