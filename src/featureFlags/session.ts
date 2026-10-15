@@ -1,7 +1,9 @@
 import { useEffect, useSyncExternalStore } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import { parseWantedList, type WantedList } from '@/analytics/wantedList';
 import {
+  CHECKOUT_FLAG_TIMEOUT_MILLIS,
   defaultFeatureFlags,
   FLAG_ACTIVATION_TIMEOUT_MILLIS,
   getAppEnvironment,
@@ -31,6 +33,10 @@ import { activateLastFetched, fetchForNextLaunch } from './remoteConfig';
  * - activation takes longer than FLAG_ACTIVATION_TIMEOUT_MILLIS: the compiled defaults.
  * Nothing changes a frozen snapshot. New values are then fetched in the background and apply
  * from the next cold start, so a flag never changes in the middle of a session.
+ *
+ * One exception (D-150): checkout reads `checkout_presentation` afresh each time it opens
+ * (`loadCheckoutPresentation()`), and new values are also fetched on each return to the
+ * foreground, so the kill switch (D-033) acts without waiting for two restarts.
  *
  * The wanted list (P6-11, D-115) is frozen with the flags, from the same activated values, on the
  * same timing: an empty list whenever the flags fall back to their defaults.
@@ -185,9 +191,95 @@ export async function loadWantedList(): Promise<WantedListSnapshot> {
   return state.status === 'ready' ? state.wantedList : NO_WANTED_LIST;
 }
 
-/** Called once at start-up, before the first render. Nothing waits for it. */
+/** How checkout is presented (D-033), as checkout reads it (D-150). */
+export type CheckoutPresentation = FeatureFlagSnapshot['values']['checkout_presentation'];
+
+/** The value checkout read last in this session, for Home's development line (D-150). */
+let checkoutRead:
+  { readonly value: CheckoutPresentation; readonly source: FeatureFlagSource } | undefined;
+
+/**
+ * **The checkout-only exception to "no change in the middle of a session" (D-046, D-150).** Each
+ * time checkout opens it activates the values fetched since launch (a local read, at most
+ * CHECKOUT_FLAG_TIMEOUT_MILLIS) and reads `checkout_presentation` from them, so the kill switch
+ * acts at the next checkout after a fetch saw it, with no restart. Every other consumer keeps the
+ * snapshot frozen at launch. On a failure or a timeout, the frozen value. Never rejects; a
+ * malformed value was already reported at launch and is not reported again.
+ */
+export async function loadCheckoutPresentation(): Promise<CheckoutPresentation> {
+  const frozen = await loadFeatureFlags();
+  const fallback = {
+    value: frozen.values.checkout_presentation,
+    source: frozen.sources.checkout_presentation,
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), CHECKOUT_FLAG_TIMEOUT_MILLIS);
+  });
+  const activation = Promise.resolve()
+    .then(() => activateLastFetched(REMOTE_CONFIG_SETTINGS[getAppEnvironment()]))
+    .then(
+      (raw) => {
+        const parsed = parseFeatureFlags(raw);
+        return {
+          value: parsed.values.checkout_presentation,
+          source: parsed.sources.checkout_presentation,
+        };
+      },
+      () => undefined,
+    );
+  try {
+    checkoutRead = (await Promise.race([activation, timeout])) ?? fallback;
+  } finally {
+    clearTimeout(timer);
+  }
+  notify();
+  return checkoutRead.value;
+}
+
+/** The value checkout read last in this session; undefined before the first checkout. */
+export function useCheckoutPresentationRead():
+  { readonly value: CheckoutPresentation; readonly source: FeatureFlagSource } | undefined {
+  return useSyncExternalStore(subscribe, getCheckoutRead, getCheckoutRead);
+}
+
+function getCheckoutRead() {
+  return checkoutRead;
+}
+
+/**
+ * Fetches new values when the app returns to the foreground (D-150), so an app left running also
+ * gets a change for its next checkout. The SDK skips it within the minimum fetch interval.
+ * Expected failures are not reported (D-046); the snapshot and the fetch line are unchanged.
+ */
+export function fetchFlagsOnForeground(): void {
+  if (state.status !== 'ready') return;
+  fetchForNextLaunch().catch((error: unknown) => {
+    const code = errorCode(error);
+    if (EXPECTED_FETCH_ERRORS[code] === undefined)
+      reportFeatureFlagProblem(`fetch failed (${code})`);
+  });
+}
+
+function notify(): void {
+  for (const listener of listeners) listener();
+}
+
+let removeForegroundListener: (() => void) | undefined;
+
+/**
+ * Called once at start-up, before the first render. Nothing waits for it. Also fetches again on
+ * each return to the foreground, for checkout's next read (D-150).
+ */
 export function startFeatureFlags(): void {
   void loadFeatureFlags();
+  if (removeForegroundListener !== undefined) return;
+  let previous: AppStateStatus = AppState.currentState;
+  const subscription = AppState.addEventListener('change', (next) => {
+    if (next === 'active' && previous !== 'active') fetchFlagsOnForeground();
+    previous = next;
+  });
+  removeForegroundListener = () => subscription.remove();
 }
 
 function subscribe(listener: () => void): () => void {

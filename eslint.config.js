@@ -93,6 +93,12 @@ const LOGIN_LIBRARY_PATHS = ['expo-auth-session', 'expo-web-browser'].map((name)
   name,
   message: 'Login is used through src/customerAccount/session.ts only (D-119).',
 }));
+// Checkout (P9-01): Checkout Kit only in src/checkout/ (D-151), and the browser for checkout only in
+// src/checkout/browser.ts (D-152).
+const CHECKOUT_KIT_PATH = {
+  name: '@shopify/checkout-sheet-kit',
+  message: 'Checkout Kit is used through src/checkout/ only (D-151).',
+};
 
 const FETCH_PROPERTIES = [
   { object: 'globalThis', property: 'fetch', message: FETCH_MESSAGE },
@@ -236,19 +242,49 @@ module.exports = defineConfig([
       'src/customerAccount/**',
       'src/analytics/consentStorage.ts',
       'src/shopify/cartStorage.ts',
+      'src/checkout/**',
     ],
     rules: {
-      'no-restricted-imports': ['error', { paths: [SECURE_STORE_PATH, ...LOGIN_LIBRARY_PATHS] }],
+      'no-restricted-imports': [
+        'error',
+        { paths: [SECURE_STORE_PATH, ...LOGIN_LIBRARY_PATHS, CHECKOUT_KIT_PATH] },
+      ],
     },
   },
   {
     files: ['src/customerAccount/**/*.{ts,tsx}'],
     ignores: ['src/customerAccount/tokenStorage.ts'],
-    rules: { 'no-restricted-imports': ['error', { paths: [SECURE_STORE_PATH] }] },
+    rules: {
+      'no-restricted-imports': ['error', { paths: [SECURE_STORE_PATH, CHECKOUT_KIT_PATH] }],
+    },
   },
   {
     files: ['src/analytics/consentStorage.ts', 'src/shopify/cartStorage.ts'],
-    rules: { 'no-restricted-imports': ['error', { paths: LOGIN_LIBRARY_PATHS }] },
+    rules: {
+      'no-restricted-imports': ['error', { paths: [...LOGIN_LIBRARY_PATHS, CHECKOUT_KIT_PATH] }],
+    },
+  },
+  {
+    // Checkout (P9-01): Checkout Kit here; the browser only in browser.ts; never secure storage.
+    files: ['src/checkout/**/*.{ts,tsx}'],
+    ignores: ['src/checkout/browser.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: [SECURE_STORE_PATH, ...LOGIN_LIBRARY_PATHS] }],
+    },
+  },
+  {
+    files: ['src/checkout/browser.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            SECURE_STORE_PATH,
+            ...LOGIN_LIBRARY_PATHS.filter((path) => path.name !== 'expo-web-browser'),
+          ],
+        },
+      ],
+    },
   },
   {
     // Screens and components: hooks, error types and the provider only.

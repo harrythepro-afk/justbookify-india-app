@@ -151,3 +151,28 @@ export const PINCODE_INVALID_MESSAGE = 'Enter a 6-digit pincode.';
 export function pincodeInAreaMessage(pincode: string): string {
   return `We deliver to ${pincode}.`;
 }
+
+// Checkout's wording (owner, P9-01 plan approval, 15 October 2026; D-148, D-151).
+export const CHECKOUT_LABEL = 'Checkout';
+export const OPENING_CHECKOUT_LABEL = 'Opening checkout…';
+export const LOG_IN_TO_CHECK_OUT_LABEL = 'Log in to check out';
+export const LOG_IN_TO_CHECK_OUT_NOTE = 'Log in to place your order. Your cart will be kept.';
+export const CHECKOUT_FAILED_MESSAGE = "Checkout couldn't be opened. Please try again.";
+export const GO_TO_MY_BOOKS = 'Go to My Books';
+
+/** The confirmation after an order (owner's draft); without the number until it is found. */
+export function orderPlacedMessage(orderName: string | undefined): string {
+  return orderName === undefined
+    ? "Thank you! Your order is placed. We'll deliver your books soon."
+    : `Thank you! Your order ${orderName} is placed. We'll deliver your books soon.`;
+}
+
+/** After "Checkout" could not open: offline, or anything else (as the cart's other alerts). */
+export function showCheckoutFailure(offline: boolean): void {
+  showMessage(offline ? OFFLINE_MESSAGE : ERROR_MESSAGE);
+}
+
+/** Checkout Kit or the browser ended with an error; the cart is kept. */
+export function showCheckoutError(): void {
+  showMessage(CHECKOUT_FAILED_MESSAGE);
+}

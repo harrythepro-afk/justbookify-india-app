@@ -46,7 +46,7 @@ export type { AddOutcome, BookToAdd, RemoveOutcome } from '../cartChanges';
 export { fitsUnderCap, isAtOrOverCap, wholeAmountLeft } from '../orderCap';
 
 /** The cart's cache key now: a new one each time a cart is forgotten (`cartId.ts`). */
-function cartKey() {
+export function cartKey() {
   return storefrontKeys.cart.current(cartForgetCount());
 }
 
@@ -61,10 +61,14 @@ export function formatCartAmount(amount: number): string {
   return formatPrice(amount, config.currencyCode, storeLocale(config));
 }
 
-/** The change running now, if any: which book is being added or which line removed. */
+/**
+ * The change running now, if any: which book is being added, which line removed, or checkout being
+ * prepared (P9-01, D-148: from the "Checkout" tap until checkout is on screen).
+ */
 export type PendingCartChange =
   | { readonly kind: 'add'; readonly variantId: string }
   | { readonly kind: 'remove'; readonly lineId: string }
+  | { readonly kind: 'checkout' }
   | null;
 
 let pending: PendingCartChange = null;
@@ -82,6 +86,20 @@ function subscribePending(listener: () => void): () => void {
 
 function getPending(): PendingCartChange {
   return pending;
+}
+
+/**
+ * Starts a change if none is running (synchronously, so a double tap starts one); false when busy.
+ * Every start is ended with `endCartChange()`.
+ */
+export function tryBeginCartChange(change: NonNullable<PendingCartChange>): boolean {
+  if (pending !== null) return false;
+  setPending(change);
+  return true;
+}
+
+export function endCartChange(): void {
+  setPending(null);
 }
 
 /** Tests only: no change running. */
