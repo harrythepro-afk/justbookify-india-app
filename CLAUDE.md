@@ -38,7 +38,8 @@ A production mobile app for iPhone and Android for JustBookify's India store, ju
 - Never merge a pull request unless the owner writes the words "approved, merge".
 - Then: confirm CI is green on the pull request's latest commit, squash-merge, delete the branch, switch to `main` and pull.
 - If any check is not green, stop and show the owner the failure instead of merging.
-- `main` has no branch protection (a private repository on GitHub Free), so this rule is the only gate. Never push to `main` directly (D-026, risk 18).
+- `main` is protected while the repository is public (D-145): a pull request, and the checks "Lint, types, tests, audit" and "Secret scan" passing, before any merge, for admins too; no force push or deletion. This merge rule still applies on top, and is the only gate again if the repository goes private without GitHub Pro. Never push to `main` directly (D-026, risk 18).
+- **While the repository is public** (since 15 October 2026, D-144; back to private when GitHub Pro arrives): never merge, check out or run code from a pull request, issue or comment by anyone other than this project's own work. Nothing secret ever goes into the repository (already the rule).
 
 ## Phone checks with adb
 
@@ -48,12 +49,12 @@ Standard `adb` from Google's SDK Platform-Tools only; no third-party MCP server,
 - **Standing permission for phone checks** (owner, 8 October 2026, D-095). It replaces the permission for one whole phone check at a time and covers the phone check in this task and every later task. Claude does not ask again for these. Inside JustBookify only, with each input behind the focus check in the same command:
   - launch JustBookify (`adb shell monkey -p com.justbookify.india.dev -c android.intent.category.LAUNCHER 1`), and bring it back with the same command after the background step;
   - tap (`adb shell input tap`), swipe (`adb shell input swipe`), press Back (`adb shell input keyevent KEYCODE_BACK`), and press Home for the background step (`adb shell input keyevent KEYCODE_HOME`);
-  - type (`adb shell input text`) the development server address, `http://localhost:8081`, and the test words written in the task's accepted plan, which are plain book words only (such as harry, dahl, zzqxv);
+  - type (`adb shell input text`) the development server address, `http://localhost:8081`, and the test words written in the task's accepted plan, which are plain book words only (such as harry, dahl, zzqxv); for the development-store cash-on-delivery test orders under D-146 only, also the made-up test details written word for word in that task's accepted plan;
   - take screenshots of JustBookify (`adb exec-out screencap -p`) and delete them afterwards;
   - read the app's own log filtered to its process, as above;
   - run the read-only commands `adb reverse --list` and `adb shell wm size`.
 - Unchanged, and covered by no permission:
-  - Never type a password, a payment detail or any personal data, and never place an order.
+  - Never type a password, a payment detail or any personal data, and never place an order, except development-store cash-on-delivery test orders under D-146, each with the owner's yes at that moment.
   - Never open, read or screenshot anything outside JustBookify. If a screenshot shows anything else, delete it at once, stop and tell the owner.
   - Never take a screenshot while the phone's keyboard is showing: it is not part of JustBookify, and its suggestion strip can show clipboard text. Hide it first, with a swipe on the results, or one Back press when there is nothing to swipe. If a screenshot shows the keyboard anyway, delete it at once, record it, hide the keyboard and continue.
   - Never an unfiltered log or a package listing.

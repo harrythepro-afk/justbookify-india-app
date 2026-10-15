@@ -1,6 +1,6 @@
-# Next task (proposal): P9-01, checkout with Checkout Kit
+# Next task: P9-01, checkout with Checkout Kit
 
-Status: proposal. P8-02 (the delivery fee hint and the pincode check on the Cart tab; D-140 to D-143) is on branch `p8-02-delivery-hints`, PR #29, phone check passed on 14 October 2026; see `CURRENT_STATUS.md`. P9-01 starts when the owner starts it, after that pull request is merged. **Its first commit records P8-02 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`, where Phase 8 becomes done). P8-01 is merged (`a275ff4`, PR #28).
+Status: **in progress** on branch `p9-01-checkout`; plan accepted by the owner on 15 October 2026 (answers in `CURRENT_STATUS.md`). P8-02 (the delivery fee hint and the pincode check on the Cart tab; D-140 to D-143) is merged (`f2d708d`, PR #29); Phase 8 is done. P8-01 is merged (`a275ff4`, PR #28).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -39,19 +39,19 @@ Status: proposal. P8-02 (the delivery fee hint and the pincode check on the Cart
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P8-01 (done, a275ff4) | The cart on Shopify: "Add to Cart" ("In cart") on the book card and the book page, one copy per book, the Cart tab with its count, the order cap (R2: under the cap, checked against Shopify's subtotal), a guest cart forgotten at logout, rented-out books in the cart, the cart events; the development preview removed | D-133 to D-139 |
-| P8-02 (branch `p8-02-delivery-hints`, PR #29) | The delivery fee hint (R4: the prepaid fee, the cash-on-delivery line, the checkout note, the free-delivery hint never past the cap; `EXPO_PUBLIC_SHIPPING_DISCOUNT`) and the optional pincode check (R3: configured ranges, digits only, in memory only, forgotten at a cold start and at logout) on the Cart tab; `delivery_area_checked` with the result only; the cap pop-up's title; phone check passed | D-140 to D-143 |
+| P8-02 (done, f2d708d) | The delivery fee hint (R4: the prepaid fee, the cash-on-delivery line, the checkout note, the free-delivery hint never past the cap; `EXPO_PUBLIC_SHIPPING_DISCOUNT`) and the optional pincode check (R3: configured ranges, digits only, in memory only, forgotten at a cold start and at logout) on the Cart tab; `delivery_area_checked` with the result only; the cap pop-up's title; phone check passed | D-140 to D-143 |
 
 ## Phase 9: checkout and order confirmation
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P9-01 (proposed) | Checkout from the Cart tab with Checkout Kit on the development store: the gates before it, the customer's identity on the cart, the completed order, the checkout events; the iPhone half of early check 2 | |
+| P9-01 (branch `p9-01-checkout`) | Checkout from the Cart tab with Checkout Kit on the development store: the gates before it, the customer's identity on the cart, the completed order, the checkout events; the iPhone half of early check 2 | |
 
-## Housekeeping for P9-01's first commit
+## Housekeeping for P9-01's first commit (done; `CURRENT_STATUS.md`, D-144 to D-146)
 
 - **P8-02 is merged** as `f2d708d` (PR #29, squash, 15 October 2026), on the owner's "approved, merge" after both checks were green on the PR's latest commit `ff0d976` (run 38514810808, second attempt: Lint, types, tests, audit; Secret scan). Record it in this file, `CURRENT_STATUS.md` and `ROADMAP.md` (Phase 8 done). This file and `CURRENT_STATUS.md` here come from the local branch `p8-02-phone-check-record` (`a022647`, the phone check record), which was taken off PR #29 while GitHub could not run CI.
 - **The repository is public since 15 October 2026** (owner's decision): GitHub Actions stopped starting jobs on the private repository ("recent account payments have failed or your spending limit needs to be increased"), on `a022647` and on `ff0d976` (run 38514810808, first attempt). Before the change, gitleaks 8.30.1 scanned the whole history, every branch and all 29 pull request heads (201 commits): no leaks; the architect's own scan found none in 136 commits. **It goes back to private when GitHub Pro arrives.** Record it in `CURRENT_STATUS.md` (with the "Branch protection on `main`" item) and `DECISIONS.md`, and update `CLAUDE.md`'s "Merging pull requests" line that calls the repository private (with the owner's approval).
-- **Branch protection (risk 18, D-026):** a public repository on GitHub Free can protect `main`, which GitHub refused for the private one on 3 October 2026. Whether to switch it on while the repository is public is the owner's decision; until then the merge rule in `CLAUDE.md` stays the only gate.
+- **Branch protection (risk 18, D-026):** a public repository on GitHub Free can protect `main`, which GitHub refused for the private one on 3 October 2026. The owner said yes: switched on 15 October 2026 (D-145), with the merge rule in `CLAUDE.md` still applying on top.
 
 ## Goal of P9-01
 

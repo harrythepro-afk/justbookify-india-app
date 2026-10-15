@@ -12,8 +12,8 @@ Phase numbers used in every doc, task ID and decision from 3 October 2026 (D-035
 | 5 | Shopify data layer: typed GraphQL client, caching, error handling | | Done |
 | 6 | Catalogue, search, filtering | | Done (P6-01 to P6-11; P6-11 merged as `7c37841`, PR #24) |
 | 7 | Login and account | 3 | Done (P7-01 to P7-03; P7-03 merged as `b5ce914`, PR #27; early check 3 passed in P7-02) |
-| 8 | Cart and rental rules | | In progress (P8-01 done, merged as `a275ff4`, PR #28; P8-02) |
-| 9 | Checkout and order confirmation | 2 (iPhone) | |
+| 8 | Cart and rental rules | | Done (P8-01 and P8-02; P8-02 merged as `f2d708d`, PR #29) |
+| 9 | Checkout and order confirmation | 2 (iPhone) | In progress (P9-01, Android) |
 | 10 | Backend foundation | 4 | |
 | 11 | Rentals, order history, returns | | |
 | 12 | Notifications and deep links | 5 | |
