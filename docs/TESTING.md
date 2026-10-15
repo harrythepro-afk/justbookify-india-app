@@ -668,9 +668,13 @@ Unit and screen tests (Shopify, the login, Checkout Kit, the browser and the cus
 
 **The phone check** (USB, standing permission D-095, D-146 and every rule in `CLAUDE.md`; Do Not Disturb blocking calls and all notifications; `am force-stop` for cold starts, the owner's yes for this check only; no native change, so build 5f5c789a with JavaScript from Metro). **At most 5 cash-on-delivery test orders, on the development store only, each after `EXPECT_STORE_DOMAIN=<development store domain> npm run check:dev-store` passes, with Cash on Delivery the only payment method shown, and the owner's yes to "Place test order N of 5?".** No text typed in checkout (the test customer's saved details fill it in; a missing phone is typed by the owner). The login and the storefront password are typed by the owner. The steps and results are in `CURRENT_STATUS.md`.
 
+**Result, 15 October 2026 (build 5f5c789a): passed.** The login on the Cart tab kept the cart; checkout opened logged in with the test customer's details; the fees matched the Cart tab's hints (₹75 and ₹125 under ₹200; free and ₹50 from ₹200); Cash on Delivery was the only payment method; test orders **#1004** and **#1005** confirmed in the app with their numbers (Checkout Kit's ID form `OrderIdentity`, matched by number), the cart emptied; the switch to the browser and back acted at the next checkout with no restart; a cold start and the 5-minute background step kept the cart and the login; the app's own log held no secret of the app's, and no TLS error. Observations and the web view's console line: `CURRENT_STATUS.md` and `NEXT_TASK.md`.
+
 ### Phase 9 check: cash on delivery over ₹500 (P8-02, answer 5)
 
 ACOD offers cash on delivery only up to a cart total of ₹500 (D-031), the cap keeps the books' subtotal under ₹500 (D-134), but the total with delivery can pass ₹500 (for example ₹460 + ₹50). In Phase 9, on the **development store's** checkout only and without completing an order: with a subtotal between ₹451 and ₹499, choose cash on delivery and record whether ACOD still offers it (its limit counts the books only) or refuses it (its limit counts delivery). The answer decides whether the cart says anything about cash on delivery over ₹500 (D-141).
+
+**Result, 15 October 2026 (P9-01 phone check):** a ₹494 cart (six books) with the "Cash on Delivery" rate (₹50 after the discount) was still offered Cash on Delivery, at a total of **₹544.00**; closed without an order. ACOD's limit counts the books only, as P3-02 found with ₹490, so the Cart tab says nothing about cash on delivery over ₹500.
 
 ### Release gate: list performance (P6-03)
 
@@ -723,7 +727,7 @@ The checks in `SHOPIFY_INTEGRATION.md` each run before anything is built on thei
 | Check | When |
 | --- | --- |
 | 1a (redirect to Razorpay and back) and 1b (hand-off to a real UPI app) | Both at the owner-approved launch rehearsal in Phase 19, on the live store, with one small real order (D-033). Razorpay cannot be installed on the development store, whose business entity is in Bahrain, and UPI Intent works only in Razorpay live mode |
-| 2 (cash on delivery and checkout rules) | Passed on Android in Phase 3 (P3-02). iPhone side in Phase 9 (D-036) |
+| 2 (cash on delivery and checkout rules) | Passed on Android in Phase 3 (P3-02), and again through the app's own checkout in P9-01. iPhone side in Phase 9 (P9-02 on the Simulator, proposed; a real iPhone before Phase 17) |
 | 3 (guest order after login) | **Passed on 13 October 2026** (P7-02 phone check, development store; `SHOPIFY_INTEGRATION.md`) |
 | 4 (return through the Admin API) | Phase 10, backend foundation (D-034, D-035) |
 | 5 (links open the app) | Phase 12, notifications and deep links (D-034, D-035, risk 17) |

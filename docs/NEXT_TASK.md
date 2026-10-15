@@ -1,6 +1,6 @@
-# Next task: P9-01, checkout with Checkout Kit
+# Next task (proposal): P9-02, checkout on the iPhone Simulator
 
-Status: **in progress** on branch `p9-01-checkout`; plan accepted by the owner on 15 October 2026 (answers in `CURRENT_STATUS.md`). P8-02 (the delivery fee hint and the pincode check on the Cart tab; D-140 to D-143) is merged (`f2d708d`, PR #29); Phase 8 is done. P8-01 is merged (`a275ff4`, PR #28).
+Status: proposal. P9-01 (checkout with Checkout Kit, Android, development store only; D-144 to D-157) is on branch `p9-01-checkout`, PR #30, phone check passed on 15 October 2026 with test orders #1004 and #1005; see `CURRENT_STATUS.md`. P9-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P9-01 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`). P8-02 is merged (`f2d708d`, PR #29); Phase 8 is done.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -45,60 +45,57 @@ Status: **in progress** on branch `p9-01-checkout`; plan accepted by the owner o
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P9-01 (branch `p9-01-checkout`) | Checkout from the Cart tab with Checkout Kit on the development store: the gates before it, the customer's identity on the cart, the completed order, the checkout events; the iPhone half of early check 2 | |
+| P9-01 (branch `p9-01-checkout`, PR #30) | Checkout from the Cart tab with Checkout Kit on the development store (Android): "Checkout" only when the cart can go to checkout, login on the Cart tab, the customer's token on the cart, the sheet or the browser by the remote switch read at checkout (no restart), the confirmation with the order number, the cart forgotten, the checkout events; the test checkout screen removed; branch protection and the public repository; phone check passed with test orders #1004 and #1005 and the ACOD check | D-144 to D-157 |
+| P9-02 (proposed) | The same checkout on the iPhone Simulator (owner's MacBook): the iPhone half of early check 2 on a simulator | |
 
-## Housekeeping for P9-01's first commit (done; `CURRENT_STATUS.md`, D-144 to D-146)
+## Housekeeping for P9-02's first commit
 
-- **P8-02 is merged** as `f2d708d` (PR #29, squash, 15 October 2026), on the owner's "approved, merge" after both checks were green on the PR's latest commit `ff0d976` (run 38514810808, second attempt: Lint, types, tests, audit; Secret scan). Record it in this file, `CURRENT_STATUS.md` and `ROADMAP.md` (Phase 8 done). This file and `CURRENT_STATUS.md` here come from the local branch `p8-02-phone-check-record` (`a022647`, the phone check record), which was taken off PR #29 while GitHub could not run CI.
-- **The repository is public since 15 October 2026** (owner's decision): GitHub Actions stopped starting jobs on the private repository ("recent account payments have failed or your spending limit needs to be increased"), on `a022647` and on `ff0d976` (run 38514810808, first attempt). Before the change, gitleaks 8.30.1 scanned the whole history, every branch and all 29 pull request heads (201 commits): no leaks; the architect's own scan found none in 136 commits. **It goes back to private when GitHub Pro arrives.** Record it in `CURRENT_STATUS.md` (with the "Branch protection on `main`" item) and `DECISIONS.md`, and update `CLAUDE.md`'s "Merging pull requests" line that calls the repository private (with the owner's approval).
-- **Branch protection (risk 18, D-026):** a public repository on GitHub Free can protect `main`, which GitHub refused for the private one on 3 October 2026. The owner said yes: switched on 15 October 2026 (D-145), with the merge rule in `CLAUDE.md` still applying on top.
+- **P9-01 is merged** (record the merge commit and PR #30 in this file, `CURRENT_STATUS.md` and `ROADMAP.md`), once the owner writes "approved, merge".
 
-## Goal of P9-01
+## Goal of P9-02
 
-The customer goes from the Cart tab to the store's own Shopify checkout inside the app (Checkout Kit, `ARCHITECTURE.md`, "Checkout"), and after a completed order sees a confirmation and an empty cart. Development store only: test orders there only with the owner's yes, never on the live store (`CLAUDE.md`, rules 4 and 5). Phase 9 also brings the iPhone: Apple developer access is requested now (D-036), so the checkout can be checked on an iPhone development build (early check 2, iPhone half).
+P9-01's checkout runs on an iPhone: the iPhone side of early check 2 (cash on delivery and the checkout rules inside Checkout Kit, risk 1, D-036), first on the iPhone Simulator on the owner's MacBook, so the iOS build, the login and Checkout Kit's sheet are proven before Apple developer access and a real iPhone (TestFlight, before Phase 17).
 
 ## Proposed scope
 
-1. **A "Checkout" button on the Cart tab**, offered only when the cart can go to checkout (P8-01 follow-ups, D-134, D-137): no rented-out book in the cart, the counted subtotal under the cap, and the pincode rule the owner chooses (question 1). Every check is again Shopify's at checkout; the app's gates are hints that save the customer a refused checkout.
-2. **Login before checkout** (`PRODUCT_REQUIREMENTS.md`, Screens: checkout needs a login): a signed-out customer is asked to log in first; the guest cart is kept (D-136). The consent request waits until the order is confirmed (D-129).
-3. **The customer's identity on the cart** before the checkout URL is used (`ARCHITECTURE.md`, "Checkout", step 2), so Shopify's checkout knows the customer: the form Shopify documents for a Customer Account API login on a Storefront cart, checked in Shopify's documentation for the API version in use and recorded.
-4. **Checkout Kit:** present the cart's `checkoutUrl` in the sheet or the browser, as the `checkout_presentation` flag says (D-033), and make the flag take effect without two restarts (D-046). **The version:** `CLAUDE.md`'s stack names `@shopify/checkout-sheet-kit` 4.0.x; the repository has 3.9.1 (P3-01's test checkout). Check Shopify's changelog and decide (a decision entry) before building on it.
-5. **After the completed event:** a confirmation on the Cart tab (wording at plan review), the cart cleared and forgotten (`ARCHITECTURE.md`, step 5; Shopify deletes a completed cart, D-136), the orders list read again; a closed or failed checkout keeps the cart.
-6. **Events under consent** (`ANALYTICS.md`): `begin_checkout`, `rental_order_success`, `checkout_failed`; IDs, counts and codes only.
-7. **Checks on the development store:** the Phase 9 check of ACOD's ₹500 limit (`TESTING.md`, P8-02); the Checkout Kit TLS errors seen in P5-02; the development test checkout screen (P3-01) kept or removed (a decision).
-8. **Tests, docs, and phone checks** on Android over USB and, with Apple access, on an iPhone development build.
+1. **An iOS development build for the Simulator** on the owner's MacBook (an EAS build with `ios.simulator: true` in a development profile, or a local `npx expo run:ios`; the owner's choice, a decision entry), with the Simulator's own bundle of JavaScript from Metro. No Apple developer membership is needed for the Simulator.
+2. **The login on iOS** (`ASWebAuthenticationSession`, D-119) and the callback scheme `shop.<shop ID>.app` on the development store.
+3. **Checkout on iOS**: the sheet (Checkout Kit's iOS side), the gates, the confirmation with the order number, the cart forgotten; the browser presentation (`SFSafariViewController`, where `openBrowserAsync` resolves when it is closed, D-152).
+4. **Early check 2, iPhone side**: the rates (₹75 and ₹125, the ₹75 discount from ₹200), ACOD's payment rule, R2 and R3, as P3-02 did on Android (`SHOPIFY_INTEGRATION.md`), and a cash-on-delivery test order on the development store under D-146's limits (if the owner extends them to P9-02).
+5. **Tests and docs**; how the Simulator check is run, in `TESTING.md`.
 
 ## Questions for the owner and the architect
 
-1. **The pincode at checkout (P8-02, answer 4):** must the Cart tab's pincode check pass before "Checkout" is offered, or does the field stay optional and Shopify's own pincode rule (SMART Checkout Rules, R3) refuse at checkout? If it must pass, is the pincode then sent to Shopify with the cart (`buyerIdentity` delivery address preferences), which would be the first time it leaves the phone (D-142)?
-2. **Login first:** confirm that checkout always needs a login (the requirements' Screens table), and that a cart started as a guest goes to checkout under the customer's account after login.
-3. **Checkout Kit version:** stay on 3.9.1 for P9-01, or move to 4.0.x as `CLAUDE.md` names (a native change and a new development build either way if the version changes)?
-4. **Test orders on the development store:** how many cash-on-delivery test orders may be placed there, and who restocks the books afterwards (P3-02 left "Harry potter" at zero)? The ACOD check needs a cart between ₹451 and ₹499 taken to the payment step; does it stop before placing the order?
-5. **The confirmation's wording**, and whether "Go to My Books" follows it.
-6. **The iPhone check:** which iPhone, and when Apple access is ready.
+1. **The MacBook:** macOS and Xcode versions, and whether the owner or Claude Code drives the Simulator (Claude Code can drive it only if a session runs on the MacBook; the owner may prefer to tap through it while Claude Code reads the results).
+2. **The build:** EAS (`ios.simulator`) or a local build on the MacBook.
+3. **Test orders:** does D-146 (at most 5, cash on delivery, the development store only, the owner's yes for each) carry over to P9-02?
+4. **The consent request after a closed checkout** (P9-01 phone check, below): keep D-148's rule, or hold the request until the first order in that login?
 
-## What P9-01 needs from the owner
+## What P9-02 needs from the owner
 
-- The answers above.
-- **Apple developer access** for the iPhone check (D-036): the Apple Developer Program membership for JustBookify, the project's EAS account able to build for iOS with it (the owner signs in to Expo and Apple on this machine; no Apple password or key is ever given to Claude), and an iPhone with Developer Mode on for the development build.
-- The owner's yes for each test order on the development store.
-- `EXPO_PUBLIC_SHIPPING_DISCOUNT` in the EAS environments when staging and production builds are set up (follow-up below); not needed for the development build, which reads `.env.local`.
+- The answers above; the MacBook with Xcode and the iOS Simulator.
+- Apple developer access (D-036) is **not** needed for the Simulator; it is for the real-iPhone check through TestFlight, before Phase 17.
 
 ## Out of scope
 
-- Razorpay (cannot be installed on the development store; early check 1a waits for the launch rehearsal, D-033).
-- Anything on the live store.
-- Books at home, due dates and returns (Phase 11); push notifications (Phase 12).
+- A real iPhone and TestFlight (before Phase 17); Razorpay (early checks 1a and 1b at the launch rehearsal, D-033); anything on the live store.
 
-## Follow-ups (recorded, not part of P9-01 unless listed in its scope)
+## Follow-ups (recorded, not part of P9-02 unless listed in its scope)
+
+- **The P9-01 phone check's test orders (owner):** restock in the development store's admin the books of #1004 (Cat Kid Comic Club 04: Collaborations; Artemis Fowl 2: The Arctic Incident) and #1005 (Cat Kid Comic Club: On Purpose; Geronimo Stilton: The Phantom of the Subway; Geronimo Stilton: The Temple of the Ruby of Fire; Diary of a Wimpy Kid: The Meltdown), and **Danny the Champion of the World** (from the guest test order #1003, P7-02), the ₹49 book behind `check:dev-store`'s catalogue difference. After that, `npm run check:dev-store` should pass in full again.
+- **`check:dev-store` for test orders (owner, P9-01 phone check):** a mode that checks only the store domain (`EXPECT_STORE_DOMAIN`), for the check before each test order, so the sample catalogue's changes from earlier test orders do not stop it (today the domain part is read from the full run's output, D-157).
+- **The consent request after a closed checkout (P9-01 phone check, owner to decide):** with the rule as built (D-148), a checkout closed without an order drops the held request for that login; in the phone check the development store's password page needed one close before the first order, so no request showed after order #1004. The plan's step 5 had expected it there. Keep D-148, or hold the request until the first order in that login.
+- **A Checkout tap that did nothing (P9-01 phone check, observation):** the first "Checkout" tap right after the login on the Cart tab did not start checkout (no "Opening checkout…", the flag not read, no error in the app's log); the next tap worked, and every later tap worked. Not reproduced; worth a look (a tap while the app was still settling after the browser returned?).
+- **Checkout's web page logs its URL (P9-01 phone check):** Android's `chromium` tag in the app's own log showed one console message from Shopify's checkout page ("Clear-Site-Data header on '<checkout URL>'"), with the cart's key in the URL. It is the web view's console, not the app's code; the device log is readable only over adb. Find out whether a release build logs it too, and whether Checkout Kit's `logLevel` or the web view's settings can stop it (risk, `SECURITY.md`).
+- **The iPhone (owner, answer 6):** P9-02 above (Simulator); the real-iPhone check through TestFlight before Phase 17.
 
 - **Expo SDK 57 patch releases (P9-01, owner, D-156):** a small task of its own: `expo` 57.0.27 → ~57.0.30, `expo-auth-session` 57.0.15 → ~57.0.16, `expo-constants` 57.0.21 → ~57.0.22, `expo-dev-client` 57.0.19 → ~57.0.20, `expo-linking` 57.0.12 → ~57.0.13, `expo-router` 57.0.25 → ~57.0.28, `jest-expo` 57.0.5 → ~57.0.6, with `npx expo install --check`, the changelogs, the five gates, `expo-doctor` 21 of 21, a new development build and the APK permission check if a native package changes, and a short phone check.
 
-- **Phase 9 check: cash on delivery over ₹500 (P8-02, answer 5, D-141):** on the development store's checkout, whether ACOD's ₹500 limit counts delivery (`TESTING.md`). The answer decides whether the Cart tab says anything about cash on delivery over ₹500.
-- **The pincode at checkout (P8-02, answer 4, D-142):** whether checkout requires a pincode that passes is Phase 9's decision (question 1 above).
+- **Phase 9 check: cash on delivery over ₹500 (P8-02, answer 5, D-141), done in P9-01:** a ₹494 cart was still offered cash on delivery, at a total of ₹544: ACOD's limit counts the books only, so the Cart tab says nothing about it (`TESTING.md`).
+- **The pincode at checkout (P8-02, answer 4, D-142), decided in P9-01:** the check stays optional and is never sent to Shopify (answer 1).
 - **Clear pincode keeps the keyboard open (P8-02 phone check, observation):** "Clear pincode" empties the field and keeps its focus, as search's clear button does (D-099), so the keyboard opens again. Intended; the architect may prefer it closed.
 
-- **The cart in Phase 9 (P8-01, D-133 to D-137):** checkout must not be offered while a rented-out book is in the cart or the counted subtotal is at or over the cap; attach the customer's identity to the guest cart at checkout; clear the cart after a completed order (`ARCHITECTURE.md`, "Checkout", step 5).
+- **The cart in Phase 9 (P8-01, D-133 to D-137), done in P9-01 (D-148, D-149, D-151).**
 - **A book rented out while in the cart (P8-01):** tested only, on the owner's decision (no stock change in the development store's admin). A later phone check may cover it if the owner restocks and sells out a book.
 - **The cap alert's empty title (P8-01 phone check, resolved):** the owner chose the title "Order limit reached" (14 October 2026, message unchanged); done in P8-02's first commit.
 - **Intermittent act warning (P8-01 full run):** `search.test.tsx` logged one "not wrapped in act" warning from VirtualizedList's render timer after an 80-second test, as `browse.test.tsx` did in P7-03. Not caused by the cart; watch CI.

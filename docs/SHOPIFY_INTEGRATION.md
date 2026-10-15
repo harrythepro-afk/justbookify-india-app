@@ -264,6 +264,8 @@ So the app runs `CartCheckoutPrepare` (`cartBuyerIdentityUpdate` with the token 
 
 **The development store's checkout:** the storefront password page shows first in the sheet (P3-01); the owner types the password, and checkout is presented again.
 
+**Seen on the development store (P9-01 phone check, 15 October 2026):** with `customerAccessToken` on the cart, checkout opened logged in, the test customer's email, name and address filled in; Checkout Kit's `completed` named the order `gid://shopify/OrderIdentity/<n>`, whose number is the Customer Account API order's (`gid://shopify/Order/<n>`), so the app found #1004 and #1005 by number; ACOD still offered cash on delivery at ₹494 + ₹50 = ₹544 (its limit counts the books only); no TLS error (`net_error`) in the app's log, so P5-02's did not come back; the checkout page's console printed one line naming the checkout URL with the cart's key, which Android logs under `chromium` (follow-up in `NEXT_TASK.md`).
+
 ## Checkout behaviour to respect
 
 - Order subtotal under ₹500 (R2). The rule checks the subtotal, not the total with shipping (P3-02). The app keeps the cart's subtotal strictly under the configured cap, checked against Shopify's own subtotal (P8-01, D-134).
