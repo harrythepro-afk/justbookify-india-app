@@ -47,6 +47,12 @@ Status: proposal. P8-02 (the delivery fee hint and the pincode check on the Cart
 | --- | --- | --- |
 | P9-01 (proposed) | Checkout from the Cart tab with Checkout Kit on the development store: the gates before it, the customer's identity on the cart, the completed order, the checkout events; the iPhone half of early check 2 | |
 
+## Housekeeping for P9-01's first commit
+
+- **P8-02 is merged** as `f2d708d` (PR #29, squash, 15 October 2026), on the owner's "approved, merge" after both checks were green on the PR's latest commit `ff0d976` (run 38514810808, second attempt: Lint, types, tests, audit; Secret scan). Record it in this file, `CURRENT_STATUS.md` and `ROADMAP.md` (Phase 8 done). This file and `CURRENT_STATUS.md` here come from the local branch `p8-02-phone-check-record` (`a022647`, the phone check record), which was taken off PR #29 while GitHub could not run CI.
+- **The repository is public since 15 October 2026** (owner's decision): GitHub Actions stopped starting jobs on the private repository ("recent account payments have failed or your spending limit needs to be increased"), on `a022647` and on `ff0d976` (run 38514810808, first attempt). Before the change, gitleaks 8.30.1 scanned the whole history, every branch and all 29 pull request heads (201 commits): no leaks; the architect's own scan found none in 136 commits. **It goes back to private when GitHub Pro arrives.** Record it in `CURRENT_STATUS.md` (with the "Branch protection on `main`" item) and `DECISIONS.md`, and update `CLAUDE.md`'s "Merging pull requests" line that calls the repository private (with the owner's approval).
+- **Branch protection (risk 18, D-026):** a public repository on GitHub Free can protect `main`, which GitHub refused for the private one on 3 October 2026. Whether to switch it on while the repository is public is the owner's decision; until then the merge rule in `CLAUDE.md` stays the only gate.
+
 ## Goal of P9-01
 
 The customer goes from the Cart tab to the store's own Shopify checkout inside the app (Checkout Kit, `ARCHITECTURE.md`, "Checkout"), and after a completed order sees a confirmation and an empty cart. Development store only: test orders there only with the owner's yes, never on the live store (`CLAUDE.md`, rules 4 and 5). Phase 9 also brings the iPhone: Apple developer access is requested now (D-036), so the checkout can be checked on an iPhone development build (early check 2, iPhone half).
