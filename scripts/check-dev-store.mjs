@@ -34,6 +34,9 @@
 // URL, ID or value is printed. For the profile and orders (P7-02, D-124) that URL must have the
 // shape https://<host>/customer/api/<version>/graphql, so the app can pin its own version.
 //
+// Before a development-store test order (P9-01, D-146, D-155) it is run with EXPECT_STORE_DOMAIN
+// set to the development store's domain, and fails unless the configured domain is that one.
+//
 // Run with `npm run check:dev-store`. Read-only: named queries, no mutations. Never prints the
 // token or the domain. Not run in CI, which has no .env.local. Point it at a development store
 // only, never the live store.
@@ -48,6 +51,7 @@ import {
   storefrontEndpoint,
 } from '../src/config/shopifyApi.ts';
 import { getStoreConfig, StoreConfigError } from '../src/config/store.ts';
+import { compareExpectedStoreDomain } from '../src/config/expectedStoreDomain.ts';
 import {
   CustomerAccountConfigError,
   getCustomerAccountConfig,
@@ -1391,6 +1395,18 @@ async function check() {
     throw error;
   }
   console.log('Store configuration: valid.');
+
+  // Before a development-store test order (D-146, D-155): EXPECT_STORE_DOMAIN names the store
+  // the order must go to. Pass or fail only; neither domain is printed.
+  const expected = compareExpectedStoreDomain(process.env.EXPECT_STORE_DOMAIN, config.storeDomain);
+  if (expected === 'mismatch') {
+    fail(
+      'the configured store domain is not the expected development store (EXPECT_STORE_DOMAIN).',
+    );
+  }
+  if (expected === 'match') {
+    console.log('Store domain: matches the expected development store.');
+  }
 
   await checkStore(config);
   await checkCustomerAccountDiscovery(config);

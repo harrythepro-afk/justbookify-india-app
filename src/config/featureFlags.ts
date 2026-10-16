@@ -115,3 +115,9 @@ export const REMOTE_CONFIG_SETTINGS: Record<AppEnvironment, RemoteConfigSettings
  * phone's storage (a local read, no network) before the defaults are used for the session.
  */
 export const FLAG_ACTIVATION_TIMEOUT_MILLIS = 3000;
+
+/**
+ * The longest checkout waits to activate the values fetched since launch before it uses this
+ * session's frozen value (D-150). A local read, no network.
+ */
+export const CHECKOUT_FLAG_TIMEOUT_MILLIS = 1000;

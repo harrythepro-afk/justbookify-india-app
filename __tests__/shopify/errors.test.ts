@@ -14,7 +14,7 @@ jest.mock('@/crashReporting/sentry', () => ({
     mockReportProblem(code, operationName),
 }));
 
-const OPERATION = 'DevCheckoutProduct';
+const OPERATION = 'CartRead';
 
 function error(kind: StorefrontErrorKind, status?: number, codes?: string[]): StorefrontError {
   return new StorefrontError(kind, { operationName: OPERATION, status, codes });
@@ -31,7 +31,7 @@ describe('StorefrontError', () => {
     expect(thrown.name).toBe('StorefrontError');
     expect(thrown.code).toBe('storefront/http-error');
     expect(thrown.message).toBe(
-      'The Storefront API answered with an HTTP error. (DevCheckoutProduct; HTTP 404)',
+      'The Storefront API answered with an HTTP error. (CartRead; HTTP 404)',
     );
     expect(thrown).not.toHaveProperty('cause');
   });

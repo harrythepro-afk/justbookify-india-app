@@ -1,6 +1,6 @@
-# Next task: P8-02, the delivery fee hint and the pincode check
+# Next task (proposal): P9-02, checkout on the iPhone Simulator
 
-Status: **in progress** on branch `p8-02-delivery-hints`; plan accepted by the owner and the architect on 14 October 2026 (answers in `CURRENT_STATUS.md`). P8-01 (the cart: "Add to Cart", the Cart tab, the order cap, the cart events; D-133 to D-139) is merged (`a275ff4`, PR #28). P7-03 is merged (`b5ce914`, PR #27); Phase 7 is done.
+Status: proposal. P9-01 (checkout with Checkout Kit, Android, development store only; D-144 to D-157) is on branch `p9-01-checkout`, PR #30, phone check passed on 15 October 2026 with test orders #1004 and #1005; see `CURRENT_STATUS.md`. P9-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P9-01 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`). P8-02 is merged (`f2d708d`, PR #29); Phase 8 is done.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -39,44 +39,63 @@ Status: **in progress** on branch `p8-02-delivery-hints`; plan accepted by the o
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P8-01 (done, a275ff4) | The cart on Shopify: "Add to Cart" ("In cart") on the book card and the book page, one copy per book, the Cart tab with its count, the order cap (R2: under the cap, checked against Shopify's subtotal), a guest cart forgotten at logout, rented-out books in the cart, the cart events; the development preview removed | D-133 to D-139 |
-| P8-02 (branch `p8-02-delivery-hints`) | The delivery fee hint (R4) and the pincode check (R3) in the cart, before checkout | |
+| P8-02 (done, f2d708d) | The delivery fee hint (R4: the prepaid fee, the cash-on-delivery line, the checkout note, the free-delivery hint never past the cap; `EXPO_PUBLIC_SHIPPING_DISCOUNT`) and the optional pincode check (R3: configured ranges, digits only, in memory only, forgotten at a cold start and at logout) on the Cart tab; `delivery_area_checked` with the result only; the cap pop-up's title; phone check passed | D-140 to D-143 |
 
-## Goal of P8-02
+## Phase 9: checkout and order confirmation
 
-Before checkout (Phase 9), the cart shows what delivery is likely to cost (R4) and checks that Shopify can deliver to the customer's pincode (R3), so the customer learns both on the Cart tab, not at Shopify's checkout. Every figure is a hint: checkout sets the final amount (D-024 as corrected by D-031).
+| Task | Scope | Decisions |
+| --- | --- | --- |
+| P9-01 (branch `p9-01-checkout`, PR #30) | Checkout from the Cart tab with Checkout Kit on the development store (Android): "Checkout" only when the cart can go to checkout, login on the Cart tab, the customer's token on the cart, the sheet or the browser by the remote switch read at checkout (no restart), the confirmation with the order number, the cart forgotten, the checkout events; the test checkout screen removed; branch protection and the public repository; phone check passed with test orders #1004 and #1005 and the ACOD check | D-144 to D-157 |
+| P9-02 (proposed) | The same checkout on the iPhone Simulator (owner's MacBook): the iPhone half of early check 2 on a simulator | |
+
+## Housekeeping for P9-02's first commit
+
+- **P9-01 is merged** (record the merge commit and PR #30 in this file, `CURRENT_STATUS.md` and `ROADMAP.md`), once the owner writes "approved, merge".
+
+## Goal of P9-02
+
+P9-01's checkout runs on an iPhone: the iPhone side of early check 2 (cash on delivery and the checkout rules inside Checkout Kit, risk 1, D-036), first on the iPhone Simulator on the owner's MacBook, so the iOS build, the login and Checkout Kit's sheet are proven before Apple developer access and a real iPhone (TestFlight, before Phase 17).
 
 ## Proposed scope
 
-1. **The delivery fee hint (R4)** on the Cart tab, under the subtotal, from store configuration (`shippingFeePrepaid` ₹75, `shippingFeeCod` ₹125, `freeDeliveryThreshold` ₹200, and a new value for the automatic discount, ₹75 off either rate from ₹200; D-031): prepaid delivery ₹75 under ₹200 and free from ₹200; cash on delivery ₹125 under ₹200 and ₹50 from ₹200. Counted on the subtotal the app counts (D-134), so a rented-out book never lowers or raises the hint.
-2. **The free-delivery hint:** under ₹200, how much more makes prepaid delivery free ("Add books worth ₹X more for free delivery." or the owner's wording), never suggesting more than the order cap allows.
-3. **The pincode check (R3)** on the Cart tab: a six-digit field, checked against the configured prefix ranges (`deliveryPincodeRanges`: 50 to 53, 56 to 69); a clear message when the store does not deliver there. The pincode is personal data: never logged, sent to analytics or reported, and not stored unless the owner decides otherwise.
-4. **Events, if the owner wants any:** `ANALYTICS.md` lists none for the hint or the pincode. A pincode is never sent.
-5. **Tests, docs and a USB phone check** on the development store: no checkout and no order.
+1. **An iOS development build for the Simulator** on the owner's MacBook (an EAS build with `ios.simulator: true` in a development profile, or a local `npx expo run:ios`; the owner's choice, a decision entry), with the Simulator's own bundle of JavaScript from Metro. No Apple developer membership is needed for the Simulator.
+2. **The login on iOS** (`ASWebAuthenticationSession`, D-119) and the callback scheme `shop.<shop ID>.app` on the development store.
+3. **Checkout on iOS**: the sheet (Checkout Kit's iOS side), the gates, the confirmation with the order number, the cart forgotten; the browser presentation (`SFSafariViewController`, where `openBrowserAsync` resolves when it is closed, D-152).
+4. **Early check 2, iPhone side**: the rates (₹75 and ₹125, the ₹75 discount from ₹200), ACOD's payment rule, R2 and R3, as P3-02 did on Android (`SHOPIFY_INTEGRATION.md`), and a cash-on-delivery test order on the development store under D-146's limits (if the owner extends them to P9-02).
+5. **Tests and docs**; how the Simulator check is run, in `TESTING.md`.
 
 ## Questions for the owner and the architect
 
-1. **Which rates to show:** both prepaid and cash on delivery, or prepaid only with a note that cash on delivery costs more?
-2. **Wording** for the fee hint, the free-delivery hint and the pincode messages (drafts at plan review).
-3. **Keep the pincode** between launches (secure storage, cleared at logout), or ask each time? It is personal data.
-4. **Where the pincode check sits:** on the Cart tab always, or only once checkout exists (Phase 9 opens checkout only after a pincode that passes)?
-5. **A cart over ₹500 with cash on delivery:** ACOD offers cash on delivery only up to a cart total of ₹500, and the cap keeps the subtotal under ₹500, but the total with delivery can pass ₹500 (for example ₹460 + ₹50). Should the hint say cash on delivery may not be offered then?
-6. **The phone check over USB**, adding books and typing test pincodes only (the test words in the plan, such as 560001 and 400001).
+1. **The MacBook:** macOS and Xcode versions, and whether the owner or Claude Code drives the Simulator (Claude Code can drive it only if a session runs on the MacBook; the owner may prefer to tap through it while Claude Code reads the results).
+2. **The build:** EAS (`ios.simulator`) or a local build on the MacBook.
+3. **Test orders:** does D-146 (at most 5, cash on delivery, the development store only, the owner's yes for each) carry over to P9-02?
 
-## What P8-02 needs from the owner
+## What P9-02 needs from the owner
 
-- The answers above.
-- A new store configuration value for the ₹75 automatic shipping discount (an `EXPO_PUBLIC_` value in `.env.local`, nothing secret), unless the owner prefers it fixed in code.
+- The answers above; the MacBook with Xcode and the iOS Simulator.
+- Apple developer access (D-036) is **not** needed for the Simulator; it is for the real-iPhone check through TestFlight, before Phase 17.
 
 ## Out of scope
 
-- Checkout, the cart's buyer identity and order confirmation (Phase 9).
-- Notify-me (R8) and the books to be collected at delivery (R5, Phase 11).
-- Reading Shopify's real shipping rates before checkout (the Storefront API gives delivery options only for a cart with a buyer's address; a later decision).
-- Anything on the live store.
+- A real iPhone and TestFlight (before Phase 17); Razorpay (early checks 1a and 1b at the launch rehearsal, D-033); anything on the live store.
 
-## Follow-ups (recorded, not part of P8-02)
+## Follow-ups (recorded, not part of P9-02 unless listed in its scope)
 
-- **The cart in Phase 9 (P8-01, D-133 to D-137):** checkout must not be offered while a rented-out book is in the cart or the counted subtotal is at or over the cap; attach the customer's identity to the guest cart at checkout; clear the cart after a completed order (`ARCHITECTURE.md`, "Checkout", step 5).
+- **The P9-01 phone checks' test orders (owner):** restock in the development store's admin the books of #1004 (Cat Kid Comic Club 04: Collaborations; Artemis Fowl 2: The Arctic Incident), #1005 (Cat Kid Comic Club: On Purpose; Geronimo Stilton: The Phantom of the Subway; Geronimo Stilton: The Temple of the Ruby of Fire; Diary of a Wimpy Kid: The Meltdown) and #1006 (Cat Kid Comic Club 04: Collaborations; Cat Kid Comic Club: On Purpose), and **Danny the Champion of the World** (from the guest test order #1003, P7-02), the ₹49 book behind `check:dev-store`'s catalogue difference. After that, `npm run check:dev-store` should pass in full again.
+- **The consent request over Shopify's thank-you page (P9-01 short phone check, observation):** after order #1006 the request opened over the sheet's thank-you page (the `completed` event comes before the customer closes the sheet); the app's own confirmation showed after it was answered and the sheet closed. The order is placed by then, so checkout is not interrupted (D-129); the owner and the architect may prefer it to wait for the sheet to close.
+- **`check:dev-store` for test orders (owner, P9-01 phone check):** a mode that checks only the store domain (`EXPECT_STORE_DOMAIN`), for the check before each test order, so the sample catalogue's changes from earlier test orders do not stop it (today the domain part is read from the full run's output, D-157).
+- **The consent request after a closed checkout (P9-01 phone check), fixed in PR #30 at the architect's review (D-148):** a checkout closed without an order keeps the request held; it shows once, after the first confirmed order in that login.
+- **A Checkout tap that did nothing (P9-01 phone check), fixed in PR #30 at the architect's review (D-148):** the button shows a disabled waiting state while the cart is being read or changed, and a tap shows "Opening checkout…" at once and waits for what is still running; checked again in the short phone check below.
+- **Checkout's web page logs its URL (P9-01 phone check; Phase 14, the architect's review of PR #30):** Android's `chromium` tag in the app's own log showed one console message from Shopify's checkout page ("Clear-Site-Data header on '<checkout URL>'"), with the cart's key in the URL. It is the web view's console, not the app's code; the device log is readable only over adb. Find out whether a release build logs it too, and whether Checkout Kit's `logLevel` or the web view's settings can stop it (risk, `SECURITY.md`).
+- **The iPhone (owner, answer 6):** P9-02 above (Simulator); the real-iPhone check through TestFlight before Phase 17.
+
+- **Expo SDK 57 patch releases (P9-01, owner, D-156):** a small task of its own: `expo` 57.0.27 → ~57.0.30, `expo-auth-session` 57.0.15 → ~57.0.16, `expo-constants` 57.0.21 → ~57.0.22, `expo-dev-client` 57.0.19 → ~57.0.20, `expo-linking` 57.0.12 → ~57.0.13, `expo-router` 57.0.25 → ~57.0.28, `jest-expo` 57.0.5 → ~57.0.6, with `npx expo install --check`, the changelogs, the five gates, `expo-doctor` 21 of 21, a new development build and the APK permission check if a native package changes, and a short phone check.
+
+- **Phase 9 check: cash on delivery over ₹500 (P8-02, answer 5, D-141), done in P9-01:** a ₹494 cart was still offered cash on delivery, at a total of ₹544: ACOD's limit counts the books only, so the Cart tab says nothing about it (`TESTING.md`).
+- **The pincode at checkout (P8-02, answer 4, D-142), decided in P9-01:** the check stays optional and is never sent to Shopify (answer 1).
+- **Clear pincode keeps the keyboard open (P8-02 phone check, observation):** "Clear pincode" empties the field and keeps its focus, as search's clear button does (D-099), so the keyboard opens again. Intended; the architect may prefer it closed.
+
+- **The cart in Phase 9 (P8-01, D-133 to D-137), done in P9-01 (D-148, D-149, D-151).**
 - **A book rented out while in the cart (P8-01):** tested only, on the owner's decision (no stock change in the development store's admin). A later phone check may cover it if the owner restocks and sells out a book.
 - **The cap alert's empty title (P8-01 phone check, resolved):** the owner chose the title "Order limit reached" (14 October 2026, message unchanged); done in P8-02's first commit.
 - **Intermittent act warning (P8-01 full run):** `search.test.tsx` logged one "not wrapped in act" warning from VirtualizedList's render timer after an 80-second test, as `browse.test.tsx` did in P7-03. Not caused by the cart; watch CI.

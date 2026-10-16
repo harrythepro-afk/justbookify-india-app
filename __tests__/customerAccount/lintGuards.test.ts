@@ -48,6 +48,7 @@ const SECURE_STORE = "import * as SecureStore from 'expo-secure-store';";
 const AUTH_SESSION = "import { AuthRequest } from 'expo-auth-session';";
 const WEB_BROWSER = "import * as WebBrowser from 'expo-web-browser';";
 const FETCH = "export const load = () => fetch('https://example.com');";
+const CHECKOUT_KIT = "import { ShopifyCheckoutSheet } from '@shopify/checkout-sheet-kit';";
 
 const FAILING: Case[] = [
   [SECURE_STORE, 'src/app/example.tsx'],
@@ -63,6 +64,17 @@ const FAILING: Case[] = [
   [WEB_BROWSER, 'src/shopify/example.ts'],
   [FETCH, 'src/customerAccount/session.ts'],
   [FETCH, 'src/app/example.tsx'],
+  // Checkout (P9-01): Checkout Kit only in src/checkout/ (D-151), the browser for checkout only in
+  // src/checkout/browser.ts (D-152), and no secure storage or login library there.
+  [CHECKOUT_KIT, 'src/app/(tabs)/cart.tsx'],
+  [CHECKOUT_KIT, 'src/components/Example.tsx'],
+  [CHECKOUT_KIT, 'src/shopify/hooks/checkout.ts'],
+  [CHECKOUT_KIT, 'src/customerAccount/example.ts'],
+  [CHECKOUT_KIT, 'src/shopify/cartStorage.ts'],
+  [WEB_BROWSER, 'src/checkout/sheet.ts'],
+  [SECURE_STORE, 'src/checkout/browser.ts'],
+  [SECURE_STORE, 'src/checkout/sheet.ts'],
+  [AUTH_SESSION, 'src/checkout/browser.ts'],
 ];
 
 const PASSING: Case[] = [
@@ -75,6 +87,8 @@ const PASSING: Case[] = [
   [FETCH, 'src/customerAccount/oauthHttp.ts'],
   [FETCH, 'src/shopify/client.ts'],
   ["import { login } from '@/customerAccount/session';", 'src/components/Example.tsx'],
+  [CHECKOUT_KIT, 'src/checkout/sheet.ts'],
+  [WEB_BROWSER, 'src/checkout/browser.ts'],
 ];
 
 describe('login import and network boundary', () => {

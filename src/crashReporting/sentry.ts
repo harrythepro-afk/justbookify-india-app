@@ -162,6 +162,16 @@ export function reportCartProblem(code: string): void {
   Sentry.captureMessage(`Cart: ${code}`, 'warning');
 }
 
+/**
+ * Checkout ended with an error from Checkout Kit, or could not be presented (P9-01, D-151).
+ * `code` is one of the fixed codes in `src/analytics/checkoutEvents.ts`: never Checkout Kit's
+ * message, the checkout URL, the cart ID or anything from the order.
+ */
+export function reportCheckoutProblem(code: string): void {
+  if (!started) return;
+  Sentry.captureMessage(`Checkout: ${code}`, 'warning');
+}
+
 /** Development builds only: sends one handled error, so the owner can see it arrive. */
 export function sendTestError(): void {
   if (!started) return;

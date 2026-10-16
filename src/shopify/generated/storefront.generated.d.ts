@@ -230,31 +230,36 @@ export type GenreEntriesQueryVariables = StorefrontTypes.Exact<{
 
 export type GenreEntriesQuery = { metaobjects: { pageInfo: Pick<StorefrontTypes.PageInfo, 'hasNextPage' | 'endCursor'>, nodes: Array<{ label?: StorefrontTypes.Maybe<Pick<StorefrontTypes.MetaobjectField, 'value'>>, taxonomyReference?: StorefrontTypes.Maybe<Pick<StorefrontTypes.MetaobjectField, 'value'>> }> } };
 
-export type DevCheckoutProductQueryVariables = StorefrontTypes.Exact<{
+export type CartCheckoutPrepareMutationVariables = StorefrontTypes.Exact<{
+  cartId: StorefrontTypes.Scalars['ID']['input'];
+  customerAccessToken: StorefrontTypes.Scalars['String']['input'];
   country?: StorefrontTypes.InputMaybe<StorefrontTypes.CountryCode>;
   language?: StorefrontTypes.InputMaybe<StorefrontTypes.LanguageCode>;
 }>;
 
 
-export type DevCheckoutProductQuery = { products: { nodes: Array<(
-      Pick<StorefrontTypes.Product, 'title'>
-      & { variants: { nodes: Array<(
-          Pick<StorefrontTypes.ProductVariant, 'id' | 'title' | 'availableForSale'>
-          & { price: Pick<StorefrontTypes.MoneyV2, 'amount' | 'currencyCode'> }
-        )> } }
-    )> } };
-
-export type DevCheckoutCartCreateMutationVariables = StorefrontTypes.Exact<{
-  lines: Array<StorefrontTypes.CartLineInput> | StorefrontTypes.CartLineInput;
-  country?: StorefrontTypes.InputMaybe<StorefrontTypes.CountryCode>;
-  language?: StorefrontTypes.InputMaybe<StorefrontTypes.LanguageCode>;
-}>;
-
-
-export type DevCheckoutCartCreateMutation = { cartCreate?: StorefrontTypes.Maybe<{ cart?: StorefrontTypes.Maybe<(
+export type CartCheckoutPrepareMutation = { cartBuyerIdentityUpdate?: StorefrontTypes.Maybe<{ cart?: StorefrontTypes.Maybe<(
       Pick<StorefrontTypes.Cart, 'checkoutUrl'>
-      & { cost: { subtotalAmount: Pick<StorefrontTypes.MoneyV2, 'amount' | 'currencyCode'> } }
-    )>, userErrors: Array<Pick<StorefrontTypes.CartUserError, 'code'>>, warnings: Array<Pick<StorefrontTypes.CartWarning, 'code'>> }> };
+      & { cost: { subtotalAmount: Pick<StorefrontTypes.MoneyV2, 'amount' | 'currencyCode'> }, lines: { nodes: Array<(
+          Pick<StorefrontTypes.CartLine, 'id' | 'quantity'>
+          & { cost: { subtotalAmount: Pick<StorefrontTypes.MoneyV2, 'amount' | 'currencyCode'> }, merchandise: (
+            Pick<StorefrontTypes.ProductVariant, 'id' | 'availableForSale' | 'currentlyNotInStock'>
+            & { price: Pick<StorefrontTypes.MoneyV2, 'amount' | 'currencyCode'>, compareAtPrice?: StorefrontTypes.Maybe<Pick<StorefrontTypes.MoneyV2, 'amount' | 'currencyCode'>>, product: (
+              Pick<StorefrontTypes.Product, 'id' | 'handle' | 'title' | 'vendor'>
+              & { featuredImage?: StorefrontTypes.Maybe<Pick<StorefrontTypes.Image, 'url' | 'width' | 'height' | 'altText'>> }
+            ) }
+          ) }
+        ) | (
+          Pick<StorefrontTypes.ComponentizableCartLine, 'id' | 'quantity'>
+          & { cost: { subtotalAmount: Pick<StorefrontTypes.MoneyV2, 'amount' | 'currencyCode'> }, merchandise: (
+            Pick<StorefrontTypes.ProductVariant, 'id' | 'availableForSale' | 'currentlyNotInStock'>
+            & { price: Pick<StorefrontTypes.MoneyV2, 'amount' | 'currencyCode'>, compareAtPrice?: StorefrontTypes.Maybe<Pick<StorefrontTypes.MoneyV2, 'amount' | 'currencyCode'>>, product: (
+              Pick<StorefrontTypes.Product, 'id' | 'handle' | 'title' | 'vendor'>
+              & { featuredImage?: StorefrontTypes.Maybe<Pick<StorefrontTypes.Image, 'url' | 'width' | 'height' | 'altText'>> }
+            ) }
+          ) }
+        )> } }
+    )>, userErrors: Array<Pick<StorefrontTypes.CartUserError, 'code'>> }> };
 
 interface GeneratedQueryTypes {
   "#graphql\nquery CartRead($cartId: ID!, $country: CountryCode, $language: LanguageCode)\n@inContext(country: $country, language: $language) {\n  cart(id: $cartId) {\n    cost {\n      subtotalAmount {\n        amount\n        currencyCode\n      }\n    }\n    lines(first: 100) {\n      nodes {\n        id\n        quantity\n        cost {\n          subtotalAmount {\n            amount\n            currencyCode\n          }\n        }\n        merchandise {\n          ... on ProductVariant {\n            id\n            availableForSale\n            currentlyNotInStock\n            price {\n              amount\n              currencyCode\n            }\n            compareAtPrice {\n              amount\n              currencyCode\n            }\n            product {\n              id\n              handle\n              title\n              vendor\n              featuredImage {\n                url(transform: { maxWidth: 600 })\n                width\n                height\n                altText\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n}": {return: CartReadQuery, variables: CartReadQueryVariables},
@@ -265,14 +270,13 @@ interface GeneratedQueryTypes {
   "#graphql\nquery CollectionHandles(\n  $first: Int!\n  $after: String\n  $country: CountryCode\n  $language: LanguageCode\n) @inContext(country: $country, language: $language) {\n  collections(first: $first, after: $after) {\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n    nodes {\n      id\n      handle\n    }\n  }\n}": {return: CollectionHandlesQuery, variables: CollectionHandlesQueryVariables},
   "#graphql\nquery CollectionGenres(\n  $handle: String!\n  $filters: [ProductFilter!]\n  $country: CountryCode\n  $language: LanguageCode\n) @inContext(country: $country, language: $language) {\n  collection(handle: $handle) {\n    products(first: 1, filters: $filters) {\n      filters {\n        id\n        values {\n          count\n          input\n        }\n      }\n    }\n  }\n}": {return: CollectionGenresQuery, variables: CollectionGenresQueryVariables},
   "#graphql\nquery GenreEntries(\n  $type: String!\n  $first: Int!\n  $after: String\n  $country: CountryCode\n  $language: LanguageCode\n) @inContext(country: $country, language: $language) {\n  metaobjects(type: $type, first: $first, after: $after) {\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n    nodes {\n      label: field(key: \"label\") {\n        value\n      }\n      taxonomyReference: field(key: \"taxonomy_reference\") {\n        value\n      }\n    }\n  }\n}": {return: GenreEntriesQuery, variables: GenreEntriesQueryVariables},
-  "#graphql\nquery DevCheckoutProduct($country: CountryCode, $language: LanguageCode)\n@inContext(country: $country, language: $language) {\n  products(first: 10) {\n    nodes {\n      title\n      variants(first: 5) {\n        nodes {\n          id\n          title\n          availableForSale\n          price {\n            amount\n            currencyCode\n          }\n        }\n      }\n    }\n  }\n}": {return: DevCheckoutProductQuery, variables: DevCheckoutProductQueryVariables},
 }
 
 interface GeneratedMutationTypes {
   "#graphql\nmutation CartCreate($lines: [CartLineInput!]!, $country: CountryCode, $language: LanguageCode)\n@inContext(country: $country, language: $language) {\n  cartCreate(input: { lines: $lines, buyerIdentity: { countryCode: $country } }) {\n    cart {\n      id\n      cost {\n        subtotalAmount {\n          amount\n          currencyCode\n        }\n      }\n      lines(first: 100) {\n        nodes {\n          id\n          quantity\n          cost {\n            subtotalAmount {\n              amount\n              currencyCode\n            }\n          }\n          merchandise {\n            ... on ProductVariant {\n              id\n              availableForSale\n              currentlyNotInStock\n              price {\n                amount\n                currencyCode\n              }\n              compareAtPrice {\n                amount\n                currencyCode\n              }\n              product {\n                id\n                handle\n                title\n                vendor\n                featuredImage {\n                  url(transform: { maxWidth: 600 })\n                  width\n                  height\n                  altText\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n    userErrors {\n      code\n    }\n  }\n}": {return: CartCreateMutation, variables: CartCreateMutationVariables},
   "#graphql\nmutation CartLinesAdd(\n  $cartId: ID!\n  $lines: [CartLineInput!]!\n  $country: CountryCode\n  $language: LanguageCode\n) @inContext(country: $country, language: $language) {\n  cartLinesAdd(cartId: $cartId, lines: $lines) {\n    cart {\n      cost {\n        subtotalAmount {\n          amount\n          currencyCode\n        }\n      }\n      lines(first: 100) {\n        nodes {\n          id\n          quantity\n          cost {\n            subtotalAmount {\n              amount\n              currencyCode\n            }\n          }\n          merchandise {\n            ... on ProductVariant {\n              id\n              availableForSale\n              currentlyNotInStock\n              price {\n                amount\n                currencyCode\n              }\n              compareAtPrice {\n                amount\n                currencyCode\n              }\n              product {\n                id\n                handle\n                title\n                vendor\n                featuredImage {\n                  url(transform: { maxWidth: 600 })\n                  width\n                  height\n                  altText\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n    userErrors {\n      code\n    }\n  }\n}": {return: CartLinesAddMutation, variables: CartLinesAddMutationVariables},
   "#graphql\nmutation CartLinesRemove(\n  $cartId: ID!\n  $lineIds: [ID!]!\n  $country: CountryCode\n  $language: LanguageCode\n) @inContext(country: $country, language: $language) {\n  cartLinesRemove(cartId: $cartId, lineIds: $lineIds) {\n    cart {\n      cost {\n        subtotalAmount {\n          amount\n          currencyCode\n        }\n      }\n      lines(first: 100) {\n        nodes {\n          id\n          quantity\n          cost {\n            subtotalAmount {\n              amount\n              currencyCode\n            }\n          }\n          merchandise {\n            ... on ProductVariant {\n              id\n              availableForSale\n              currentlyNotInStock\n              price {\n                amount\n                currencyCode\n              }\n              compareAtPrice {\n                amount\n                currencyCode\n              }\n              product {\n                id\n                handle\n                title\n                vendor\n                featuredImage {\n                  url(transform: { maxWidth: 600 })\n                  width\n                  height\n                  altText\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n    userErrors {\n      code\n    }\n  }\n}": {return: CartLinesRemoveMutation, variables: CartLinesRemoveMutationVariables},
-  "#graphql\nmutation DevCheckoutCartCreate(\n  $lines: [CartLineInput!]!\n  $country: CountryCode\n  $language: LanguageCode\n) @inContext(country: $country, language: $language) {\n  cartCreate(input: { lines: $lines, buyerIdentity: { countryCode: $country } }) {\n    cart {\n      checkoutUrl\n      cost {\n        subtotalAmount {\n          amount\n          currencyCode\n        }\n      }\n    }\n    userErrors {\n      code\n    }\n    warnings {\n      code\n    }\n  }\n}": {return: DevCheckoutCartCreateMutation, variables: DevCheckoutCartCreateMutationVariables},
+  "#graphql\nmutation CartCheckoutPrepare(\n  $cartId: ID!\n  $customerAccessToken: String!\n  $country: CountryCode\n  $language: LanguageCode\n) @inContext(country: $country, language: $language) {\n  cartBuyerIdentityUpdate(\n    cartId: $cartId\n    buyerIdentity: { customerAccessToken: $customerAccessToken, countryCode: $country }\n  ) {\n    cart {\n      checkoutUrl\n      cost {\n        subtotalAmount {\n          amount\n          currencyCode\n        }\n      }\n      lines(first: 100) {\n        nodes {\n          id\n          quantity\n          cost {\n            subtotalAmount {\n              amount\n              currencyCode\n            }\n          }\n          merchandise {\n            ... on ProductVariant {\n              id\n              availableForSale\n              currentlyNotInStock\n              price {\n                amount\n                currencyCode\n              }\n              compareAtPrice {\n                amount\n                currencyCode\n              }\n              product {\n                id\n                handle\n                title\n                vendor\n                featuredImage {\n                  url(transform: { maxWidth: 600 })\n                  width\n                  height\n                  altText\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n    userErrors {\n      code\n    }\n  }\n}": {return: CartCheckoutPrepareMutation, variables: CartCheckoutPrepareMutationVariables},
 }
 declare module '@/shopify/storefrontTypes' {
   type InputMaybe<T> = StorefrontTypes.InputMaybe<T>;

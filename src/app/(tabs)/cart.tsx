@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { trackBookUnavailable, trackCartShown } from '@/analytics/cartEvents';
 import { trackDeliveryAreaChecked } from '@/analytics/events';
 import { BookCover } from '@/components/BookCover';
+import { CartCheckout, CheckoutConfirmation, useCheckoutScreen } from '@/components/CartCheckout';
 import {
   afterRemove,
   capReachedMessage,
@@ -74,11 +75,15 @@ export const BROWSE_BUTTON_LABEL = 'Books for Rent';
  * subtotal asks for its removal (answer 5); the subtotal Shopify reports for the books that can be
  * ordered, and how much more fits under the order cap (R2), or that the cart is over it. Read
  * again from Shopify every time the tab opens. Empty, loading, offline and error states in the
- * catalogue's wording (D-078). No checkout yet (Phase 9).
+ * catalogue's wording (D-078).
  *
  * Under the subtotal (P8-02): the delivery fee hint (R4, D-141), the free-delivery hint, and the
  * optional pincode check (R3, D-142), whose pincode stays in memory only. None of it needs the
  * network, so it also shows under the offline notice over a saved cart.
+ *
+ * Checkout (P9-01, D-148 to D-153): "Checkout", or "Log in to check out" when signed out, under the
+ * pincode check, only when the cart can go to checkout; after an order, the confirmation in place
+ * of the empty cart (`src/components/CartCheckout.tsx`).
  *
  * Events under consent: `view_cart` once per opening, an empty cart included, and
  * `book_unavailable_shown` (`cart`) once per rented-out book per opening; `delivery_area_checked`
@@ -90,6 +95,7 @@ export default function CartScreen() {
   const query = useCart();
   const cart = query.data;
   useCartViewEvents(cart);
+  const confirming = useCheckoutScreen();
 
   const header = (
     <Text accessibilityRole="header" style={styles.title}>
@@ -107,7 +113,12 @@ export default function CartScreen() {
     return (
       <View style={[styles.screen, { paddingTop: insets.top + spacing.xl }]}>
         <View style={styles.header}>{header}</View>
-        {state !== 'ready' && (
+        {confirming ? (
+          <View style={styles.header}>
+            <CheckoutConfirmation />
+          </View>
+        ) : null}
+        {!confirming && state !== 'ready' && (
           <NoDataState
             onRetry={() => void recheckNetwork().then(() => query.refetch())}
             state={state}
@@ -132,7 +143,13 @@ export default function CartScreen() {
         testID="cart-screen"
       >
         {header}
-        {cart.books.length === 0 ? <EmptyCart /> : <CartContents cart={cart} />}
+        {cart.books.length > 0 ? (
+          <CartContents cart={cart} reading={query.isFetching} />
+        ) : confirming ? (
+          <CheckoutConfirmation />
+        ) : (
+          <EmptyCart />
+        )}
       </ScrollView>
     </View>
   );
@@ -153,7 +170,7 @@ function EmptyCart() {
   );
 }
 
-function CartContents({ cart }: { readonly cart: Cart }) {
+function CartContents({ cart, reading }: { readonly cart: Cart; readonly reading: boolean }) {
   const cap = orderCapAmount();
   const counted = cart.countedSubtotal;
   const left = wholeAmountLeft(counted, cap);
@@ -191,6 +208,7 @@ function CartContents({ cart }: { readonly cart: Cart }) {
         </Text>
         <DeliveryHints counted={counted} />
         <PincodeCheck />
+        <CartCheckout cart={cart} reading={reading} />
       </View>
     </View>
   );

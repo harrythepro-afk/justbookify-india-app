@@ -26,7 +26,8 @@ import {
   useCustomerSession,
   type RefreshOutcome,
 } from '@/customerAccount/session';
-import { useFeatureFlags } from '@/featureFlags/session';
+import { useCheckoutState } from '@/checkout/state';
+import { useCheckoutPresentationRead, useFeatureFlags } from '@/featureFlags/session';
 import { describeReading, useNetworkLog } from '@/query/QueryProvider';
 import {
   recheckNetwork,
@@ -260,16 +261,17 @@ function NewArrivals({
   );
 }
 
-/** Development builds only: test screens and the status of crash reports, flags and analytics. */
+/**
+ * Development builds only: the status of crash reports, flags, checkout and analytics. The test
+ * checkout screen (P3-01) was removed in P9-01, when the Cart tab's checkout replaced it (D-154).
+ */
 function DevelopmentTools() {
   return (
     <View style={styles.devTools}>
       <SectionHeading>Development tools</SectionHeading>
-      <Link href="/dev-checkout" onPress={guardLinkPress} style={styles.link}>
-        Open the test checkout screen
-      </Link>
       <CrashReportingTestControls />
       <FeatureFlagStatus />
+      <CheckoutStatus />
       <AnalyticsStatus />
       <LoginStatus />
       <ConnectionStatus />
@@ -332,6 +334,32 @@ function FeatureFlagStatus() {
       </Text>
       <Text style={styles.note}>
         Remote Config fetch for the next launch: {fetch ?? 'not started'}
+      </Text>
+    </>
+  );
+}
+
+/**
+ * Development builds only: how the last checkout read `checkout_presentation` (D-150), and how
+ * the last checkout ended: the form of the order ID from Checkout Kit (never the ID) and whether
+ * the order was found in the customer's orders (D-151).
+ */
+function CheckoutStatus() {
+  const read = useCheckoutPresentationRead();
+  const { last } = useCheckoutState();
+  return (
+    <>
+      <Text style={styles.flags}>
+        {read === undefined
+          ? 'checkout_presentation at checkout: not read yet'
+          : `checkout_presentation at checkout: ${read.value} (${SOURCE_LABELS[read.source]})`}
+      </Text>
+      <Text style={styles.note}>
+        {last === undefined
+          ? 'Last checkout: none'
+          : `Last checkout: ${last.presentation}, ${last.ended}${
+              last.orderIdForm === undefined ? '' : `, order ID form ${last.orderIdForm}`
+            }${last.orderFound === undefined ? '' : `, order found: ${last.orderFound ? 'yes' : 'no'}`}`}
       </Text>
     </>
   );

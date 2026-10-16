@@ -29,6 +29,7 @@ export {
 export { getAppEnvironment, getEnvironmentLabel } from './environment';
 export { HOME_CONTENT, type CollectionLink, type HomeContent } from './home';
 export {
+  CHECKOUT_FLAG_TIMEOUT_MILLIS,
   defaultFeatureFlags,
   FEATURE_FLAG_NAMES,
   FEATURE_FLAGS,

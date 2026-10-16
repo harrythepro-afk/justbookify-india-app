@@ -94,7 +94,22 @@ jest.mock('@/analytics/firebase', () => ({
   sendEvent: (name: string, params: unknown) => mockSendEvent(name, params),
   sendScreenView: () => Promise.resolve(),
 }));
-jest.mock('@/analytics/consent', () => ({ isAnalyticsConsentGranted: () => mockConsent }));
+jest.mock('@/analytics/consent', () => ({
+  isAnalyticsConsentGranted: () => mockConsent,
+  useAnalyticsConsent: () => ({ consent: 'granted', busy: false, saveFailed: false }),
+}));
+
+// Checkout (P9-01) has its own screen tests (`cartCheckout.test.tsx`). Here the login is still
+// being read, so the Cart tab shows no checkout section and these tests see the cart as before.
+jest.mock('@/customerAccount/session', () => ({
+  useCustomerSession: () => ({ status: 'loading' }),
+  getCustomerSessionState: () => ({ status: 'loading' }),
+  getValidAccessToken: () => Promise.resolve(undefined),
+  login: () => Promise.resolve('ignored'),
+}));
+jest.mock('@shopify/checkout-sheet-kit', () => ({}));
+jest.mock('expo-web-browser', () => ({}));
+jest.mock('@/featureFlags/session', () => ({}));
 
 jest.mock('@/crashReporting/sentry', () => ({
   reportAnalyticsProblem: jest.fn(),

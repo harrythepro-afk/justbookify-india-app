@@ -651,9 +651,32 @@ Unit and screen tests (no network: both read the store configuration only):
 5. The standing background step: more than 5 minutes, no false offline notice.
 6. The app's own log, filtered to its process: no crash, no JavaScript error, and none of the three pincodes.
 
+### Checkout (P9-01)
+
+Unit and screen tests (Shopify, the login, Checkout Kit, the browser and the customer's orders are stand-ins; every value is made up):
+
+- `__tests__/shopify/checkout.test.ts`: `CartCheckoutPrepare`'s variables (the cart's ID and the token, nothing else), the token as the buyer identity with the market, **no identity field selected**, a gone cart as null, user errors as codes only (never the token, the cart ID or the URL), another currency refused.
+- `__tests__/checkout/sheet.test.ts`: one sheet, preloading off, the website's colours, **location requests answered no**; one outcome per presentation (`completed` then `close`), closed, a recoverable error left to Checkout Kit and an unrecoverable one by code; **a throwing callback never reaches Checkout Kit**; listeners removed; only the order ID's number and form and the payment type read from any payload shape.
+- `__tests__/checkout/browser.test.ts`: `createTask: false`; the return detected once after the app leaves and comes back; a browser that cannot open.
+- `__tests__/featureFlags/checkoutPresentation.test.ts`: **the value activated at checkout while the rest keeps the frozen snapshot**, switching back with no restart, the 1-second limit, a failed activation (the frozen value, nothing new reported), a malformed value (the default, not reported again), the development line's value; the fetch on a return to the foreground, never activating, expected failures not reported.
+- `__tests__/customerAccountApi/placedOrder.test.ts`: the ID forms (`Order`, `OrderIdentity`, others); the order by number; **a new order only, never one that was there at the start**; no guess without the start's list; the clock allowance.
+- `__tests__/analytics/checkoutEvents.test.ts`: the three events with fixed codes, the money rounding, an event without an order number dropped and reported by parameter only, nothing without consent, the payment type mapping.
+- `__tests__/app/cartCheckout.test.tsx` (40 tests; 7 added at the architect's review of PR #30: **the consent request kept held through a closed checkout and shown after the first order**, not shown after closes only, **shown once** (not after a second order in the same login), **dropped at logout**; **a tap during the post-login cart read** (the button disabled with a spinner, the tap opening nothing until the read ends, then checkout opens), **a tap during a removal** ("Removing…", the button disabled with a spinner, then "Checkout" again), **a tap reaching the hook while a removal runs** (checkout prepared only after the removal ends, then opened, the cart ID read first), **a second tap while checkout prepares** (ignored while "Opening checkout…" shows); each fails with its fix undone, checked once and restored): the button **only** when signed in, online, with books, none rented out and under the cap (₹499 yes, ₹500 no); "Log in to check out" logs in on the Cart tab and keeps the cart; the login notice and "Logging in…"; **the consent request held until the order, and dropped after a close**; the token sent with the cart and the URL presented; the confirmation with and without the number, never an earlier order; "Go to My Books"; cleared when the tab is left; a close keeps the cart; a close with the cart gone and a new order counts as an order; Checkout Kit's error (the message, reported by code only); **a double tap prepares once**; **a logout while it prepares presents nothing**; a rented-out book or the cap found by Shopify; a gone cart; offline; a login that cannot be refreshed; no events without consent; the browser: opened in the app's task, the return with and without an order; **the completed payload with made-up personal data never reaches the console, Sentry, the query or mutation cache, storage or analytics** (owner, plan approval; it fails when the payload is logged, checked once and reverted); **the token, the checkout URL and the cart's key never in an event, a report or the cache**.
+- `__tests__/config/expectedStoreDomain.test.ts`: `EXPECT_STORE_DOMAIN` unset, matching (case and spaces) and refused, never echoing either domain.
+- `__tests__/customerAccount/lintGuards.test.ts`: Checkout Kit only in `src/checkout/`, the browser for checkout only in `browser.ts`, no secure storage or login library there. `__tests__/crashReporting/scrub.test.ts`: a checkout URL loses its key and the store.
+- Tests moved, not weakened, with the test checkout screen's removal (D-154): `client`, `online`, `cache`, `errors`, `errorReporting` and `query/lintGuards` use the cart's operations and keys with the same checks; the operations test's root-`products` list is now empty; Home's link test now checks the link is gone and the checkout development lines are there.
+
+**The phone check** (USB, standing permission D-095, D-146 and every rule in `CLAUDE.md`; Do Not Disturb blocking calls and all notifications; `am force-stop` for cold starts, the owner's yes for this check only; no native change, so build 5f5c789a with JavaScript from Metro). **At most 5 cash-on-delivery test orders, on the development store only, each after `EXPECT_STORE_DOMAIN=<development store domain> npm run check:dev-store` passes, with Cash on Delivery the only payment method shown, and the owner's yes to "Place test order N of 5?".** No text typed in checkout (the test customer's saved details fill it in; a missing phone is typed by the owner). The login and the storefront password are typed by the owner. The steps and results are in `CURRENT_STATUS.md`.
+
+**Result, 15 October 2026 (build 5f5c789a): passed.** The login on the Cart tab kept the cart; checkout opened logged in with the test customer's details; the fees matched the Cart tab's hints (₹75 and ₹125 under ₹200; free and ₹50 from ₹200); Cash on Delivery was the only payment method; test orders **#1004** and **#1005** confirmed in the app with their numbers (Checkout Kit's ID form `OrderIdentity`, matched by number), the cart emptied; the switch to the browser and back acted at the next checkout with no restart; a cold start and the 5-minute background step kept the cart and the login; the app's own log held no secret of the app's, and no TLS error. Observations and the web view's console line: `CURRENT_STATUS.md` and `NEXT_TASK.md`.
+
+**After the architect's review fixes, 16 October 2026 (build 5f5c789a): passed.** Logged out, a guest cart, the login on the Cart tab, then "Checkout" tapped at once: "Opening checkout…" showed straight away and checkout opened (no dead tap); one close kept the cart with no consent request; test order **#1006** (₹323, cash on delivery) confirmed, and **the consent request appeared after it**, once.
+
 ### Phase 9 check: cash on delivery over ₹500 (P8-02, answer 5)
 
 ACOD offers cash on delivery only up to a cart total of ₹500 (D-031), the cap keeps the books' subtotal under ₹500 (D-134), but the total with delivery can pass ₹500 (for example ₹460 + ₹50). In Phase 9, on the **development store's** checkout only and without completing an order: with a subtotal between ₹451 and ₹499, choose cash on delivery and record whether ACOD still offers it (its limit counts the books only) or refuses it (its limit counts delivery). The answer decides whether the cart says anything about cash on delivery over ₹500 (D-141).
+
+**Result, 15 October 2026 (P9-01 phone check):** a ₹494 cart (six books) with the "Cash on Delivery" rate (₹50 after the discount) was still offered Cash on Delivery, at a total of **₹544.00**; closed without an order. ACOD's limit counts the books only, as P3-02 found with ₹490, so the Cart tab says nothing about cash on delivery over ₹500.
 
 ### Release gate: list performance (P6-03)
 
@@ -693,7 +716,7 @@ Creating the collection on the live store is the owner's decision at that time (
 | Subtotal under ₹500, total with shipping over ₹500 | Checkout allowed, including cash on delivery (R2 and ACOD check the subtotal; P3-02) |
 | Cash on delivery from ₹200 | Shipping hint ₹50, not free (D-031) |
 | Pincode outside the service area | Clear message before checkout opens |
-| Checkout presentation flag set to browser | Checkout opens in the system browser; the return link brings the customer back to the app; no rebuild needed (D-033) |
+| Checkout presentation flag set to browser | Checkout opens in the system browser; the customer comes back with Back or the tab's close button and the app reads the cart again; no rebuild and no restart needed (D-033, D-150, D-152) |
 
 ## Device matrix
 
@@ -706,7 +729,7 @@ The checks in `SHOPIFY_INTEGRATION.md` each run before anything is built on thei
 | Check | When |
 | --- | --- |
 | 1a (redirect to Razorpay and back) and 1b (hand-off to a real UPI app) | Both at the owner-approved launch rehearsal in Phase 19, on the live store, with one small real order (D-033). Razorpay cannot be installed on the development store, whose business entity is in Bahrain, and UPI Intent works only in Razorpay live mode |
-| 2 (cash on delivery and checkout rules) | Passed on Android in Phase 3 (P3-02). iPhone side in Phase 9 (D-036) |
+| 2 (cash on delivery and checkout rules) | Passed on Android in Phase 3 (P3-02), and again through the app's own checkout in P9-01. iPhone side in Phase 9 (P9-02 on the Simulator, proposed; a real iPhone before Phase 17) |
 | 3 (guest order after login) | **Passed on 13 October 2026** (P7-02 phone check, development store; `SHOPIFY_INTEGRATION.md`) |
 | 4 (return through the Admin API) | Phase 10, backend foundation (D-034, D-035) |
 | 5 (links open the app) | Phase 12, notifications and deep links (D-034, D-035, risk 17) |

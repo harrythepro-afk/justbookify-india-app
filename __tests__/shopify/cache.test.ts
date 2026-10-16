@@ -24,10 +24,10 @@ function keysInCache(): unknown[] {
 
 describe('clearStorefrontCache', () => {
   it('removes Storefront queries and mutations and leaves other data sources alone', async () => {
-    await client.fetchQuery({ queryKey: storefrontKeys.devCheckout.variants(), queryFn: () => [] });
+    await client.fetchQuery({ queryKey: storefrontKeys.cart.current(0), queryFn: () => [] });
     await client.fetchQuery({ queryKey: ['customer', 'orders'], queryFn: () => [] });
     await new MutationObserver(client, {
-      mutationKey: storefrontKeys.devCheckout.createCart(),
+      mutationKey: storefrontKeys.cart.change(),
       mutationFn: () => Promise.resolve('cart'),
     }).mutate();
     await new MutationObserver(client, {
@@ -49,7 +49,7 @@ describe('clearStorefrontCache', () => {
   it('cancels a Storefront query in flight', async () => {
     let signal: AbortSignal | undefined;
     const inFlight = client.fetchQuery({
-      queryKey: storefrontKeys.devCheckout.variants(),
+      queryKey: storefrontKeys.cart.current(0),
       queryFn: (context) => {
         signal = context.signal;
         return new Promise(() => undefined);
@@ -64,7 +64,8 @@ describe('clearStorefrontCache', () => {
   });
 
   it('keeps every Storefront key under the storefront root', () => {
-    expect(storefrontKeys.devCheckout.variants()[0]).toBe('storefront');
-    expect(storefrontKeys.devCheckout.createCart()[0]).toBe('storefront');
+    expect(storefrontKeys.cart.current(0)[0]).toBe('storefront');
+    expect(storefrontKeys.cart.change()[0]).toBe('storefront');
+    expect(storefrontKeys.checkout.prepare()[0]).toBe('storefront');
   });
 });
