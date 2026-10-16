@@ -727,6 +727,10 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
     - The app (`d087b9e`): `EXPO_PUBLIC_BACKEND_URL` in `src/config/backend.ts` (development builds only), `src/backend/client.ts` (`checkBackendIdentity()`, the one new `fetch` permission), Home's "Backend: check" with "Backend: <code>"; `.env.example` gains the empty variable. No new dependency, no native change, so no new development build: **5f5c789a** runs it from Metro.
     - No backend code changed: `src/index.ts` already sets `asia-south1`, 256 MiB, 10 s, `maxInstances` 5, and `whoami` is `invoker: 'public'`, `cors: false`. `whoami` uses no Firestore, so no database and no rules deploy.
   - **Firebase commands so far:** none. No login, no deploy.
+  - **Checks before the push (16 October 2026):**
+    - Backend (): lint, format check, type check, **unit tests 47 of 47** (9 files, 2 new), audit gate **0 vulnerabilities**. **Emulator tests:** the first run, alongside the app's lint and type check, had **4 failures**: the Functions emulator timed out loading the function definition (), so the 4  tests failed and the 9 rules tests passed. Run again alone on an idle PC: **13 of 13**. No test was changed. The cause is the PC's load during the first function load (as with the app's Jest timeouts in P10-01); watch CI.
+    - App: lint, format check, type check and audit gate pass; tests () **2,151 of 2,151 in 107 files** (53 new), no "not wrapped in act" line and no .
+    - gitleaks 8.30.1 (the verified binary, SHA-256 ) over  and the staged changes: no leaks.
 
 ## What works
 
@@ -776,6 +780,8 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
 - **Development store search matches fewer books since 8 October 2026** (P6-07): resolved in the architect's review of PR #20. `npm run check:dev-store` checks broad words ("the", "kid") only by the meaning of "Available now" and keeps exact counts for harry, dahl and zzqxv (`SHOPIFY_INTEGRATION.md`).
 
 ## Last passing build
+
+Branch `p10-02-backend-deploy` (P10-02), 16 October 2026, before the deploy: the backend's lint, format check, type check, unit tests (47), emulator tests (13, run alone) and audit gate (0 vulnerabilities); the app's lint, format check, type check, tests (2,151 in 107 files, `--maxWorkers=4`) and audit gate. No native change: Android development build **5f5c789a** runs it from Metro.
 
 Branch `p10-01-backend-foundation` (P10-01), 16 October 2026 (the format fix on top of `54cafdd`): the backend's lint, format check, type check, build, unit tests (45), emulator tests (13) and audit gate (0 vulnerabilities, no allowlist), then the app's lint, format check, type check, tests and audit gate, all run in that order immediately before the push. CI on `54cafdd`: the app job and the secret scan passed (app tests 2,098 of 2,098 in 57.6 s); the backend job failed at its format check, fixed here. No app code and no native change: Android development build **5f5c789a** still runs `main`'s app.
 
