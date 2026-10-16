@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAnalyticsConsent } from '@/analytics/consent';
 import { analyticsAfterLogin } from '@/analytics/loginConsent';
@@ -20,7 +20,15 @@ import {
   type Cart,
 } from '@/shopify/hooks/cart';
 import { useCheckout, type CheckoutEnd } from '@/shopify/hooks/checkout';
-import { colors, fonts, fontSize, minTouchTarget, radius, spacing } from '@/theme/tokens';
+import {
+  colors,
+  disabledOpacity,
+  fonts,
+  fontSize,
+  minTouchTarget,
+  radius,
+  spacing,
+} from '@/theme/tokens';
 
 import { LOGGING_IN_LABEL, LOGIN_FAILED_NOTICE } from './AccountLogin';
 import { AnalyticsConsentRequest } from './AnalyticsConsentRequest';
@@ -50,20 +58,32 @@ function onCheckoutEnd(end: CheckoutEnd): void {
 
 /**
  * The Cart tab's checkout (P9-01, D-148), under the pincode check: shown only when the cart can go
- * to checkout, the phone is online and no cart change runs; otherwise the lines above say why.
+ * to checkout and the phone is online; otherwise the lines above say why. **Never a silent tap**
+ * (architect's review of PR #30): while the cart is being read or an add or removal runs, the
+ * button shows "Checkout" disabled with a spinner; a tap shows "Opening checkout…" at once, and
+ * checkout waits for whatever is still running before it goes on.
  * Signed in, "Checkout"; signed out, "Log in to check out", which logs in here (amending D-123 for
- * checkout) and keeps the cart (D-136). A first login here holds the consent request until an order
- * is confirmed (D-129); checkout ending without an order drops it for that login.
+ * checkout) and keeps the cart (D-136). A first login here holds the consent request until the
+ * first confirmed order in that login (D-129, D-148); checkouts closed without an order keep it held.
  */
-export function CartCheckout({ cart }: { readonly cart: Cart }) {
+export function CartCheckout({
+  cart,
+  reading,
+}: {
+  readonly cart: Cart;
+  /** Shopify is being asked for the cart (the tab's reads, such as the one after a login). */
+  readonly reading: boolean;
+}) {
   const session = useCustomerSession();
   const offline = useIsOffline();
   const change = usePendingCartChange();
   const checkout = useCheckout(onCheckoutEnd);
+  const [tapped, setTapped] = useState(false);
 
   if (session.status === 'loading' || session.status === 'notConfigured') return null;
-  const preparing = change?.kind === 'checkout';
-  if (!preparing && (offline || change !== null || !canGoToCheckout(cart))) return null;
+  const preparing = tapped || change?.kind === 'checkout';
+  if (!preparing && (offline || !canGoToCheckout(cart))) return null;
+  const holding = !preparing && (reading || change !== null);
 
   if (session.status === 'signedOut') {
     const logIn = async () => {
@@ -95,20 +115,34 @@ export function CartCheckout({ cart }: { readonly cart: Cart }) {
   }
 
   const start = async () => {
-    const result = await checkout();
-    if (result.kind === 'failed') showCheckoutFailure(result.offline);
+    setTapped(true);
+    try {
+      const result = await checkout();
+      if (result.kind === 'failed') showCheckoutFailure(result.offline);
+    } finally {
+      setTapped(false);
+    }
   };
 
+  const waiting = preparing || holding;
   return (
     <View style={styles.section}>
       <Pressable
+        accessibilityLabel={preparing ? OPENING_CHECKOUT_LABEL : CHECKOUT_LABEL}
         accessibilityRole="button"
-        accessibilityState={{ disabled: preparing, busy: preparing }}
-        disabled={preparing}
+        accessibilityState={{ disabled: waiting, busy: waiting }}
+        disabled={waiting}
         onPress={() => void start()}
-        style={styles.button}
+        style={[styles.button, holding && styles.buttonWaiting]}
         testID="cart-checkout"
       >
+        {holding && (
+          <ActivityIndicator
+            color={colors.onPrimaryButton}
+            style={styles.spinner}
+            testID="cart-checkout-waiting"
+          />
+        )}
         <Text style={styles.buttonText}>{preparing ? OPENING_CHECKOUT_LABEL : CHECKOUT_LABEL}</Text>
       </Pressable>
     </View>
@@ -167,11 +201,15 @@ const styles = StyleSheet.create({
     minHeight: minTouchTarget,
     paddingHorizontal: spacing.xl,
     alignSelf: 'stretch',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
     backgroundColor: colors.primaryButton,
   },
+  // Waiting for the cart: the same button, dimmed as the app's other disabled buttons, with a spinner.
+  buttonWaiting: { opacity: disabledOpacity },
+  spinner: { marginRight: spacing.sm },
   buttonText: {
     fontFamily: fonts.bodyBold,
     fontSize: fontSize.body,

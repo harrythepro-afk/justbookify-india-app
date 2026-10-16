@@ -1,7 +1,8 @@
 /**
  * Checkout from the Cart tab (P9-01, D-148 to D-153): the one hook the screen uses.
  *
- * At the "Checkout" tap, as one cart change (no add, removal or second tap meanwhile):
+ * At the "Checkout" tap, as one cart change (no add, removal or second tap meanwhile; an add or
+ * removal already running is waited for, and so is the cart ID's first read, so a tap is never lost):
  * 1. How checkout is presented, read afresh (`checkout_presentation`, D-150).
  * 2. The customer's access token (`getValidAccessToken`, which refreshes it when due). Signed out:
  *    the screen asks for a login; signed in but Shopify cannot be reached: a failure.
@@ -31,12 +32,7 @@ import {
 } from '@/analytics/checkoutEvents';
 import { openCheckoutInBrowser } from '@/checkout/browser';
 import { presentCheckoutSheet, type CheckoutOutcome } from '@/checkout/sheet';
-import {
-  clearConfirmation,
-  recordLastCheckout,
-  releaseConsentRequest,
-  showConfirmation,
-} from '@/checkout/state';
+import { clearConfirmation, recordLastCheckout, showConfirmation } from '@/checkout/state';
 import { getStoreConfig } from '@/config';
 import { reportCheckoutProblem } from '@/crashReporting/sentry';
 import { getCustomerSessionState, getValidAccessToken } from '@/customerAccount/session';
@@ -48,18 +44,25 @@ import {
 import { loadCheckoutPresentation } from '@/featureFlags/session';
 
 import { isUserErrors, readCart, type Cart } from '../cart';
-import { cartGeneration, forgetGoneCart, getCartIdState } from '../cartId';
+import { cartGeneration, forgetGoneCart, getCartIdState, loadCartId } from '../cartId';
 import { prepareCheckout } from '../checkout';
 import { StorefrontError } from '../errors';
 import { isAtOrOverCap } from '../orderCap';
 import { storefrontKeys } from '../queryKeys';
-import { cartKey, endCartChange, orderCapAmount, tryBeginCartChange } from './cart';
+import {
+  cartKey,
+  endCartChange,
+  getPendingCartChange,
+  orderCapAmount,
+  tryBeginCartChange,
+  waitForNoCartChange,
+} from './cart';
 
 /** How the "Checkout" tap ended, for the screen. */
 export type CheckoutStart =
   /** Checkout is on screen (the sheet or the browser). */
   | { readonly kind: 'opened' }
-  /** Another change or checkout is running: the tap is ignored. */
+  /** Another checkout is being prepared: the tap is ignored (its "Opening checkout…" shows). */
   | { readonly kind: 'busy' }
   /** No login: the screen offers "Log in to check out". */
   | { readonly kind: 'signed-out' }
@@ -180,7 +183,7 @@ export function useCheckout(onEnd: (end: CheckoutEnd) => void): () => Promise<Ch
         }
         await forgetGoneCart(started.cartId);
       }
-      releaseConsentRequest();
+      // A held consent request keeps waiting for the first order in this login (D-148).
       if (!EXPECTED_CHECKOUT_ERRORS.has(code)) reportCheckoutProblem(code);
       trackCheckoutStopped('checkout', code);
       recordLastCheckout({
@@ -219,9 +222,16 @@ export function useCheckout(onEnd: (end: CheckoutEnd) => void): () => Promise<Ch
   );
 
   return useCallback(async (): Promise<CheckoutStart> => {
-    if (!tryBeginCartChange({ kind: 'checkout' })) return { kind: 'busy' };
+    // Never a silent tap (architect's review of PR #30): an add or removal still running is waited
+    // for, then checkout goes on; only a second checkout is ignored (its "Opening checkout…" shows).
+    while (!tryBeginCartChange({ kind: 'checkout' })) {
+      if (getPendingCartChange()?.kind === 'checkout') return { kind: 'busy' };
+      await waitForNoCartChange();
+    }
     const stop = (code: CheckoutPrepareCode) => trackCheckoutStopped('prepare', code);
     try {
+      // The cart's ID is read once per launch; a tap before that read ends waits for it.
+      await loadCartId();
       const generation = cartGeneration();
       const startedAt = Date.now();
       const cartId = currentCartId();

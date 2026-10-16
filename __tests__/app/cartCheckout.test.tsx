@@ -1,14 +1,15 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, renderHook, screen } from '@testing-library/react-native';
 import { Alert, AppState, ScrollView, type AppStateStatus } from 'react-native';
 
 import CartScreen from '@/app/(tabs)/cart';
 import { resetCheckoutSheetForTests } from '@/checkout/sheet';
 import { resetCheckoutStateForTests } from '@/checkout/state';
 import type { OrdersPage, OrderSummary } from '@/customerAccountApi/orders';
-import { forgetCart, resetCartIdForTests } from '@/shopify/cartId';
+import { cartGeneration, forgetCart, rememberCartId, resetCartIdForTests } from '@/shopify/cartId';
 import { StorefrontError } from '@/shopify/errors';
-import { resetCartChangesForTests } from '@/shopify/hooks/cart';
+import { endCartChange, resetCartChangesForTests, tryBeginCartChange } from '@/shopify/hooks/cart';
+import { useCheckout, type CheckoutStart } from '@/shopify/hooks/checkout';
 import { forgetPincode } from '@/shopify/pincode';
 
 import { CART_ID, cartFields, linesPriced, type CartLineNode } from '../helpers/cart';
@@ -158,6 +159,8 @@ let mockGone = false;
 let mockPrepareLines: CartLineNode[] | undefined;
 let mockPrepareError: Error | undefined;
 let mockPrepareHold: Promise<void> | undefined;
+let mockReadHold: Promise<void> | undefined;
+let mockRemoveHold: Promise<void> | undefined;
 const mockOperations: string[] = [];
 const mockVariables: unknown[] = [];
 function mockShopify(document: string, options?: { variables?: Record<string, unknown> }) {
@@ -165,7 +168,18 @@ function mockShopify(document: string, options?: { variables?: Record<string, un
   mockOperations.push(operation);
   mockVariables.push(options?.variables);
   if (operation === 'CartRead') {
-    return Promise.resolve({ cart: mockGone ? null : cartFields(mockLines) });
+    const read = () => ({ cart: mockGone ? null : cartFields(mockLines) });
+    if (mockReadHold !== undefined) return mockReadHold.then(read);
+    return Promise.resolve(read());
+  }
+  if (operation === 'CartLinesRemove') {
+    const remove = () => {
+      const ids = options?.variables?.lineIds as string[];
+      mockLines = mockLines.filter((line) => !ids.includes(line.id));
+      return { cartLinesRemove: { cart: cartFields(mockLines), userErrors: [] } };
+    };
+    if (mockRemoveHold !== undefined) return mockRemoveHold.then(remove);
+    return Promise.resolve(remove());
   }
   if (operation === 'CartCheckoutPrepare') {
     if (mockPrepareHold !== undefined) {
@@ -293,6 +307,8 @@ beforeEach(() => {
   mockPrepareLines = undefined;
   mockPrepareError = undefined;
   mockPrepareHold = undefined;
+  mockReadHold = undefined;
+  mockRemoveHold = undefined;
   mockOperations.length = 0;
   mockVariables.length = 0;
   mockOrders = [order(1001)];
@@ -448,7 +464,9 @@ describe('signed out: "Log in to check out" (D-148, D-129)', () => {
     expect(screen.getByText('Help us improve the app?')).toBeOnTheScreen();
   });
 
-  it('drops the held consent request when checkout is closed without an order', async () => {
+  // Architect's review of PR #30 (D-148 amended): a checkout closed without an order keeps the
+  // request held; it shows once, after the first confirmed order in that login; a logout drops it.
+  async function logInOnCartTab() {
     mockConsent = 'not asked';
     mockAfterLogin.mockResolvedValue('ask');
     mockLogin.mockImplementation(async () => {
@@ -458,18 +476,185 @@ describe('signed out: "Log in to check out" (D-148, D-129)', () => {
     await renderCart();
     await fireEvent.press(screen.getByTestId('cart-log-in'));
     await screen.findByTestId('cart-checkout');
+  }
+
+  async function placeOrder(number: number) {
+    await tapCheckout();
+    mockOrders = [order(number), order(1001)];
+    await emit('completed', { orderDetails: { id: `gid://shopify/Order/${number}` } });
+    await emit('close');
+    await letOrdersSettle();
+  }
+
+  it('keeps the request held through a closed checkout and shows it after the first order', async () => {
+    await logInOnCartTab();
+    await tapCheckout();
+    await emit('close');
+    await letOrdersSettle();
+    expect(screen.queryByText('Help us improve the app?')).not.toBeOnTheScreen();
+
+    await placeOrder(1004);
+
+    expect(screen.getByText(/Thank you! Your order #1004 is placed/)).toBeOnTheScreen();
+    expect(screen.getByText('Help us improve the app?')).toBeOnTheScreen();
+  });
+
+  it('shows nothing after a checkout closed without an order, and never on the cart', async () => {
+    await logInOnCartTab();
+    await tapCheckout();
+    await emit('close');
+    await letOrdersSettle();
     await tapCheckout();
     await emit('close');
     await letOrdersSettle();
 
-    // A later order in the same login: no request.
-    await tapCheckout();
-    mockOrders = [order(1004), order(1001)];
-    await emit('completed', { orderDetails: { id: 'gid://shopify/Order/1004' } });
-    await letOrdersSettle();
-
-    expect(screen.getByText(/Thank you! Your order #1004 is placed/)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Subtotal ₹148')).toBeOnTheScreen();
     expect(screen.queryByText('Help us improve the app?')).not.toBeOnTheScreen();
+  });
+
+  it('shows the request once: not again after a second order in the same login', async () => {
+    await logInOnCartTab();
+    await tapCheckout();
+    await emit('close');
+    await letOrdersSettle();
+    await placeOrder(1004);
+    expect(screen.getByText('Help us improve the app?')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByText('Help us improve the app?')).not.toBeOnTheScreen();
+    await leaveTab();
+    mockGone = false;
+    mockLines = linesPriced([99]);
+    // A new cart, as an add after the order would make (P8-01).
+    await act(async () => {
+      await rememberCartId(CART_ID, cartGeneration());
+      await client.refetchQueries({ queryKey: ['storefront', 'cart'] });
+    });
+    await screen.findByTestId('cart-checkout');
+    await placeOrder(1005);
+
+    expect(screen.getByText(/Your order #1005 is placed/)).toBeOnTheScreen();
+    expect(screen.queryByText('Help us improve the app?')).not.toBeOnTheScreen();
+  });
+
+  it('drops the held request at logout', async () => {
+    await logInOnCartTab();
+    await act(async () => setSession({ status: 'signedOut', notice: 'none', loggingIn: false }));
+    // Signed in again by a login elsewhere (the Account tab asks there, D-129).
+    await act(async () => setSession({ status: 'signedIn' }));
+    await screen.findByTestId('cart-checkout');
+
+    await placeOrder(1004);
+
+    expect(screen.getByText(/Your order #1004 is placed/)).toBeOnTheScreen();
+    expect(screen.queryByText('Help us improve the app?')).not.toBeOnTheScreen();
+  });
+});
+
+describe("never a silent Checkout tap (architect's review of PR #30)", () => {
+  it('shows a disabled waiting state while the cart is read after the login, then opens checkout', async () => {
+    mockSession = { status: 'signedOut', notice: 'none', loggingIn: false };
+    let release!: () => void;
+    mockLogin.mockImplementation(async () => {
+      // Back from the login: the Cart tab reads the cart again (focus, foreground).
+      mockReadHold = new Promise<void>((resolve) => (release = resolve));
+      setSession({ status: 'signedIn' });
+      void client.refetchQueries({ queryKey: ['storefront', 'cart'] });
+      return 'signedIn';
+    });
+    await renderCart();
+    await fireEvent.press(screen.getByTestId('cart-log-in'));
+
+    // What the customer sees during the read: "Checkout", disabled, with a spinner.
+    const button = await screen.findByTestId('cart-checkout');
+    expect(screen.getByTestId('cart-checkout-waiting')).toBeOnTheScreen();
+    expect(button).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Checkout' })).toBeOnTheScreen();
+    await fireEvent.press(button);
+    expect(mockPresent).not.toHaveBeenCalled();
+
+    mockReadHold = undefined;
+    await act(async () => {
+      release();
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.queryByTestId('cart-checkout-waiting')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('cart-checkout')).not.toBeDisabled();
+
+    await tapCheckout();
+    expect(mockPresent).toHaveBeenCalledWith(CHECKOUT_URL);
+  });
+
+  it('shows a disabled waiting state while a book is being removed, then offers Checkout again', async () => {
+    mockLines = linesPriced([99, 49, 49]);
+    let release!: () => void;
+    mockRemoveHold = new Promise<void>((resolve) => (release = resolve));
+    await renderCart();
+
+    await fireEvent.press(screen.getAllByRole('button', { name: /^Remove / })[0]!);
+
+    // What the customer sees during the removal: "Removing…" and "Checkout", disabled, waiting.
+    expect(screen.getByText('Removing…')).toBeOnTheScreen();
+    expect(screen.getByTestId('cart-checkout-waiting')).toBeOnTheScreen();
+    expect(screen.getByTestId('cart-checkout')).toBeDisabled();
+
+    await act(async () => {
+      release();
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.queryByTestId('cart-checkout-waiting')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('cart-checkout')).not.toBeDisabled();
+    expect(screen.getByLabelText('Subtotal ₹98')).toBeOnTheScreen();
+  });
+
+  it('a tap that lands while a removal runs waits for it, then opens checkout', async () => {
+    // The hook alone, as a tap that reaches it before the screen has redrawn: a removal is
+    // running, and the cart ID has not been read yet in this launch.
+    const { result } = await renderHook(() => useCheckout(() => undefined), {
+      wrapper: withScreen(client),
+    });
+    expect(tryBeginCartChange({ kind: 'remove', lineId: 'line-being-removed' })).toBe(true);
+
+    let outcome: CheckoutStart | undefined;
+    await act(async () => {
+      void result.current().then((value) => (outcome = value));
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(outcome).toBeUndefined();
+    expect(mockOperations).not.toContain('CartCheckoutPrepare');
+
+    await act(async () => {
+      endCartChange();
+      await jest.advanceTimersByTimeAsync(0);
+    });
+
+    expect(outcome).toEqual({ kind: 'opened' });
+    expect(mockOperations).toContain('CartCheckoutPrepare');
+    expect(mockPresent).toHaveBeenCalledWith(CHECKOUT_URL);
+  });
+
+  it('a second tap while checkout prepares is ignored and "Opening checkout…" shows', async () => {
+    let release!: () => void;
+    mockPrepareHold = new Promise<void>((resolve) => (release = resolve));
+    const { result } = await renderHook(() => useCheckout(() => undefined), {
+      wrapper: withScreen(client),
+    });
+
+    let first: CheckoutStart | undefined;
+    let second: CheckoutStart | undefined;
+    await act(async () => {
+      void result.current().then((value) => (first = value));
+      await jest.advanceTimersByTimeAsync(0);
+      second = await result.current();
+    });
+    expect(second).toEqual({ kind: 'busy' });
+
+    await act(async () => {
+      release();
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(first).toEqual({ kind: 'opened' });
+    expect(mockPresent).toHaveBeenCalledTimes(1);
   });
 });
 

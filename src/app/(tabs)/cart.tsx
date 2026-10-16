@@ -144,7 +144,7 @@ export default function CartScreen() {
       >
         {header}
         {cart.books.length > 0 ? (
-          <CartContents cart={cart} />
+          <CartContents cart={cart} reading={query.isFetching} />
         ) : confirming ? (
           <CheckoutConfirmation />
         ) : (
@@ -170,7 +170,7 @@ function EmptyCart() {
   );
 }
 
-function CartContents({ cart }: { readonly cart: Cart }) {
+function CartContents({ cart, reading }: { readonly cart: Cart; readonly reading: boolean }) {
   const cap = orderCapAmount();
   const counted = cart.countedSubtotal;
   const left = wholeAmountLeft(counted, cap);
@@ -208,7 +208,7 @@ function CartContents({ cart }: { readonly cart: Cart }) {
         </Text>
         <DeliveryHints counted={counted} />
         <PincodeCheck />
-        <CartCheckout cart={cart} />
+        <CartCheckout cart={cart} reading={reading} />
       </View>
     </View>
   );

@@ -5,9 +5,11 @@
  * - **The confirmation**: shown on the Cart tab in place of the empty cart, first without the
  *   order's number and then with it once the order is found in the customer's orders; cleared when
  *   the tab loses focus.
- * - **The held consent request** (D-129, owner's answers): after a login started on the Cart tab,
- *   when the request would be asked, it waits for a confirmed order in that login and is dropped
- *   when checkout ends without one.
+ * - **The held consent request** (D-129, D-148 as amended in the architect's review of PR #30):
+ *   after a login started on the Cart tab, when the request would be asked, it waits for the first
+ *   confirmed order in that login, however many checkouts end without one before it; it shows with
+ *   that order's confirmation and is then released (answered, or cleared with the confirmation).
+ *   A logout drops it.
  * - **The last checkout, for Home's development line only:** how it was presented and ended, the
  *   form of the order ID from Checkout Kit (never the ID) and whether the order was found.
  *
@@ -63,8 +65,12 @@ export function showConfirmation(confirmation: CheckoutConfirmation): void {
   update({ confirmation });
 }
 
+/**
+ * Clears the confirmation. A held consent request showed with it, so it is released too: the
+ * request shows once, with the first confirmed order (D-148).
+ */
 export function clearConfirmation(): void {
-  if (state.confirmation !== null) update({ confirmation: null });
+  if (state.confirmation !== null) update({ confirmation: null, consentHeld: false });
 }
 
 /** After a login started on the Cart tab, when the consent request would be asked (D-129). */
@@ -72,7 +78,7 @@ export function holdConsentRequest(): void {
   update({ consentHeld: true });
 }
 
-/** The held request was shown, or checkout ended without an order, or the customer logged out. */
+/** The held request was answered or closed, or the customer logged out. */
 export function releaseConsentRequest(): void {
   if (state.consentHeld) update({ consentHeld: false });
 }

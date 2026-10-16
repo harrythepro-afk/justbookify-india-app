@@ -102,6 +102,24 @@ export function endCartChange(): void {
   setPending(null);
 }
 
+/** The change running now, outside React (checkout waits for an add or removal to end). */
+export function getPendingCartChange(): PendingCartChange {
+  return pending;
+}
+
+/** Resolves when no cart change is running (at once if none is). */
+export function waitForNoCartChange(): Promise<void> {
+  if (pending === null) return Promise.resolve();
+  return new Promise((resolve) => {
+    const listener = () => {
+      if (pending !== null) return;
+      pendingListeners.delete(listener);
+      resolve();
+    };
+    pendingListeners.add(listener);
+  });
+}
+
 /** Tests only: no change running. */
 export function resetCartChangesForTests(): void {
   pending = null;
