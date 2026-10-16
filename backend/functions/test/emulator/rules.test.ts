@@ -35,7 +35,11 @@ const CALLERS: { name: string; headers: Record<string, string> }[] = [
   { name: 'a signed-in user', headers: { Authorization: `Bearer ${fakeUserToken()}` } },
 ];
 
-const PATHS = ['deviceTokens/fake-device-0001', 'alertRequests/fake-alert-0001', 'any/fake/nested/doc'];
+const PATHS = [
+  'deviceTokens/fake-device-0001',
+  'alertRequests/fake-alert-0001',
+  'any/fake/nested/doc',
+];
 
 const FIELDS = JSON.stringify({ fields: { note: { stringValue: 'made-up' } } });
 
@@ -79,7 +83,12 @@ describe('Firestore rules: every client read and write is refused', () => {
           const attempts = [
             await call('GET', `${DOCUMENTS}/${path}`, caller.headers),
             await call('GET', `${DOCUMENTS}/${collection}`, caller.headers),
-            await call('POST', `${DOCUMENTS}/${collection}?documentId=${id}-new`, caller.headers, FIELDS),
+            await call(
+              'POST',
+              `${DOCUMENTS}/${collection}?documentId=${id}-new`,
+              caller.headers,
+              FIELDS,
+            ),
             await call('PATCH', `${DOCUMENTS}/${path}`, caller.headers, FIELDS),
             await call('DELETE', `${DOCUMENTS}/${path}`, caller.headers),
           ];

@@ -63,7 +63,11 @@ describe('whoami in the Functions emulator', () => {
   });
 
   it('answers 413 to a GET with a body', async () => {
-    const response = await send('GET', { 'Content-Type': 'application/json', 'Content-Length': '2' }, '{}');
+    const response = await send(
+      'GET',
+      { 'Content-Type': 'application/json', 'Content-Length': '2' },
+      '{}',
+    );
     assert.equal(response.status, 413);
     assert.deepEqual(response.body, { error: 'payload_too_large' });
   });
