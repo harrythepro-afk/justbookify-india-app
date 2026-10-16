@@ -698,6 +698,24 @@ D-159 to D-164. Everything runs in `backend/functions`, locally and in CI, again
 - **What the emulators cannot show:** that Shopify accepts a customer's token from a server (risk 26, P10-02's first check, with a real login); the deployed function's settings (`nodejs24`, 256 MiB) and its public access, first seen at the P10-02 deploy.
 - **Made-up values only** in tests and in `.env.demo-justbookify-india` (`example-store.example`, shop ID `1000000001`, `fake-access-token-0001-not-real`, `gid://shopify/Customer/7000000001`).
 
+### Backend on the development project (P10-02)
+
+D-165, D-166. Nothing here runs until the owner confirms that Firebase shows Blaze and the ₹500 monthly budget alert exists. Every Firebase command is shown to the owner exactly and run only with the owner's yes at that moment, always with `--project justbookify-india-dev` (only `projects:list`, `login` and `logout` are exempt), and recorded in `CURRENT_STATUS.md`.
+
+1. **Login (owner, own terminal):** `npx --yes firebase-tools@15.34.0 login`.
+2. `npx --yes firebase-tools@15.34.0 projects:list`: the account sees `justbookify-india-dev`.
+3. **Deploy** from `backend/`: `npx --yes firebase-tools@15.34.0 deploy --only functions:whoami --project justbookify-india-dev`. A refusal of `nodejs24` stops the work (D-160).
+4. **Read back** with `functions:list --json --project justbookify-india-dev`: region `asia-south1`, runtime `nodejs24`, 256 MiB, 10 s; `maxInstances` 5 and the public invoker from the same output, or from the owner reading the Cloud Run page (view only) if the CLI does not show them.
+5. **No Google login needed:** one `curl` without an Authorization header to `/whoami` answers 401 `{"error":"unauthenticated"}` (our code), not Google's 403.
+6. **Phone check** (D-095, USB, Do Not Disturb, focus check before every input; no orders, nothing typed but `http://localhost:8081`), with `EXPO_PUBLIC_BACKEND_URL` in `.env.local` and `npx expo start --dev-client --clear`; no new native build:
+   - signed out: Home's development tools, "Backend: check" → **"Backend: unauthenticated"**;
+   - the owner logs in on the Account tab themselves, then says so;
+   - "Backend: check" → **"Backend: ok"**: Shopify accepts the customer's token from the backend (risk 26). Anything else while logged in (`unauthenticated` above all) stops the work for the owner, with no workaround.
+7. **Logs** (owner's yes): `functions:log --only whoami --project justbookify-india-dev` into a scratch file: the function's own lines hold only `whoami`, the outcome and milliseconds, with no token, customer ID or IP; Google's request entries are described by field name only. The file is deleted.
+8. **Logout (owner, own terminal):** `npx --yes firebase-tools@15.34.0 logout`.
+
+**App tests (Jest, made-up values only):** `__tests__/config/backend.test.ts` (https base only, no path, query, port or credentials, absent on staging and production, nothing logged); `__tests__/backend/client.test.ts` (no Authorization header signed out, Bearer signed in, nothing sent without a token or an address, every backend code, other answers as `http_<status>` or `unexpected`, network and timeout without the error's text, no token, address or body in any result, nothing logged); `__tests__/app/home.test.tsx` (the button and the code only, disabled while checking, "not configured", absent on staging and production); the lint guard (only `src/backend/client.ts` may call `fetch` in `src/backend/`). **Backend:** `test/unit/projectSettings.test.ts` (`.firebaserc` names only `justbookify-india-dev` under `development`, no default; `firebase.json` keeps `nodejs24`).
+
 ### Release gate: list performance (P6-03)
 
 No build goes to any tester other than the owner until the collection list scrolls and loads more smoothly on a **release** build: the collection screen and, when it exists, Browse, on the owner's phone. In P6-03 the list was measured only with production-mode JavaScript in the development build (7 October 2026: "Load more" on `junior-readers`, the 6 extra books on screen within 0.8 to 1.8 seconds of the tap, request included).

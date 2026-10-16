@@ -75,6 +75,24 @@ App ── GET /whoami, Authorization: Bearer <Customer Account API access token
 - **Firestore:** the rules refuse every client read and write; only the backend uses Firestore, through the Admin SDK (D-163). P10-01 stores nothing.
 - **Before any non-development deploy:** per-customer and per-device rate limits and Firebase App Check (`SECURITY.md`); `whoami` is never deployed outside development (D-162).
 
+## Backend on the development project (P10-02)
+
+D-165, D-166. Only `whoami` is deployed, only to `justbookify-india-dev`; no Firestore database exists yet.
+
+```
+backend/.firebaserc                    {"projects": {"development": "justbookify-india-dev"}}, no default
+backend/functions/.env.justbookify-india-dev   gitignored params: store domain, shop ID, BACKEND_ENVIRONMENT=development
+
+App (development build) ── Home, "Backend: check" (src/backend/client.ts)
+   ├─ EXPO_PUBLIC_BACKEND_URL (src/config/backend.ts), development builds only
+   └─ GET https://asia-south1-justbookify-india-dev.cloudfunctions.net/whoami
+        signed in: Authorization: Bearer <access token>; signed out: no header
+        → "Backend: <code>" (ok, unauthenticated, shopify_busy, ...), nothing else
+```
+
+- The function is public (`allUsers` may invoke it) because the app has no Google identity; every request is checked with the customer's own token (D-161).
+- Google's own request logs for Cloud Run hold the caller's IP address and the URL by design; the function's own log lines hold only the event, the code and the milliseconds (D-162, `SECURITY.md`).
+
 ## App structure (target)
 
 | Layer | Responsibility |
@@ -131,7 +149,7 @@ The app never handles card, UPI or bank details.
 | --- | --- | --- | --- |
 | Shopify store | Development store | Second development store | Live store, justbookify.in |
 | App ID | `com.justbookify.india.dev` | `com.justbookify.india.staging` | `com.justbookify.india` |
-| Backend | Local emulators, project `demo-justbookify-india` (P10-01); `justbookify-india-dev` from P10-02 | Staging Firebase project | Production Firebase project |
+| Backend | Local emulators, project `demo-justbookify-india` (P10-01); `justbookify-india-dev` from P10-02 (`whoami` only, D-165; the app's `EXPO_PUBLIC_BACKEND_URL`, development builds only, D-166) | Staging Firebase project | Production Firebase project |
 | Firebase project (flags, later analytics and push) | `justbookify-india-dev` (created 4 October 2026) | Created when first needed | Created when first needed |
 | `google-services.json` | EAS file variable `GOOGLE_SERVICES_JSON`, environment development | Same, environment preview | Same, environment production |
 | Customers | Invented | Invented | Real |

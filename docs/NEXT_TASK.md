@@ -53,9 +53,10 @@ Status: **in progress** on branch `p10-02-backend-deploy` (owner's plan approval
 | Task | Scope | Decisions |
 | --- | --- | --- |
 | P10-01 (done, 135a2ed, PR #31) | The backend in `backend/` (its own package, Node 24, `asia-south1`), local emulators only (project `demo-justbookify-india`); the customer's identity derived on the server from the Customer Account API with the customer's own token; `GET /whoami` (development only, fixed codes, limits, no personal data in logs); deny-all Firestore rules with emulator tests; the backend CI job, required on `main` | D-159 to D-164 |
-| P10-02 (branch `p10-02-backend-deploy`) | Deploy only `whoami` to the development Firebase project; `whoami` with a real login (risk 26); the analytics user ID moves to P10-03 | |
-| P10-03 (proposed) | The backend custom app on the development store; webhooks verified by signature, queued and handled once | |
-| P10-04 (proposed) | Early check 4: a return filed through the Admin API shows for staff (development store) | |
+| P10-02 (branch `p10-02-backend-deploy`) | Deploy only `whoami` to the development Firebase project (`.firebaserc` alias, no default; gitignored params; nothing else deployed); Home's development "Backend: check" with the customer's token; the phone check of risk 26; the function's logs read; the owner's logout | D-165, D-166 |
+| P10-03 (proposed, owner, P10-02 plan) | The analytics user ID (D-050, D-132): HMAC-SHA-256 of the customer's ID, derived on the server, with a salt held only in Secret Manager, generated and stored without ever being printed or shown in chat | |
+| P10-04 (proposed) | The backend custom app on the development store; webhooks verified by signature, queued and handled once | |
+| P10-05 (proposed) | Early check 4: a return filed through the Admin API shows for staff (development store) | |
 
 ## Housekeeping for P10-02's first commit
 
@@ -65,7 +66,10 @@ Status: **in progress** on branch `p10-02-backend-deploy` (owner's plan approval
 
 The backend runs in the development Firebase project, and the one thing P10-01 could not prove locally is proven: **Shopify accepts the customer's Customer Account API token from the backend** (risk 26). Then the backend issues the analytics user ID (D-050, D-132), the last missing item of the release gate "analytics consent" apart from the privacy policy.
 
-## Proposed scope
+## Proposed scope (superseded)
+
+The owner's P10-02 scope (16 October 2026, D-165, D-166) replaces this proposal: only `whoami` is deployed, Home's development "Backend: check" proves risk 26, and the analytics user ID (item 4 below) moves to P10-03. Answers to the questions below: the deploy is Claude's, each command shown and run with the owner's yes; the budget is ₹500 a month; the user ID's endpoint and App Check are P10-03 questions. This file is rewritten for P10-03 at the end of P10-02.
+
 
 1. **Blaze and a budget (owner's job):** the owner moves `justbookify-india-dev` to the Blaze plan in the Firebase console and sets a budget alert (for example ₹500 a month). Claude never changes the console or billing.
 2. **Deploy to development only:** `backend/.firebaserc` names `justbookify-india-dev` (not a secret); `.env.justbookify-india-dev` stays gitignored and holds the development store's public values and `BACKEND_ENVIRONMENT=development`. The deploy is the owner's, or Claude's with the owner's yes at that moment (`npx --yes firebase-tools@15.34.0 deploy --only functions,firestore:rules --project justbookify-india-dev`). `nodejs24` and 256 MiB are confirmed by the deploy (D-160: fall back to `nodejs22` with a decision if refused).

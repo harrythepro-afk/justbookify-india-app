@@ -720,6 +720,13 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
 - P10-02 (on branch `p10-02-backend-deploy`, 16 October 2026): deploy only `whoami` to the development Firebase project `justbookify-india-dev` and prove the identity check with a real login (risk 26).
   - Plan accepted by the owner on 16 October 2026, with two additions at approval: every Firebase command is shown to the owner exactly before it runs, and carries `--project justbookify-india-dev` (only `projects:list`, `login` and `logout` are exempt); after the logs are read, the owner runs `npx --yes firebase-tools@15.34.0 logout` in their own terminal, because their Google login covers other Google Cloud projects too, and the next deploy task asks for a new login.
   - **Billing (owner, 16 October 2026), as it stands:** the Cloud Billing account "My Billing Account" was created and **linked** to `justbookify-india-dev` on 16 October 2026 (the owner's other Google Cloud projects have billing disabled). The **payment method is not added yet** (the owner adds it on 17 October), so Firebase **still shows the Spark plan**, and the **₹500 monthly budget alert is not created yet**. Not moved to Blaze. Code, tests and docs are done first; no Firebase login and no deploy until the owner confirms in chat that Firebase shows Blaze and the budget alert exists.
+  - **Housekeeping (first commit, `4f88a45`):** P10-01 recorded as merged; the billing state as above.
+  - **Before the deploy (D-165, D-166):**
+    - `backend/.firebaserc`: `{"projects": {"development": "justbookify-india-dev"}}`, no default; a backend unit test checks it and `nodejs24` (`6853acc`).
+    - `backend/functions/.env.justbookify-india-dev` (gitignored, `git check-ignore -v`: `.gitignore:39:.env*`) written from the app's `.env.local` by a scratch script that printed only the three names; no value was shown.
+    - The app (`d087b9e`): `EXPO_PUBLIC_BACKEND_URL` in `src/config/backend.ts` (development builds only), `src/backend/client.ts` (`checkBackendIdentity()`, the one new `fetch` permission), Home's "Backend: check" with "Backend: <code>"; `.env.example` gains the empty variable. No new dependency, no native change, so no new development build: **5f5c789a** runs it from Metro.
+    - No backend code changed: `src/index.ts` already sets `asia-south1`, 256 MiB, 10 s, `maxInstances` 5, and `whoami` is `invoker: 'public'`, `cors: false`. `whoami` uses no Firestore, so no database and no rules deploy.
+  - **Firebase commands so far:** none. No login, no deploy.
 
 ## What works
 
