@@ -1,6 +1,6 @@
 # Next task (proposal): P9-02, checkout on the iPhone Simulator
 
-Status: proposal. P9-01 (checkout with Checkout Kit, Android, development store only; D-144 to D-157) is on branch `p9-01-checkout`, PR #30, phone check passed on 15 October 2026 with test orders #1004 and #1005; see `CURRENT_STATUS.md`. P9-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P9-01 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`). P8-02 is merged (`f2d708d`, PR #29); Phase 8 is done.
+Status: **moved (owner, 16 October 2026, D-158).** P9-01 is merged (`2a194b1`, PR #30, 16 October 2026). The owner has no Mac now, so P9-02 moves after Phase 10's start. The task being worked on is P10-01 (backend foundation, local only, branch `p10-01-backend-foundation`); this file is replaced by the next proposal at P10-01's end. P9-02 below stays as written, with D-158's three ways to run the iPhone check before Phase 12 and one more scope item: the consent request shows after the checkout sheet closes.
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -45,8 +45,8 @@ Status: proposal. P9-01 (checkout with Checkout Kit, Android, development store 
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P9-01 (branch `p9-01-checkout`, PR #30) | Checkout from the Cart tab with Checkout Kit on the development store (Android): "Checkout" only when the cart can go to checkout, login on the Cart tab, the customer's token on the cart, the sheet or the browser by the remote switch read at checkout (no restart), the confirmation with the order number, the cart forgotten, the checkout events; the test checkout screen removed; branch protection and the public repository; phone check passed with test orders #1004 and #1005 and the ACOD check | D-144 to D-157 |
-| P9-02 (proposed) | The same checkout on the iPhone Simulator (owner's MacBook): the iPhone half of early check 2 on a simulator | |
+| P9-01 (done, 2a194b1, PR #30) | Checkout from the Cart tab with Checkout Kit on the development store (Android): "Checkout" only when the cart can go to checkout, login on the Cart tab, the customer's token on the cart, the sheet or the browser by the remote switch read at checkout (no restart), the confirmation with the order number, the cart forgotten, the checkout events; the test checkout screen removed; branch protection and the public repository; phone check passed with test orders #1004 and #1005 and the ACOD check | D-144 to D-157 |
+| P9-02 (moved after Phase 10's start, D-158) | The same checkout on an iPhone, before Phase 12 at the latest: a Mac's iPhone Simulator, an EAS iOS simulator build in a browser service such as Appetize.io, or a friend's iPhone through TestFlight; and the consent request after the sheet closes | D-158 |
 
 ## Housekeeping for P9-02's first commit
 
@@ -81,8 +81,8 @@ P9-01's checkout runs on an iPhone: the iPhone side of early check 2 (cash on de
 
 ## Follow-ups (recorded, not part of P9-02 unless listed in its scope)
 
-- **The P9-01 phone checks' test orders (owner):** restock in the development store's admin the books of #1004 (Cat Kid Comic Club 04: Collaborations; Artemis Fowl 2: The Arctic Incident), #1005 (Cat Kid Comic Club: On Purpose; Geronimo Stilton: The Phantom of the Subway; Geronimo Stilton: The Temple of the Ruby of Fire; Diary of a Wimpy Kid: The Meltdown) and #1006 (Cat Kid Comic Club 04: Collaborations; Cat Kid Comic Club: On Purpose), and **Danny the Champion of the World** (from the guest test order #1003, P7-02), the ₹49 book behind `check:dev-store`'s catalogue difference. After that, `npm run check:dev-store` should pass in full again.
-- **The consent request over Shopify's thank-you page (P9-01 short phone check, observation):** after order #1006 the request opened over the sheet's thank-you page (the `completed` event comes before the customer closes the sheet); the app's own confirmation showed after it was answered and the sheet closed. The order is placed by then, so checkout is not interrupted (D-129); the owner and the architect may prefer it to wait for the sheet to close.
+- **The P9-01 phone checks' test orders (closed, owner, 16 October 2026):** the owner cancelled #1003 to #1006 with restock in the development store's admin; `npm run check:dev-store` passes in full again.
+- **The consent request over Shopify's thank-you page (P9-01 short phone check; in P9-02's scope, D-158):** after order #1006 the request opened over the sheet's thank-you page (the `completed` event comes before the customer closes the sheet); the app's own confirmation showed after it was answered and the sheet closed. P9-02 shows it after the sheet closes. On iPhone it may not appear over the sheet at all.
 - **`check:dev-store` for test orders (owner, P9-01 phone check):** a mode that checks only the store domain (`EXPECT_STORE_DOMAIN`), for the check before each test order, so the sample catalogue's changes from earlier test orders do not stop it (today the domain part is read from the full run's output, D-157).
 - **The consent request after a closed checkout (P9-01 phone check), fixed in PR #30 at the architect's review (D-148):** a checkout closed without an order keeps the request held; it shows once, after the first confirmed order in that login.
 - **A Checkout tap that did nothing (P9-01 phone check), fixed in PR #30 at the architect's review (D-148):** the button shows a disabled waiting state while the cart is being read or changed, and a tap shows "Opening checkout…" at once and waits for what is still running; checked again in the short phone check below.
