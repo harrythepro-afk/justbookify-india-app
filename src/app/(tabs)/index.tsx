@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { resetAnalyticsConsent, useAnalyticsConsent } from '@/analytics/consent';
+import { checkBackendIdentity, hasBackend, type BackendCheckResult } from '@/backend/client';
 import { BookCard } from '@/components/BookCard';
 import { openBook } from '@/components/openBook';
 import { catalogueViewState, showsOfflineNotice } from '@/components/catalogueViewState';
@@ -274,6 +275,7 @@ function DevelopmentTools() {
       <CheckoutStatus />
       <AnalyticsStatus />
       <LoginStatus />
+      <BackendStatus />
       <ConnectionStatus />
     </View>
   );
@@ -441,6 +443,43 @@ function LoginStatus() {
           Token refresh test: {lastTest}
         </Text>
       )}
+    </>
+  );
+}
+
+/**
+ * Development builds only (P10-02, D-166): asks the backend's `whoami` whether it accepts the
+ * customer's current token (signed out: no token), and shows only the answer's code, never a
+ * token, the address or the customer. The phone check of risk 26: `unauthenticated` signed out,
+ * `ok` after a login.
+ */
+function BackendStatus() {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<BackendCheckResult | undefined>(undefined);
+
+  if (!hasBackend()) {
+    return <Text style={styles.note}>Backend: not configured</Text>;
+  }
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: checking }}
+        disabled={checking}
+        onPress={() => {
+          setChecking(true);
+          void checkBackendIdentity().then((code) => {
+            setResult(code);
+            setChecking(false);
+          });
+        }}
+        style={styles.control}
+      >
+        <Text style={styles.controlText}>Backend: check</Text>
+      </Pressable>
+      <Text accessibilityLiveRegion="polite" style={styles.note}>
+        Backend: {checking ? 'checking…' : (result ?? 'not checked')}
+      </Text>
     </>
   );
 }
