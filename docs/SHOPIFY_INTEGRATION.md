@@ -145,6 +145,10 @@ Read on 13 October 2026: the Customer Account API reference (`/docs/api/customer
 
 Done for the development store by the owner on 13 October 2026. The live store's client is set up only at the live-store connection, with the owner's go-ahead.
 
+## Backend: the customer's identity (P10-01)
+
+D-161. Read on 16 October 2026: the Customer Account API reference (`/docs/api/customer/2026-04`) and its `customer` query page. Shopify documents **no introspection endpoint and no key set for access tokens**; the `jwks_uri` in the OpenID configuration is for the ID token. So the backend validates a customer's access token by using it: `query BackendCustomerIdentity { customer { id } }` against the store's Customer Account API (`2026-04`, the endpoint from `/.well-known/customer-account-api`, as the app finds it), `Authorization: <token>` with no `Bearer`, a `User-Agent`. A 401 means the token is not valid; an ID `gid://shopify/Customer/<n>` is the customer. No secret is involved, and the custom app (store addition 3) is not needed for it. The docs neither describe nor forbid this call from a server; it is first tried with a real token in P10-02 (risk 26). Per-customer limit: 3,000 requests a minute per store and customer, shared across apps.
+
 ## Backend custom app: scopes
 
 Keep to the minimum the four backend jobs need: read orders, read products and inventory, write returns. Add a scope only with a decision record.

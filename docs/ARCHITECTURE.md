@@ -41,6 +41,40 @@ Rules for the backend:
 - Webhooks are verified by signature, acknowledged quickly and processed from a queue. Each event is handled once.
 - Stateless functions; region `asia-south1` (Mumbai).
 
+## Backend foundation (P10-01)
+
+D-159 to D-164. Local only: Firebase's emulators, project `demo-justbookify-india`; nothing deployed.
+
+```
+backend/                     Firebase project folder: firebase.json (runtime nodejs24), firestore.rules (deny all)
+  functions/                 its own npm package, lockfile, strict TypeScript, ESLint, node:test, audit gate
+    src/index.ts             setGlobalOptions (asia-south1, 256 MiB, 10 s, max 5 instances); params; exports whoami
+    src/whoami.ts            GET /whoami → {"status":"ok"} (development only)
+    src/http/guard.ts        method, body size, fixed error codes (codes.ts), Cache-Control: no-store
+    src/identity/            token.ts (Bearer shape), endpoint.ts (discovery), customer.ts (Shopify), check.ts
+    src/log.ts               the only logger: event, outcome code, milliseconds
+```
+
+```
+App ── GET /whoami, Authorization: Bearer <Customer Account API access token>
+   └─ whoami (src/whoami.ts)
+        ├─ config missing or malformed → 503 not_configured; BACKEND_ENVIRONMENT ≠ development → 404 not_found
+        ├─ guard: GET only (405), no body (413)
+        ├─ identity check (src/identity/check.ts, D-161)
+        │    ├─ token shape, else 401 unauthenticated (no Shopify call)
+        │    ├─ endpoint: https://<store>/.well-known/customer-account-api, once per instance (3 s),
+        │    │    the app's rule (https, no other shop's ID), pinned 2026-04
+        │    └─ POST <endpoint> BackendCustomerIdentity { customer { id } }, Authorization: <token> (5 s)
+        │         gid://shopify/Customer/<n> → identity (kept in the request); 401 → unauthenticated;
+        │         429/THROTTLED → shopify_busy; 5xx/network/timeout → shopify_unavailable; else shopify_unexpected
+        ├─ 200 {"status":"ok"}: never the customer's ID or details
+        └─ log: { event: "whoami", outcome, millis }, nothing else
+```
+
+- **The customer's ID is derived on the server** from Shopify's answer to the customer's own token; an ID sent by the app is never read; no secret is needed (D-161).
+- **Firestore:** the rules refuse every client read and write; only the backend uses Firestore, through the Admin SDK (D-163). P10-01 stores nothing.
+- **Before any non-development deploy:** per-customer and per-device rate limits and Firebase App Check (`SECURITY.md`); `whoami` is never deployed outside development (D-162).
+
 ## App structure (target)
 
 | Layer | Responsibility |
@@ -97,7 +131,7 @@ The app never handles card, UPI or bank details.
 | --- | --- | --- | --- |
 | Shopify store | Development store | Second development store | Live store, justbookify.in |
 | App ID | `com.justbookify.india.dev` | `com.justbookify.india.staging` | `com.justbookify.india` |
-| Backend | Local emulators | Staging Firebase project | Production Firebase project |
+| Backend | Local emulators, project `demo-justbookify-india` (P10-01); `justbookify-india-dev` from P10-02 | Staging Firebase project | Production Firebase project |
 | Firebase project (flags, later analytics and push) | `justbookify-india-dev` (created 4 October 2026) | Created when first needed | Created when first needed |
 | `google-services.json` | EAS file variable `GOOGLE_SERVICES_JSON`, environment development | Same, environment preview | Same, environment production |
 | Customers | Invented | Invented | Real |
@@ -150,7 +184,7 @@ Screen / feature code
 
 ## Query cache (P5-02)
 
-One TanStack Query client for the whole app (D-061), in `src/query/`, shared by every data source: the Storefront API now, the Customer Account API in Phase 7, the backend in Phase 10. In memory only, with no persister (D-059).
+One TanStack Query client for the whole app (D-061), in `src/query/`, shared by every data source: the Storefront API now, the Customer Account API in Phase 7, the backend from Phase 10 (the app calls no backend endpoint yet). In memory only, with no persister (D-059).
 
 ```
 Screen (src/app/, src/components/)

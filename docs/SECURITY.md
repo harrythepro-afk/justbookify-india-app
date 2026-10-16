@@ -11,7 +11,7 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 - [ ] Logout ends the Shopify session, deletes local tokens and caches, and unregisters the push token. Done in P7-01 (D-122): local tokens deleted (pointer first), `clearAllCaches()`, then Shopify's mobile logout call with `id_token_hint`. The push token comes with Phase 12. A website logout does not log the app out (owner, answer 3)
 
 ### Authorization
-- [ ] Customer identity is derived on the server from a validated token. The app's profile and orders (P7-02) come from the Customer Account API, where Shopify derives the customer from the access token; the app sends no customer ID. The backend (Phase 10) is still to do
+- [ ] Customer identity is derived on the server from a validated token. The app's profile and orders (P7-02) come from the Customer Account API, where Shopify derives the customer from the access token; the app sends no customer ID. **Backend (P10-01, D-161):** every customer request carries `Authorization: Bearer <access token>`; the backend asks the Customer Account API, with that token, for `customer { id }` and keeps the ID inside the request; no secret, no ID from the app, the ID token never accepted. Built and tested with Shopify faked (local only); whether Shopify accepts the token from a server is proven in P10-02 with a real login (risk 26). Stays open until every backend endpoint uses it
 - [ ] No endpoint accepts a customer, order or return ID without checking it belongs to the caller
 
 ### Device storage
@@ -23,26 +23,27 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 ### Network
 - [ ] TLS everywhere; no cleartext exceptions
 - [x] Request timeouts; retries only for safe reads, with backoff and jitter. Storefront API (D-057): 15 seconds per attempt, 30 seconds per call; queries only, at most 2 retries with random backoff; unit tests prove it. Since P7-02 the Customer Account API uses the same shared transport (`src/graphql/transport.ts`, D-126), with one refresh after a 401 inside the same 30 seconds; it has no mutation yet
-- [ ] Checkout and writes are never retried automatically. Storefront mutations are never retried (D-057, tested); still open for Checkout Kit (Phase 9) and the backend (Phase 10)
+- [ ] Checkout and writes are never retried automatically. Storefront mutations are never retried (D-057, tested); still open for Checkout Kit (Phase 9) and the backend's writes (from P10-03). The backend's identity check (P10-01) retries nothing inside a request: discovery 3 s, Shopify 5 s, the function 10 s (D-161, D-162)
 
 ### Secrets
-- [ ] No secret in the app bundle or the repository
-- [ ] Server secrets in a managed secret store; CI secrets scoped per environment
+- [ ] No secret in the app bundle or the repository. The backend (P10-01) holds no secret: its three params (store domain, shop ID, environment) are public; the committed `backend/functions/.env.demo-justbookify-india` holds made-up values only, and every other backend `.env.*` is gitignored (`git check-ignore -v`, `CURRENT_STATUS.md`)
+- [ ] Server secrets in a managed secret store; CI secrets scoped per environment. From P10-02, backend secrets (the analytics salt; from P10-03 the custom app's credentials and webhook secret) live only in Secret Manager, never in params, `.env` files, the repository, chat or a log
 - [ ] Rotation at least yearly and on any change of people
 
 ### API protection
-- [ ] Rate limits per customer and per device on the backend
-- [ ] Schema validation on every request; idempotency keys on writes
+- [ ] Rate limits per customer and per device on the backend. **Required before any non-development backend deploy** (owner, P10-01 plan approval; D-162; risk 27). Not built in P10-01; until then `maxInstances` 5 caps cost only
+- [ ] Schema validation on every request; idempotency keys on writes. P10-01's guard (D-162): allowed methods, a body limit per endpoint (none on `GET /whoami`, 16 KB by default for JSON), fixed error codes, `Cache-Control: no-store`
 - [ ] Webhooks verified by signature, with replay rejection
 
 ### App integrity
-- [ ] Apple App Attest and Google Play Integrity verified by the backend on sensitive writes; log first, then block
+- [ ] Apple App Attest and Google Play Integrity verified by the backend on sensitive writes; log first, then block. **Firebase App Check (Play Integrity, App Attest) on backend endpoints is required before any non-development backend deploy** (owner, P10-01 plan approval; D-162; risk 27). Not built in P10-01
+- [x] **Development-only endpoints** (P10-01, D-162): `whoami` answers 404 unless the backend's environment is `development`, and it is deployed only to the development Firebase project, never to staging or production; it is removed or disabled before any non-development deploy
 - [x] **Remote Config values are untrusted input, and not secret** (P6-11, D-116): every value is parsed against a fixed shape (a flag's allowed values; the wanted list's JSON list of names with its limits), never shown on screen as written, never logged, and reported to Sentry by parameter name and reason codes only. Remote Config is readable by anyone who has the app's public Firebase settings, which ship inside every build, so **nothing private may be put in it**: the wanted list (the names the owner is thinking of stocking) can be read by a determined outsider
 - [ ] Phase 14: restrict the Android API key in each environment's `google-services.json` to the app's package and signing certificate, keeping the Firebase Installations and Remote Config APIs allowed (D-044). Afterwards every build must be shown to fetch a changed flag again (`TESTING.md`, "Release gate: feature flags")
 
 ### Data
 - [ ] Collect only what a rental needs; no children's data
-- [ ] No personal data in analytics, logs or push text. Analytics part done in P4-04 (D-053): typed events and a runtime guard; screens by route name only; no user ID until Phase 7 (D-050). Logs and push text remain. P7-02 (D-127): profile and order values only on screen; `CustomerAccountApiError` carries codes only; a privacy test runs the real client, cache, hooks and screens with marker values and finds none in console, Sentry or analytics
+- [ ] No personal data in analytics, logs or push text. **Backend logs (P10-01, D-162):** one logger, `src/log.ts`, with a fixed shape (event, outcome code, milliseconds) and no free-text field; ESLint stops any other logger or `console`; a test captures every output across every path and finds no token, customer ID, store, shop ID, header or IP. Analytics part done in P4-04 (D-053): typed events and a runtime guard; screens by route name only; no user ID until Phase 7 (D-050). Logs and push text remain. P7-02 (D-127): profile and order values only on screen; `CustomerAccountApiError` carries codes only; a privacy test runs the real client, cache, hooks and screens with marker values and finds none in console, Sentry or analytics
 - [x] Analytics is opt-in (D-048): collection off until the customer's consent, withdrawal stops it at once and resets the phone's analytics data. Android backup and device transfer are off, so a restored phone never starts with collection on and no consent record (D-052)
 - [ ] Before any outside tester: a working consent request and the privacy policy's app section (`TESTING.md`, "Release gate: analytics consent"; risk 21)
 - [x] No advertising identifiers, permanently for version 1 (D-009, D-045): `AD_ID`, `ACCESS_ADSERVICES_AD_ID` and `ACCESS_ADSERVICES_ATTRIBUTION` blocked in the manifest and checked on each new build's APK (`TESTING.md`, "APK permission check"), Advertising ID and SSAID collection off and every advertising consent denied in `firebase.json`, pinned by a unit test. From P4-04, analytics collection is on only with the customer's consent (D-048); the advertising keys are unchanged (D-049). `USE_BIOMETRIC` and `USE_FINGERPRINT` (from `expo-secure-store`'s biometric library) are blocked as well (D-052)
@@ -60,12 +61,12 @@ The app is an untrusted client. Every permission check happens on Shopify or on 
 - [ ] The app and backend never see card, UPI or bank details
 
 ### Supply chain
-- [ ] Exact versions pinned; lockfile committed
-- [ ] Dependency audit and secret scan on every pull request
+- [ ] Exact versions pinned; lockfile committed. The backend has its own `package-lock.json` and `.npmrc` `save-exact` (D-159); the Firebase CLI is run with `npx` at an exact version, never installed
+- [ ] Dependency audit and secret scan on every pull request. The backend's audit gate (`npm audit --audit-level=high`) has **no allowlist**; the app's exceptions (D-022, D-027, D-047, D-060) never apply to it (D-159)
 - [ ] A new native module needs a decision record
 
 ### Development
-- [ ] Protected main branch: pull request required, both CI jobs required, no force pushes. Not available on GitHub Free for a private repository; the merge rule in `CLAUDE.md` stands in (risk 18)
+- [ ] Protected main branch: pull request required, every CI job required, no force pushes. Not available on GitHub Free for a private repository; the merge rule in `CLAUDE.md` stands in (risk 18). On while the repository is public (D-145); P10-01 adds the backend job as a third required check (D-164)
 - [x] Review: the architect reviews every pull request in chat; merge only on the owner's "approved, merge" (D-026)
 - [ ] No production credentials on developer machines
 - [ ] Separate Shopify apps and tokens per environment
