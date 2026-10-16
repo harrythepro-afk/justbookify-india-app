@@ -9,3 +9,5 @@ docs
 CLAUDE.md
 src/shopify/generated
 src/customerAccountApi/generated
+# The backend is its own package with its own Prettier check (D-159)
+backend

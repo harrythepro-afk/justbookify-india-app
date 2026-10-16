@@ -42,7 +42,11 @@
     ],
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/__tests__/helpers/"
+      "/__tests__/helpers/",
+      "<rootDir>/backend/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/backend/"
     ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1"
