@@ -1,6 +1,6 @@
 # Next task (proposal): P10-02, the backend on the development Firebase project, and the analytics user ID
 
-Status: proposal. P10-01 (the backend foundation, local only; D-159 to D-164) is on branch `p10-01-backend-foundation`; see `CURRENT_STATUS.md`. P10-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P10-01 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`). P9-01 is merged (`2a194b1`, PR #30); P9-02 (checkout on iPhone) moved after Phase 10's start and is due before Phase 12 (D-158).
+Status: **in progress** on branch `p10-02-backend-deploy` (owner's plan approval, 16 October 2026). P10-01 is merged (`135a2ed`, PR #31, 16 October 2026). Billing (owner, 16 October 2026): the billing account "My Billing Account" is linked to `justbookify-india-dev`; the payment method and the ₹500 monthly budget alert are pending, so Firebase still shows Spark. No Firebase login and no deploy until the owner confirms Blaze and the budget alert in chat. P9-01 is merged (`2a194b1`, PR #30); P9-02 (checkout on iPhone) moved after Phase 10's start and is due before Phase 12 (D-158).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -52,14 +52,14 @@ Status: proposal. P10-01 (the backend foundation, local only; D-159 to D-164) is
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P10-01 (branch `p10-01-backend-foundation`) | The backend in `backend/` (its own package, Node 24, `asia-south1`), local emulators only (project `demo-justbookify-india`); the customer's identity derived on the server from the Customer Account API with the customer's own token; `GET /whoami` (development only, fixed codes, limits, no personal data in logs); deny-all Firestore rules with emulator tests; the backend CI job, required on `main` | D-159 to D-164 |
-| P10-02 (proposed) | Deploy to the development Firebase project; `whoami` with a real login (risk 26); the analytics user ID | |
+| P10-01 (done, 135a2ed, PR #31) | The backend in `backend/` (its own package, Node 24, `asia-south1`), local emulators only (project `demo-justbookify-india`); the customer's identity derived on the server from the Customer Account API with the customer's own token; `GET /whoami` (development only, fixed codes, limits, no personal data in logs); deny-all Firestore rules with emulator tests; the backend CI job, required on `main` | D-159 to D-164 |
+| P10-02 (branch `p10-02-backend-deploy`) | Deploy only `whoami` to the development Firebase project; `whoami` with a real login (risk 26); the analytics user ID moves to P10-03 | |
 | P10-03 (proposed) | The backend custom app on the development store; webhooks verified by signature, queued and handled once | |
 | P10-04 (proposed) | Early check 4: a return filed through the Admin API shows for staff (development store) | |
 
 ## Housekeeping for P10-02's first commit
 
-- **P10-01 is merged** (record the merge commit and its PR in this file, `CURRENT_STATUS.md` and `ROADMAP.md`), once the owner writes "approved, merge".
+- **Done (first commit):** P10-01 recorded as merged (`135a2ed`, PR #31) here, in `CURRENT_STATUS.md` and in `ROADMAP.md`; the billing state recorded as it stands (linked, payment method and budget pending, still Spark).
 
 ## Goal of P10-02
 
