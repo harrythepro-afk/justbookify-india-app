@@ -51,6 +51,55 @@ jobs:
       - name: Dependency audit
         run: npm run audit:gate
 
+  # The backend (D-159, D-164): its own package in backend/functions, with its own checks and its
+  # own audit gate, which has no allowlist. No path filter: a required check must run on every
+  # pull request, or a skipped check would block the merge.
+  backend:
+    name: 'Backend: lint, types, tests, audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend/functions
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/functions/package-lock.json
+
+      # The Firestore emulator needs Java 21 (Firebase CLI 15).
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - run: npm ci --ignore-scripts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      # Builds, then runs the Firestore rules and whoami tests inside the local emulators, project
+      # demo-justbookify-india: nothing reaches a real Firebase project (D-160).
+      - name: Emulator tests
+        run: npm run emulators:test
+
+      - name: Dependency audit (no allowlist)
+        run: npm run audit:gate
+
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest

@@ -13,8 +13,8 @@ Phase numbers used in every doc, task ID and decision from 3 October 2026 (D-035
 | 6 | Catalogue, search, filtering | | Done (P6-01 to P6-11; P6-11 merged as `7c37841`, PR #24) |
 | 7 | Login and account | 3 | Done (P7-01 to P7-03; P7-03 merged as `b5ce914`, PR #27; early check 3 passed in P7-02) |
 | 8 | Cart and rental rules | | Done (P8-01 and P8-02; P8-02 merged as `f2d708d`, PR #29) |
-| 9 | Checkout and order confirmation | 2 (iPhone) | In progress (P9-01, Android) |
-| 10 | Backend foundation | 4 | |
+| 9 | Checkout and order confirmation | 2 (iPhone) | In progress (P9-01, Android, merged as `2a194b1`, PR #30; P9-02, iPhone, moved after Phase 10's start and due before Phase 12, D-158) |
+| 10 | Backend foundation | 4 | In progress (P10-01) |
 | 11 | Rentals, order history, returns | | |
 | 12 | Notifications and deep links | 5 | |
 | 13 | Reviews, recommendations, help | 6 | |
@@ -27,6 +27,8 @@ Phase numbers used in every doc, task ID and decision from 3 October 2026 (D-035
 | 20 | Production monitoring, then post-launch features | | |
 
 Account access follows D-036: Apple developer access in Phase 9 (at the latest before Phase 12, for push notifications); Google Play access in Phase 18.
+
+Phase order (owner, 16 October 2026, D-158): with no Mac available, P9-02 (checkout on iPhone) moves after Phase 10's start, so Phase 10 starts while Phase 9 is still in progress. The iPhone check happens before Phase 12 at the latest, by one of: a Mac's iPhone Simulator; an EAS iOS simulator build run in a browser service such as Appetize.io (the owner decides then); or a friend's iPhone through TestFlight.
 
 The checkout presentation flag (D-033) gets its plumbing in Phase 4 (P4-03, D-046) and is used by the checkout screens in Phase 9, before the launch rehearsal in Phase 19. Phase 9 must also make that flag take effect without waiting for two restarts, for example by activating fetched values when checkout is opened (D-046).
 

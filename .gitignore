@@ -34,9 +34,20 @@ Thumbs.db
 *.tsbuildinfo
 coverage/
 
-# environment files: only the example with empty placeholders is committed
+# environment files: only the example with empty placeholders is committed, and the backend's
+# emulator-only file with made-up values (D-160)
 .env*
 !.env.example
+!/backend/functions/.env.demo-justbookify-india
+
+# backend build output and Firebase emulator logs (D-159)
+/backend/functions/lib/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log
+pubsub-debug.log
+database-debug.log
 
 # signing files, keystores, certificates and provisioning profiles
 *.jks

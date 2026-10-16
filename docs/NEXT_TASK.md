@@ -1,6 +1,6 @@
-# Next task (proposal): P9-02, checkout on the iPhone Simulator
+# Next task (proposal): P10-02, the backend on the development Firebase project, and the analytics user ID
 
-Status: proposal. P9-01 (checkout with Checkout Kit, Android, development store only; D-144 to D-157) is on branch `p9-01-checkout`, PR #30, phone check passed on 15 October 2026 with test orders #1004 and #1005; see `CURRENT_STATUS.md`. P9-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P9-01 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`). P8-02 is merged (`f2d708d`, PR #29); Phase 8 is done.
+Status: proposal. P10-01 (the backend foundation, local only; D-159 to D-164) is on branch `p10-01-backend-foundation`; see `CURRENT_STATUS.md`. P10-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P10-01 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`). P9-01 is merged (`2a194b1`, PR #30); P9-02 (checkout on iPhone) moved after Phase 10's start and is due before Phase 12 (D-158).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -45,49 +45,57 @@ Status: proposal. P9-01 (checkout with Checkout Kit, Android, development store 
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P9-01 (branch `p9-01-checkout`, PR #30) | Checkout from the Cart tab with Checkout Kit on the development store (Android): "Checkout" only when the cart can go to checkout, login on the Cart tab, the customer's token on the cart, the sheet or the browser by the remote switch read at checkout (no restart), the confirmation with the order number, the cart forgotten, the checkout events; the test checkout screen removed; branch protection and the public repository; phone check passed with test orders #1004 and #1005 and the ACOD check | D-144 to D-157 |
-| P9-02 (proposed) | The same checkout on the iPhone Simulator (owner's MacBook): the iPhone half of early check 2 on a simulator | |
+| P9-01 (done, 2a194b1, PR #30) | Checkout from the Cart tab with Checkout Kit on the development store (Android): "Checkout" only when the cart can go to checkout, login on the Cart tab, the customer's token on the cart, the sheet or the browser by the remote switch read at checkout (no restart), the confirmation with the order number, the cart forgotten, the checkout events; the test checkout screen removed; branch protection and the public repository; phone check passed with test orders #1004 and #1005 and the ACOD check | D-144 to D-157 |
+| P9-02 (moved after Phase 10's start, D-158) | The same checkout on an iPhone, before Phase 12 at the latest: a Mac's iPhone Simulator, an EAS iOS simulator build in a browser service such as Appetize.io, or a friend's iPhone through TestFlight; and the consent request after the sheet closes | D-158 |
 
-## Housekeeping for P9-02's first commit
+## Phase 10: backend foundation
 
-- **P9-01 is merged** (record the merge commit and PR #30 in this file, `CURRENT_STATUS.md` and `ROADMAP.md`), once the owner writes "approved, merge".
+| Task | Scope | Decisions |
+| --- | --- | --- |
+| P10-01 (branch `p10-01-backend-foundation`) | The backend in `backend/` (its own package, Node 24, `asia-south1`), local emulators only (project `demo-justbookify-india`); the customer's identity derived on the server from the Customer Account API with the customer's own token; `GET /whoami` (development only, fixed codes, limits, no personal data in logs); deny-all Firestore rules with emulator tests; the backend CI job, required on `main` | D-159 to D-164 |
+| P10-02 (proposed) | Deploy to the development Firebase project; `whoami` with a real login (risk 26); the analytics user ID | |
+| P10-03 (proposed) | The backend custom app on the development store; webhooks verified by signature, queued and handled once | |
+| P10-04 (proposed) | Early check 4: a return filed through the Admin API shows for staff (development store) | |
 
-## Goal of P9-02
+## Housekeeping for P10-02's first commit
 
-P9-01's checkout runs on an iPhone: the iPhone side of early check 2 (cash on delivery and the checkout rules inside Checkout Kit, risk 1, D-036), first on the iPhone Simulator on the owner's MacBook, so the iOS build, the login and Checkout Kit's sheet are proven before Apple developer access and a real iPhone (TestFlight, before Phase 17).
+- **P10-01 is merged** (record the merge commit and its PR in this file, `CURRENT_STATUS.md` and `ROADMAP.md`), once the owner writes "approved, merge".
+
+## Goal of P10-02
+
+The backend runs in the development Firebase project, and the one thing P10-01 could not prove locally is proven: **Shopify accepts the customer's Customer Account API token from the backend** (risk 26). Then the backend issues the analytics user ID (D-050, D-132), the last missing item of the release gate "analytics consent" apart from the privacy policy.
 
 ## Proposed scope
 
-1. **An iOS development build for the Simulator** on the owner's MacBook (an EAS build with `ios.simulator: true` in a development profile, or a local `npx expo run:ios`; the owner's choice, a decision entry), with the Simulator's own bundle of JavaScript from Metro. No Apple developer membership is needed for the Simulator.
-2. **The login on iOS** (`ASWebAuthenticationSession`, D-119) and the callback scheme `shop.<shop ID>.app` on the development store.
-3. **Checkout on iOS**: the sheet (Checkout Kit's iOS side), the gates, the confirmation with the order number, the cart forgotten; the browser presentation (`SFSafariViewController`, where `openBrowserAsync` resolves when it is closed, D-152).
-4. **Early check 2, iPhone side**: the rates (₹75 and ₹125, the ₹75 discount from ₹200), ACOD's payment rule, R2 and R3, as P3-02 did on Android (`SHOPIFY_INTEGRATION.md`), and a cash-on-delivery test order on the development store under D-146's limits (if the owner extends them to P9-02).
-5. **Tests and docs**; how the Simulator check is run, in `TESTING.md`.
+1. **Blaze and a budget (owner's job):** the owner moves `justbookify-india-dev` to the Blaze plan in the Firebase console and sets a budget alert (for example ₹500 a month). Claude never changes the console or billing.
+2. **Deploy to development only:** `backend/.firebaserc` names `justbookify-india-dev` (not a secret); `.env.justbookify-india-dev` stays gitignored and holds the development store's public values and `BACKEND_ENVIRONMENT=development`. The deploy is the owner's, or Claude's with the owner's yes at that moment (`npx --yes firebase-tools@15.34.0 deploy --only functions,firestore:rules --project justbookify-india-dev`). `nodejs24` and 256 MiB are confirmed by the deploy (D-160: fall back to `nodejs22` with a decision if refused).
+3. **First check: `whoami` with a real login.** A development-only line on Home calls `whoami` with `getValidAccessToken()` through a new backend client in the app (one transport, D-126) and shows only the fixed answer (`ok` or a code). If Shopify refuses the token from the backend, stop and ask (risk 26).
+4. **The analytics user ID (D-050, D-132):** a backend endpoint that returns HMAC-SHA-256 of the customer's GID (derived on the server, D-161) with a salt held **only in Secret Manager** (`defineSecret`; created by the owner in the console or by the CLI with the owner's yes, the value never in chat, the repository or a log). The app sets it with Firebase Analytics only after login and only with consent; cleared at logout and at withdrawal; tests that it is never logged or reported.
+5. **Tests and docs:** the release gate item in `TESTING.md` ("the user ID exists and works"), `SECURITY.md`'s secret inventory, `ANALYTICS.md`.
 
 ## Questions for the owner and the architect
 
-1. **The MacBook:** macOS and Xcode versions, and whether the owner or Claude Code drives the Simulator (Claude Code can drive it only if a session runs on the MacBook; the owner may prefer to tap through it while Claude Code reads the results).
-2. **The build:** EAS (`ios.simulator`) or a local build on the MacBook.
-3. **Test orders:** does D-146 (at most 5, cash on delivery, the development store only, the owner's yes for each) carry over to P9-02?
-
-## What P9-02 needs from the owner
-
-- The answers above; the MacBook with Xcode and the iOS Simulator.
-- Apple developer access (D-036) is **not** needed for the Simulator; it is for the real-iPhone check through TestFlight, before Phase 17.
+1. **Who deploys:** the owner from their own terminal, or Claude with a yes at that moment each time?
+2. **Budget:** the monthly budget alert amount for the development project.
+3. **The user ID's endpoint:** a separate `POST /analytics-id` (or `GET`), or returned by a general "session" endpoint the app calls after login? (Proposal: its own endpoint, so `whoami` stays development only.)
+4. **Rate limits and App Check** stay required before any non-development deploy (D-162, risk 27). Should P10-02 already start App Check in "log only" mode on the development project?
 
 ## Out of scope
 
-- A real iPhone and TestFlight (before Phase 17); Razorpay (early checks 1a and 1b at the launch rehearsal, D-033); anything on the live store.
+- Staging and production Firebase projects; the custom app and webhooks (P10-03); early check 4 (P10-04); push (Phase 12); anything on the live store.
 
-## Follow-ups (recorded, not part of P9-02 unless listed in its scope)
+## Follow-ups (recorded, not part of P10-02 unless listed in its scope)
 
-- **The P9-01 phone checks' test orders (owner):** restock in the development store's admin the books of #1004 (Cat Kid Comic Club 04: Collaborations; Artemis Fowl 2: The Arctic Incident), #1005 (Cat Kid Comic Club: On Purpose; Geronimo Stilton: The Phantom of the Subway; Geronimo Stilton: The Temple of the Ruby of Fire; Diary of a Wimpy Kid: The Meltdown) and #1006 (Cat Kid Comic Club 04: Collaborations; Cat Kid Comic Club: On Purpose), and **Danny the Champion of the World** (from the guest test order #1003, P7-02), the ₹49 book behind `check:dev-store`'s catalogue difference. After that, `npm run check:dev-store` should pass in full again.
-- **The consent request over Shopify's thank-you page (P9-01 short phone check, observation):** after order #1006 the request opened over the sheet's thank-you page (the `completed` event comes before the customer closes the sheet); the app's own confirmation showed after it was answered and the sheet closed. The order is placed by then, so checkout is not interrupted (D-129); the owner and the architect may prefer it to wait for the sheet to close.
+- **P9-02, checkout on iPhone (moved, D-158), due before Phase 12:** the iPhone side of early check 2 (rates, ACOD, R2, R3, risk 1), by one of: a Mac's iPhone Simulator (an EAS build with `ios.simulator: true` or a local `npx expo run:ios`); an EAS iOS simulator build run in a browser service such as Appetize.io (the owner's decision then); or a friend's iPhone through TestFlight (needs Apple developer access, D-036). Also the login on iOS (`ASWebAuthenticationSession`, D-119), the sheet and the browser presentation (`SFSafariViewController`, D-152), a cash-on-delivery test order under D-146's limits if the owner extends them, and **the consent request shown after the checkout sheet closes** (below). Open questions then: the way chosen, who drives the simulator, and D-146 for P9-02.
+
+- **The P9-01 phone checks' test orders (closed, owner, 16 October 2026):** the owner cancelled #1003 to #1006 with restock in the development store's admin; `npm run check:dev-store` passes in full again.
+- **The consent request over Shopify's thank-you page (P9-01 short phone check; in P9-02's scope, D-158):** after order #1006 the request opened over the sheet's thank-you page (the `completed` event comes before the customer closes the sheet); the app's own confirmation showed after it was answered and the sheet closed. P9-02 shows it after the sheet closes. On iPhone it may not appear over the sheet at all.
 - **`check:dev-store` for test orders (owner, P9-01 phone check):** a mode that checks only the store domain (`EXPECT_STORE_DOMAIN`), for the check before each test order, so the sample catalogue's changes from earlier test orders do not stop it (today the domain part is read from the full run's output, D-157).
 - **The consent request after a closed checkout (P9-01 phone check), fixed in PR #30 at the architect's review (D-148):** a checkout closed without an order keeps the request held; it shows once, after the first confirmed order in that login.
 - **A Checkout tap that did nothing (P9-01 phone check), fixed in PR #30 at the architect's review (D-148):** the button shows a disabled waiting state while the cart is being read or changed, and a tap shows "Opening checkout…" at once and waits for what is still running; checked again in the short phone check below.
 - **Checkout's web page logs its URL (P9-01 phone check; Phase 14, the architect's review of PR #30):** Android's `chromium` tag in the app's own log showed one console message from Shopify's checkout page ("Clear-Site-Data header on '<checkout URL>'"), with the cart's key in the URL. It is the web view's console, not the app's code; the device log is readable only over adb. Find out whether a release build logs it too, and whether Checkout Kit's `logLevel` or the web view's settings can stop it (risk, `SECURITY.md`).
-- **The iPhone (owner, answer 6):** P9-02 above (Simulator); the real-iPhone check through TestFlight before Phase 17.
+- **The iPhone (owner, answer 6; D-158):** P9-02 above, before Phase 12; the real-iPhone check through TestFlight before Phase 17.
+- **P10-01's backend (D-159 to D-164):** before any non-development backend deploy, per-customer and per-device rate limits and Firebase App Check (Play Integrity, App Attest) on backend endpoints (owner, P10-01 plan approval; `SECURITY.md`, risk 27); `whoami` is never deployed outside development and is removed or disabled first (D-162). The backend's audit gate has no allowlist (D-159). The Firebase CLI is `firebase-tools` 15.34.0 by `npx`; re-check it, `firebase-functions` and `firebase-admin` at each quarterly review.
 
 - **Expo SDK 57 patch releases (P9-01, owner, D-156):** a small task of its own: `expo` 57.0.27 → ~57.0.30, `expo-auth-session` 57.0.15 → ~57.0.16, `expo-constants` 57.0.21 → ~57.0.22, `expo-dev-client` 57.0.19 → ~57.0.20, `expo-linking` 57.0.12 → ~57.0.13, `expo-router` 57.0.25 → ~57.0.28, `jest-expo` 57.0.5 → ~57.0.6, with `npx expo install --check`, the changelogs, the five gates, `expo-doctor` 21 of 21, a new development build and the APK permission check if a native package changes, and a short phone check.
 

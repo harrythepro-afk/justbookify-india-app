@@ -1,0 +1,37 @@
+{
+  "name": "justbookify-india-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JustBookify India backend: Cloud Functions for Firebase (P10-01, D-159)",
+  "type": "module",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test --test-reporter=spec \"test/unit/**/*.test.ts\"",
+    "test:emulator": "node --test --test-reporter=spec --test-concurrency=1 \"test/emulator/**/*.test.ts\"",
+    "emulators": "npm run build && cd .. && npx --yes firebase-tools@15.34.0 emulators:start --only functions,firestore --project demo-justbookify-india",
+    "emulators:test": "npm run build && cd .. && npx --yes firebase-tools@15.34.0 emulators:exec --only functions,firestore --project demo-justbookify-india \"npm --prefix functions run test:emulator\"",
+    "audit:gate": "npm audit --audit-level=high"
+  },
+  "dependencies": {
+    "firebase-admin": "14.5.0",
+    "firebase-functions": "7.4.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "24.19.2",
+    "eslint": "9.39.5",
+    "eslint-config-prettier": "10.1.8",
+    "graphql": "16.14.2",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2"
+  }
+}

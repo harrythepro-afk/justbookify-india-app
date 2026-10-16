@@ -14,6 +14,7 @@
 | Accessibility | Screen-reader labels, text scaling, contrast, touch-target size | Automated and manual | Before release |
 | Performance | Launch time, scrolling, memory on reference devices | Profilers and traces | Before release |
 | Backend load | Webhook bursts and push fan-out | k6 or similar | Before launch |
+| Backend (P10-01) | Identity check, guard, `whoami`, logs (unit, Shopify faked); Firestore rules and `whoami` in the emulators | Node's test runner, Firebase emulators | Every pull request (CI job "Backend: lint, types, tests, audit") |
 
 Mocks are for unit and component tests only. Anything touching cart, checkout or login is tested against a real development store. Never test on the live store.
 
@@ -677,6 +678,25 @@ Unit and screen tests (Shopify, the login, Checkout Kit, the browser and the cus
 ACOD offers cash on delivery only up to a cart total of ₹500 (D-031), the cap keeps the books' subtotal under ₹500 (D-134), but the total with delivery can pass ₹500 (for example ₹460 + ₹50). In Phase 9, on the **development store's** checkout only and without completing an order: with a subtotal between ₹451 and ₹499, choose cash on delivery and record whether ACOD still offers it (its limit counts the books only) or refuses it (its limit counts delivery). The answer decides whether the cart says anything about cash on delivery over ₹500 (D-141).
 
 **Result, 15 October 2026 (P9-01 phone check):** a ₹494 cart (six books) with the "Cash on Delivery" rate (₹50 after the discount) was still offered Cash on Delivery, at a total of **₹544.00**; closed without an order. ACOD's limit counts the books only, as P3-02 found with ₹490, so the Cart tab says nothing about cash on delivery over ₹500.
+
+### Backend checks (P10-01)
+
+D-159 to D-164. Everything runs in `backend/functions`, locally and in CI, against nothing real: Shopify is faked in the unit tests, and the emulators use the project `demo-justbookify-india`, which never reaches a real Firebase resource.
+
+| Command (in `backend/functions`) | What it does |
+| --- | --- |
+| `npm ci` | Installs the backend's own locked dependencies |
+| `npm run lint`, `npm run format:check`, `npm run typecheck` | ESLint (strict type-checked), Prettier, TypeScript strict |
+| `npm test` | Unit tests with `node --test`, straight from `.ts` |
+| `npm run emulators:test` | Builds, starts the Functions and Firestore emulators with `npx --yes firebase-tools@15.34.0 emulators:exec`, runs `test/emulator/`, stops them |
+| `npm run emulators` | The same emulators, left running for a manual check (Functions on 127.0.0.1:5001, Firestore on 127.0.0.1:8080; no UI) |
+| `npm run audit:gate` | `npm audit --audit-level=high`, no allowlist |
+
+- **Java 21** is needed for the Firestore emulator (Firebase CLI 15): Eclipse Temurin JDK 21 on the owner's PC (winget, 16 October 2026; a new terminal picks up its `PATH`), Temurin 21 from `actions/setup-java` in CI.
+- **Unit (45 tests, 8 files):** the bearer token's shape; the configuration check; the guard (methods, body limits, fixed codes, `no-store`, `Allow`); endpoint discovery (pinned version, https only, no other shop's ID, kept once found, a failed read not kept, one read shared); Shopify's answers to the identity query (ID, 401, 429, `THROTTLED`, 5xx, network, timeout, anything else; the token without `Bearer`, no redirect); `whoami` end to end with a faked Shopify (200 with nothing about the customer, 401, 405, 413, 404 outside development, 503 `not_configured`, 500 `internal`); the logger's fixed shape and severity; **a privacy test** that captures stdout, stderr and the console across every path with the real logger and finds no token, customer ID, store, shop ID, `Bearer` or forwarded IP; the identity query validated against the app's saved Customer Account API 2026-04 schema.
+- **Emulator (13 tests):** Firestore rules: every get, list, create, update and delete on three paths refused (403 `PERMISSION_DENIED`), signed out and as a made-up signed-in user, with the emulator's admin writing and reading the same documents as the control; `whoami` through the Functions emulator: 401 with no token and with a malformed one (no Shopify call), 405 with `Allow: GET`, 413 for a body on `GET`, `Cache-Control: no-store`, no CORS header.
+- **What the emulators cannot show:** that Shopify accepts a customer's token from a server (risk 26, P10-02's first check, with a real login); the deployed function's settings (`nodejs24`, 256 MiB) and its public access, first seen at the P10-02 deploy.
+- **Made-up values only** in tests and in `.env.demo-justbookify-india` (`example-store.example`, shop ID `1000000001`, `fake-access-token-0001-not-real`, `gid://shopify/Customer/7000000001`).
 
 ### Release gate: list performance (P6-03)
 
