@@ -1,6 +1,6 @@
 # Current status
 
-Last updated: 16 October 2026 (P10-02, the backend on the development Firebase project, on branch `p10-02-backend-deploy`, code and tests before the deploy; P10-01 merged as `135a2ed`, PR #31; P9-01 merged as `2a194b1`, PR #30; P9-02, checkout on iPhone, moved after Phase 10's start, D-158).
+Last updated: 18 October 2026 (P10-02, the backend on the development Firebase project, on branch `p10-02-backend-deploy`, PR #32: `whoami` deployed, phone check passed, risk 26 closed; P10-01 merged as `135a2ed`, PR #31; P9-01 merged as `2a194b1`, PR #30; P9-02, checkout on iPhone, moved after Phase 10's start, D-158).
 
 ## Phase
 
@@ -766,8 +766,8 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
 
 - **Expo SDK 57 patch releases (D-156):** `npx expo-doctor` passes 20 of 21 on 15 October 2026; seven pinned packages are one patch or more behind SDK 57 (`expo`, `expo-auth-session`, `expo-constants`, `expo-dev-client`, `expo-linking`, `expo-router`, `jest-expo`). Left out of P9-01; a small task of its own.
 
-- **Release gate: analytics consent** (`TESTING.md`): the consent request is built and passed its phone check (P7-03, D-129, D-130). Still missing before any outside tester: the **privacy policy's app section** (owner's task, risk 21, with the adviser's review of the draft wording) and **the analytics user ID** (D-132, issued by the Phase 10 backend; proposed for P10-02).
-- **Backend (P10-01, merged):** local only. Not deployed. Billing (P10-02): the billing account is linked to `justbookify-india-dev` (16 October 2026); the payment method and the ₹500 budget alert are pending, so Firebase still shows Spark. Whether Shopify accepts a customer's token from the backend is unproven until P10-02 (risk 26). Rate limits and App Check are required before any non-development backend deploy (risk 27). Not yet: the custom app and webhooks (P10-03), early check 4 (P10-04).
+- **Release gate: analytics consent** (`TESTING.md`): the consent request is built and passed its phone check (P7-03, D-129, D-130). Still missing before any outside tester: the **privacy policy's app section** (owner's task, risk 21, with the adviser's review of the draft wording) and **the analytics user ID** (D-132, issued by the Phase 10 backend; proposed for P10-03, now that P10-02 proved the backend can derive the customer from the customer's token).
+- **Backend (P10-02):** only `whoami` is deployed, to `justbookify-india-dev` (Blaze, ₹500 monthly budget alert, owner, 17 October 2026); risk 26 is closed. Not yet: the analytics user ID (P10-03), a least-privilege service account per function and the rate limits and App Check required before any non-development deploy (`SECURITY.md`, risk 27). Whether Shopify accepts a customer's token from the backend is unproven until P10-02 (risk 26). Rate limits and App Check are required before any non-development backend deploy (risk 27). Not yet: the custom app and webhooks (P10-03), early check 4 (P10-04).
 - **14-month retention** in the development Google Analytics property: the owner sets it (D-051). Staging and production properties are set when created.
 
 - **Branch protection on `main`** is on since 15 October 2026 while the repository is public (D-145, risk 18); since 16 October 2026 it requires three checks, the backend job included (D-164). If the repository goes private again without GitHub Pro, GitHub drops it and the merge rule in `CLAUDE.md` is again the only gate. GitHub refused it for the private repository on 3 October 2026 (HTTP 403).
@@ -802,7 +802,11 @@ Phase 4 (mobile foundation) is complete. P4-01 (`df35fa0`, PR #7), P4-02 (`f7833
 
 - **Development store search matches fewer books since 8 October 2026** (P6-07): resolved in the architect's review of PR #20. `npm run check:dev-store` checks broad words ("the", "kid") only by the meaning of "Available now" and keeps exact counts for harry, dahl and zzqxv (`SHOPIFY_INTEGRATION.md`).
 
+- **Jest's "A worker process has failed to exit gracefully and has been force exited" notice** (seen in P10-02): printed once by CI's app job on `main` (run 38864688057), on P10-01's branch (run 38863727808) and on PR #32 (run 38892133737), and in 2 of 3 full local runs; no test fails with it. It predates P10-02. A test leaves a timer or handle open at the end of a file; finding which (`--detectOpenHandles`) is a small follow-up, never a weaker test.
+
 ## Last passing build
+
+Branch `p10-02-backend-deploy` (P10-02), 18 October 2026, after the deploy and the phone check (docs changed since the last code commit; `.env.local` now holds `EXPO_PUBLIC_BACKEND_URL`): the app's lint, format check, type check, audit gate and tests (**2,151 of 2,151 in 107 files**, `--maxWorkers=4`, with the Jest worker notice above), then the backend's lint, format check, type check, unit tests (**47 of 47**), emulator tests (**13 of 13**, run after the app's checks had finished) and audit gate (0 vulnerabilities), in that order. CI green at `d03fe74` before the deploy. **No native change:** Android development build **5f5c789a** ran it from Metro in the phone check.
 
 Branch `p10-02-backend-deploy` (P10-02), 16 October 2026, before the deploy: the backend's lint, format check, type check, unit tests (47), emulator tests (13, run alone) and audit gate (0 vulnerabilities); the app's lint, format check, type check, tests (2,151 in 107 files, `--maxWorkers=4`) and audit gate. No native change: Android development build **5f5c789a** runs it from Metro.
 

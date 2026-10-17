@@ -14,7 +14,7 @@ Phase numbers used in every doc, task ID and decision from 3 October 2026 (D-035
 | 7 | Login and account | 3 | Done (P7-01 to P7-03; P7-03 merged as `b5ce914`, PR #27; early check 3 passed in P7-02) |
 | 8 | Cart and rental rules | | Done (P8-01 and P8-02; P8-02 merged as `f2d708d`, PR #29) |
 | 9 | Checkout and order confirmation | 2 (iPhone) | In progress (P9-01, Android, merged as `2a194b1`, PR #30; P9-02, iPhone, moved after Phase 10's start and due before Phase 12, D-158) |
-| 10 | Backend foundation | 4 | In progress (P10-01 merged as `135a2ed`, PR #31; P10-02, the development deploy, on branch `p10-02-backend-deploy`) |
+| 10 | Backend foundation | 4 | In progress (P10-01 merged as `135a2ed`, PR #31; P10-02, `whoami` deployed to the development project and risk 26 closed, on branch `p10-02-backend-deploy`, PR #32; next P10-03, the analytics user ID) |
 | 11 | Rentals, order history, returns | | |
 | 12 | Notifications and deep links | 5 | |
 | 13 | Reviews, recommendations, help | 6 | |

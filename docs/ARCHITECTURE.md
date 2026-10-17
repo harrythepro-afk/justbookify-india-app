@@ -77,7 +77,7 @@ App ── GET /whoami, Authorization: Bearer <Customer Account API access token
 
 ## Backend on the development project (P10-02)
 
-D-165, D-166. Only `whoami` is deployed, only to `justbookify-india-dev`; no Firestore database exists yet.
+D-165 to D-167. Only `whoami` is deployed (18 October 2026), only to `justbookify-india-dev`: Node.js 24, 2nd gen, `asia-south1`, 256 MiB, 10 s, at most 5 instances, container images kept 1 day; no Firestore database exists yet. It runs as the project's default compute service account until each function gets its own (`SECURITY.md`).
 
 ```
 backend/.firebaserc                    {"projects": {"development": "justbookify-india-dev"}}, no default
