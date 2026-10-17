@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 
 import type { AnalyticsConsentState } from '@/analytics/consent';
 import type { AnalyticsToken } from '@/analytics/ids';
+import type { BackendCheckResult } from '@/backend/client';
 import HomeScreen from '@/app/(tabs)/index';
 import { HOME_CONTENT } from '@/config';
 import type {
@@ -65,6 +66,14 @@ jest.mock('@/customerAccount/session', () => ({
   useCustomerSession: () => mockCustomerSession,
   getDevelopmentSessionInfo: () => mockDevelopmentInfo,
   refreshSession: () => mockRefreshSession(),
+}));
+
+// Home's "Backend: check" (P10-02, D-166); the client itself is tested on its own.
+let mockHasBackend = true;
+const mockCheckBackend = jest.fn<Promise<BackendCheckResult>, []>();
+jest.mock('@/backend/client', () => ({
+  hasBackend: () => mockHasBackend,
+  checkBackendIdentity: () => mockCheckBackend(),
 }));
 
 const mockResetConsent = jest.fn();
@@ -224,6 +233,7 @@ beforeEach(() => {
   mockConsent = { consent: 'loading', busy: false, saveFailed: false };
   mockCustomerSession = { status: 'signedOut', notice: 'none', loggingIn: false };
   mockDevelopmentInfo = undefined;
+  mockHasBackend = true;
   jest.clearAllMocks();
   mockFetchHandles.mockReset().mockResolvedValue(DEV_STORE_HANDLES);
   mockFetchPage.mockReset().mockResolvedValue(arrivals(5));
@@ -826,5 +836,60 @@ describe('HomeScreen development tools: login (P7-01)', () => {
 
     expect(screen.queryByText(/^Login:|^Token lengths|^Access token/)).not.toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Test token refresh' })).not.toBeOnTheScreen();
+  });
+});
+
+describe('HomeScreen development tools: backend (P10-02, D-166)', () => {
+  it('offers "Backend: check" and says it has not run yet', async () => {
+    await renderHome();
+
+    expect(screen.getByRole('button', { name: 'Backend: check' })).toBeOnTheScreen();
+    expect(screen.getByText('Backend: not checked')).toBeOnTheScreen();
+    expect(mockCheckBackend).not.toHaveBeenCalled();
+  });
+
+  it.each(['unauthenticated', 'ok', 'shopify_busy', 'token_unavailable', 'http_403'] as const)(
+    'shows only the code %s after a check',
+    async (code) => {
+      mockCheckBackend.mockResolvedValue(code);
+
+      await renderHome();
+      await fireEvent.press(screen.getByRole('button', { name: 'Backend: check' }));
+
+      expect(mockCheckBackend).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText(`Backend: ${code}`)).toBeOnTheScreen();
+    },
+  );
+
+  it('disables the button while a check runs', async () => {
+    let finish: (code: BackendCheckResult) => void = () => {};
+    mockCheckBackend.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+
+    await renderHome();
+    await fireEvent.press(screen.getByRole('button', { name: 'Backend: check' }));
+
+    expect(await screen.findByText('Backend: checking…')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Backend: check' })).toBeDisabled();
+    await act(async () => finish('ok'));
+    expect(await screen.findByText('Backend: ok')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Backend: check' })).toBeEnabled();
+  });
+
+  it('says not configured, with no button, when the build has no backend address', async () => {
+    mockHasBackend = false;
+
+    await renderHome();
+
+    expect(screen.getByText('Backend: not configured')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Backend: check' })).not.toBeOnTheScreen();
+  });
+
+  it.each(['staging', 'production'])('shows no backend line on a %s build', async (env) => {
+    mockAppEnv = env;
+
+    await renderHome();
+
+    expect(screen.queryByText(/^Backend:/)).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Backend: check' })).not.toBeOnTheScreen();
   });
 });

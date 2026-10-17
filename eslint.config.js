@@ -77,7 +77,7 @@ const SCREEN_PATTERNS = [
 ];
 
 const FETCH_MESSAGE =
-  'Only src/graphql/transport.ts and src/customerAccount/oauthHttp.ts call the network (D-056, D-119, D-126). Use storefrontQuery, storefrontMutation, customerAccountQuery or src/customerAccount/session.ts.';
+  'Only src/graphql/transport.ts, src/customerAccount/oauthHttp.ts and src/backend/client.ts call the network (D-056, D-119, D-126, D-166). Use storefrontQuery, storefrontMutation, customerAccountQuery, src/customerAccount/session.ts or src/backend/client.ts.';
 
 // The customer's login (P7-01). Tokens reach secure storage only through tokenStorage.ts (and
 // the analytics consent through consentStorage.ts, D-052, and the cart's ID through
@@ -157,10 +157,18 @@ module.exports = defineConfig([
       'src/graphql/transport.ts',
       'src/shopify/client.ts',
       'src/customerAccount/oauthHttp.ts',
+      'src/backend/client.ts',
     ],
     rules: {
       'no-restricted-globals': ['error', { name: 'fetch', message: FETCH_MESSAGE }],
       'no-restricted-properties': ['error', ...FETCH_PROPERTIES, ...ROUTER_PROPERTIES],
+    },
+  },
+  {
+    // The backend client calls fetch (P10-02, D-166) but, like every other file, opens no screen.
+    files: ['src/backend/client.ts'],
+    rules: {
+      'no-restricted-properties': ['error', ...ROUTER_PROPERTIES],
     },
   },
   {

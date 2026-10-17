@@ -64,6 +64,9 @@ const FAILING: Case[] = [
   [WEB_BROWSER, 'src/shopify/example.ts'],
   [FETCH, 'src/customerAccount/session.ts'],
   [FETCH, 'src/app/example.tsx'],
+  // The backend client (P10-02, D-166) is the one other place, not its neighbours.
+  [FETCH, 'src/backend/example.ts'],
+  [FETCH, 'src/components/Example.tsx'],
   // Checkout (P9-01): Checkout Kit only in src/checkout/ (D-151), the browser for checkout only in
   // src/checkout/browser.ts (D-152), and no secure storage or login library there.
   [CHECKOUT_KIT, 'src/app/(tabs)/cart.tsx'],
@@ -86,6 +89,7 @@ const PASSING: Case[] = [
   [WEB_BROWSER, 'src/customerAccount/example.ts'],
   [FETCH, 'src/customerAccount/oauthHttp.ts'],
   [FETCH, 'src/shopify/client.ts'],
+  [FETCH, 'src/backend/client.ts'],
   ["import { login } from '@/customerAccount/session';", 'src/components/Example.tsx'],
   [CHECKOUT_KIT, 'src/checkout/sheet.ts'],
   [WEB_BROWSER, 'src/checkout/browser.ts'],

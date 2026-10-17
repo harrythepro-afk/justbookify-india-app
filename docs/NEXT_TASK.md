@@ -1,6 +1,6 @@
-# Next task (proposal): P10-02, the backend on the development Firebase project, and the analytics user ID
+# Next task (proposal): P10-03, the analytics user ID
 
-Status: proposal. P10-01 (the backend foundation, local only; D-159 to D-164) is on branch `p10-01-backend-foundation`; see `CURRENT_STATUS.md`. P10-02 starts when the owner starts it, after that pull request is merged. **Its first commit records P10-01 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`). P9-01 is merged (`2a194b1`, PR #30); P9-02 (checkout on iPhone) moved after Phase 10's start and is due before Phase 12 (D-158).
+Status: proposal. P10-02 (`whoami` on the development Firebase project, risk 26 closed; D-165 to D-167) is on branch `p10-02-backend-deploy`, PR #32; see `CURRENT_STATUS.md`. P10-03 starts when the owner starts it, after that pull request is merged. **Its first commit records P10-02 as merged** (in this file, `CURRENT_STATUS.md` and `ROADMAP.md`). Billing: `justbookify-india-dev` is on Blaze with a ₹500 monthly budget alert (owner, 17 October 2026). P9-02 (checkout on iPhone) is due before Phase 12 (D-158).
 
 ## Phase 5: Shopify data layer (complete)
 
@@ -52,39 +52,44 @@ Status: proposal. P10-01 (the backend foundation, local only; D-159 to D-164) is
 
 | Task | Scope | Decisions |
 | --- | --- | --- |
-| P10-01 (branch `p10-01-backend-foundation`) | The backend in `backend/` (its own package, Node 24, `asia-south1`), local emulators only (project `demo-justbookify-india`); the customer's identity derived on the server from the Customer Account API with the customer's own token; `GET /whoami` (development only, fixed codes, limits, no personal data in logs); deny-all Firestore rules with emulator tests; the backend CI job, required on `main` | D-159 to D-164 |
-| P10-02 (proposed) | Deploy to the development Firebase project; `whoami` with a real login (risk 26); the analytics user ID | |
-| P10-03 (proposed) | The backend custom app on the development store; webhooks verified by signature, queued and handled once | |
-| P10-04 (proposed) | Early check 4: a return filed through the Admin API shows for staff (development store) | |
+| P10-01 (done, 135a2ed, PR #31) | The backend in `backend/` (its own package, Node 24, `asia-south1`), local emulators only (project `demo-justbookify-india`); the customer's identity derived on the server from the Customer Account API with the customer's own token; `GET /whoami` (development only, fixed codes, limits, no personal data in logs); deny-all Firestore rules with emulator tests; the backend CI job, required on `main` | D-159 to D-164 |
+| P10-02 (branch `p10-02-backend-deploy`, PR #32) | Deploy only `whoami` to the development Firebase project (`.firebaserc` alias, no default; gitignored params; nothing else deployed); Home's development "Backend: check" with the customer's token; the phone check of risk 26; the function's logs read; the owner's logout; risk 26 closed | D-165 to D-167 |
+| P10-03 (proposed, owner, P10-02 plan) | The analytics user ID (D-050, D-132): HMAC-SHA-256 of the customer's ID, derived on the server, with a salt held only in Secret Manager, generated and stored without ever being printed or shown in chat | |
+| P10-04 (proposed) | The backend custom app on the development store; webhooks verified by signature, queued and handled once | |
+| P10-05 (proposed) | Early check 4: a return filed through the Admin API shows for staff (development store) | |
 
-## Housekeeping for P10-02's first commit
+## Housekeeping for P10-03's first commit
 
-- **P10-01 is merged** (record the merge commit and its PR in this file, `CURRENT_STATUS.md` and `ROADMAP.md`), once the owner writes "approved, merge".
+- **P10-02 is merged** (record the merge commit and its PR in this file, `CURRENT_STATUS.md` and `ROADMAP.md`), once the owner writes "approved, merge".
 
-## Goal of P10-02
+## Goal of P10-03
 
-The backend runs in the development Firebase project, and the one thing P10-01 could not prove locally is proven: **Shopify accepts the customer's Customer Account API token from the backend** (risk 26). Then the backend issues the analytics user ID (D-050, D-132), the last missing item of the release gate "analytics consent" apart from the privacy policy.
+The backend issues **the analytics user ID** (D-050, D-132): a stable per-customer value that is not the customer's ID and cannot be turned back into it, so that usage can be linked to the account as the consent wording says. It is the last missing item of the release gate "analytics consent" apart from the privacy policy's app section (risk 21). P10-02 proved the part it depends on: the backend can derive the customer from the customer's own token (risk 26, closed).
 
 ## Proposed scope
 
-1. **Blaze and a budget (owner's job):** the owner moves `justbookify-india-dev` to the Blaze plan in the Firebase console and sets a budget alert (for example ₹500 a month). Claude never changes the console or billing.
-2. **Deploy to development only:** `backend/.firebaserc` names `justbookify-india-dev` (not a secret); `.env.justbookify-india-dev` stays gitignored and holds the development store's public values and `BACKEND_ENVIRONMENT=development`. The deploy is the owner's, or Claude's with the owner's yes at that moment (`npx --yes firebase-tools@15.34.0 deploy --only functions,firestore:rules --project justbookify-india-dev`). `nodejs24` and 256 MiB are confirmed by the deploy (D-160: fall back to `nodejs22` with a decision if refused).
-3. **First check: `whoami` with a real login.** A development-only line on Home calls `whoami` with `getValidAccessToken()` through a new backend client in the app (one transport, D-126) and shows only the fixed answer (`ok` or a code). If Shopify refuses the token from the backend, stop and ask (risk 26).
-4. **The analytics user ID (D-050, D-132):** a backend endpoint that returns HMAC-SHA-256 of the customer's GID (derived on the server, D-161) with a salt held **only in Secret Manager** (`defineSecret`; created by the owner in the console or by the CLI with the owner's yes, the value never in chat, the repository or a log). The app sets it with Firebase Analytics only after login and only with consent; cleared at logout and at withdrawal; tests that it is never logged or reported.
-5. **Tests and docs:** the release gate item in `TESTING.md` ("the user ID exists and works"), `SECURITY.md`'s secret inventory, `ANALYTICS.md`.
+1. **The salt, only in Secret Manager.** One secret, for example `ANALYTICS_ID_SALT` (32 random bytes), read by the function with `defineSecret`. It is **generated and stored by one command that never prints it**: a random generator piped straight into `firebase functions:secrets:set ANALYTICS_ID_SALT --project justbookify-india-dev` (the exact form, and whether the CLI reads the value from standard input, checked in Firebase's documentation for 15.34.0 at plan time). The value is never in chat, the repository, a file, a log or a screenshot. Run by the owner in their own terminal, or by Claude with the owner's yes at that moment. Enabling Secret Manager and its cost (a few secret versions are inside Google's free tier) are stated in the plan. **The salt is never rotated** unless it leaks: a new salt gives every customer a new ID.
+2. **The endpoint** (development only in P10-03; D-162's rule stands: rate limits and App Check before any non-development deploy, risk 27): for example `POST /analyticsId`, the customer's token as in `whoami` (D-161), answering `{"analyticsId":"<64 hex characters>"}`: **HMAC-SHA-256 of the customer's GID** (derived on the server, never sent by the app) with the salt, using `node:crypto` (no new dependency). Fixed codes as `whoami`; a missing or malformed secret gives `not_configured`. Logs: event, outcome and milliseconds only, never the ID, the GID or the salt.
+3. **The function's own service account** with only the Secret Manager role for that one secret (`SECURITY.md`, the P10-02 read-back: functions run as the default compute account until then).
+4. **The app:** after a login, **only while consent is granted**, the app asks for the ID through `src/backend/client.ts` and sets it with Firebase Analytics' `setUserId`; it is cleared (`setUserId(null)`) at logout and at withdrawal, and never set without consent (D-048, D-050). The ID is kept in memory only. Home's development tools show "Analytics user ID: set" or a code, never the value. Tests: never logged, reported to Sentry or sent as an event parameter; set, cleared and skipped as above.
+5. **Deploy and check:** the same way as P10-02 (the owner's login and logout; every Firebase command shown and run with the owner's yes, `FUNCTIONS_DISCOVERY_TIMEOUT=30`, D-167). Phone check under D-095: with consent "granted" (the owner chose Allow on 18 October 2026), the line says "set"; after "Don't allow" in the Account switch, cleared. The owner may confirm in Google Analytics' DebugView that events carry a user ID (Claude never opens the console).
+6. **Docs:** `TESTING.md` release gate item 5 ("the user ID exists and works"), `SECURITY.md`'s secret inventory, `ANALYTICS.md`, `DECISIONS.md`.
 
 ## Questions for the owner and the architect
 
-1. **Who deploys:** the owner from their own terminal, or Claude with a yes at that moment each time?
-2. **Budget:** the monthly budget alert amount for the development project.
-3. **The user ID's endpoint:** a separate `POST /analytics-id` (or `GET`), or returned by a general "session" endpoint the app calls after login? (Proposal: its own endpoint, so `whoami` stays development only.)
-4. **Rate limits and App Check** stay required before any non-development deploy (D-162, risk 27). Should P10-02 already start App Check in "log only" mode on the development project?
+1. **The endpoint's shape:** its own `POST /analyticsId` (proposal), or a general "session" endpoint the app calls after every login?
+2. **The ID's form:** the full 64 hex characters (proposal; Analytics allows up to 256), or a shorter prefix?
+3. **Who creates the secret:** the owner in their own terminal with the command from the plan (proposal), or Claude with a yes at that moment?
+4. **App Check:** start it in "log only" mode on the development project in P10-03, or keep it for the task before the first non-development deploy?
+5. **`whoami`:** keep it deployed on the development project as a check tool, or delete it once the new endpoint works?
 
 ## Out of scope
 
-- Staging and production Firebase projects; the custom app and webhooks (P10-03); early check 4 (P10-04); push (Phase 12); anything on the live store.
+- Staging and production Firebase projects; the custom app and webhooks (P10-04); early check 4 (P10-05); push (Phase 12); anything on the live store.
 
-## Follow-ups (recorded, not part of P10-02 unless listed in its scope)
+## Follow-ups (recorded, not part of P10-03 unless listed in its scope)
+
+- **From P10-02 (D-165 to D-167):** a least-privilege service account per function before any non-development deploy (`SECURITY.md`); the CLI's discovery wait on this PC (D-167); Google's audit logs of each deploy record the deploying account and IP (`SECURITY.md`); `whoami` stays on the development project only until the owner decides (question 5).
 
 - **P9-02, checkout on iPhone (moved, D-158), due before Phase 12:** the iPhone side of early check 2 (rates, ACOD, R2, R3, risk 1), by one of: a Mac's iPhone Simulator (an EAS build with `ios.simulator: true` or a local `npx expo run:ios`); an EAS iOS simulator build run in a browser service such as Appetize.io (the owner's decision then); or a friend's iPhone through TestFlight (needs Apple developer access, D-036). Also the login on iOS (`ASWebAuthenticationSession`, D-119), the sheet and the browser presentation (`SFSafariViewController`, D-152), a cash-on-delivery test order under D-146's limits if the owner extends them, and **the consent request shown after the checkout sheet closes** (below). Open questions then: the way chosen, who drives the simulator, and D-146 for P9-02.
 

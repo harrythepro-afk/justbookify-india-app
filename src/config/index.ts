@@ -1,5 +1,11 @@
 export { type AppEnvironment } from './appEnvironment';
 export {
+  BACKEND_URL_ENV_NAME,
+  getBackendConfig,
+  parseBackendConfig,
+  type BackendConfig,
+} from './backend';
+export {
   BROWSE_CONTENT,
   effectiveSort,
   sortOptionsFor,
